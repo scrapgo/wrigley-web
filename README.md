@@ -1,54 +1,41 @@
-\# ScrapGo Downstream Portal
+# ScrapGo Downstream Portal
 
+## Overview
 
-
-\## Overview
-
-Downstream is the centralized operational portal for ScrapGo. It acts as an intelligent, secure bridge between disparate systems (primarily \*\*Quickbase\*\*) and our stakeholders (Suppliers, Carriers, and Internal Staff). 
-
-
+Downstream is the centralized operational portal for ScrapGo. It acts as an intelligent, secure bridge between disparate systems (primarily **Quickbase**) and our stakeholders (Suppliers, Carriers, and Internal Staff).
 
 This platform consolidates identity management, pricing transparency, and operational workflow into a mobile-first, PWA-based portal.
 
+## Architecture
 
+- **Backend:** .NET 10 / PostgreSQL (Modular Monolith)
 
-\## Architecture
+- **Frontend:** React / TanStack Start / Tailwind / Shadcn UI
 
-\- \*\*Backend:\*\* .NET 10 / PostgreSQL (Modular Monolith)
+- **Integration:** Quickbase (System of Record)
 
-\- \*\*Frontend:\*\* React / TanStack Start / Tailwind / Shadcn UI
+## Getting Started
 
-\- \*\*Integration:\*\* Quickbase (System of Record)
+### Prerequisites
 
+- .NET 8 SDK
 
+- Node.js (v20+)
 
-\## Getting Started
+- PostgreSQL 15+
 
-\### Prerequisites
+### Running Locally
 
-\- .NET 8 SDK
+1. **Backend:**
 
-\- Node.js (v20+)
+&#x20; `cd backend && dotnet run`
 
-\- PostgreSQL 15+
+2. **Frontend:**
 
+&#x20; `cd frontend && npm run dev`
 
+## Folder Structure
 
-\### Running Locally
+- `/backend`: .NET Web API managing identity, governance, and the Quickbase Proxy/Cache engine.
 
-1\. \*\*Backend:\*\* 
-
-&#x20;  `cd backend \&\& dotnet run`
-
-2\. \*\*Frontend:\*\* 
-
-&#x20;  `cd frontend \&\& npm run dev`
-
-
-
-\## Folder Structure
-
-\- `/backend`: .NET Web API managing identity, governance, and the Quickbase Proxy/Cache engine.
-
-\- `/frontend`: React/TanStack Start application (PWA) for stakeholder engagement.
-
+- `/frontend`: React/TanStack Start application (PWA) for stakeholder engagement.

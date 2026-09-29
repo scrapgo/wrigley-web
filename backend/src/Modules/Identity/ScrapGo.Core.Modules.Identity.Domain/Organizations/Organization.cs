@@ -1,5 +1,3 @@
-using System.Text.RegularExpressions;
-
 namespace ScrapGo.Core.Modules.Identity.Domain.Organizations;
 
 /// <summary>

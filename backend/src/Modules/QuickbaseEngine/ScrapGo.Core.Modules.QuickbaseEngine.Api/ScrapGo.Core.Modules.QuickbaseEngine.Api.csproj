@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>ScrapGo.Core.Modules.QuickbaseEngine.Api</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <!-- Api depends on Application only, never on Infrastructure; the ScrapGo.Core.Api host wires the two together. -->
+  <ItemGroup>
+    <ProjectReference Include="..\ScrapGo.Core.Modules.QuickbaseEngine.Application\ScrapGo.Core.Modules.QuickbaseEngine.Application.csproj" />
+    <ProjectReference Include="..\..\..\Shared\ScrapGo.Core.Shared.Infrastructure\ScrapGo.Core.Shared.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

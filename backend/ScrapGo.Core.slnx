@@ -1,7 +1,6 @@
 <Solution>
-  <Folder Name="/src/" />
-  <Folder Name="/src/Api/">
-    <Project Path="src/Api/ScrapGo.Core.Api/ScrapGo.Core.Api.csproj" />
+  <Folder Name="/src/">
+    <Project Path="src/ScrapGo.Core.Api/ScrapGo.Core.Api.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/Identity/">
@@ -11,6 +10,7 @@
     <Project Path="src/Modules/Identity/ScrapGo.Core.Modules.Identity.Infrastructure/ScrapGo.Core.Modules.Identity.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/Modules/QuickbaseEngine/">
+    <Project Path="src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Api/ScrapGo.Core.Modules.QuickbaseEngine.Api.csproj" />
     <Project Path="src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Application/ScrapGo.Core.Modules.QuickbaseEngine.Application.csproj" />
     <Project Path="src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Domain/ScrapGo.Core.Modules.QuickbaseEngine.Domain.csproj" />
     <Project Path="src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Infrastructure/ScrapGo.Core.Modules.QuickbaseEngine.Infrastructure.csproj" />
@@ -20,11 +20,8 @@
     <Project Path="src/Shared/ScrapGo.Core.Shared.Kernel/ScrapGo.Core.Shared.Kernel.csproj" />
   </Folder>
   <Folder Name="/tests/" />
-  <Folder Name="/tests/Modules/" />
-  <Folder Name="/tests/Modules/Identity/">
-    <Project Path="tests/Modules/Identity/ScrapGo.Core.Modules.Identity.IntegrationTests/ScrapGo.Core.Modules.Identity.IntegrationTests.csproj" />
-  </Folder>
-  <Folder Name="/tests/Modules/QuickbaseEngine/">
-    <Project Path="tests/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.IntegrationTests/ScrapGo.Core.Modules.QuickbaseEngine.IntegrationTests.csproj" />
+  <Folder Name="/tests/Modules/">
+    <Project Path="tests/Modules/ScrapGo.Core.Modules.Identity.IntegrationTests/ScrapGo.Core.Modules.Identity.IntegrationTests.csproj" />
+    <Project Path="tests/Modules/ScrapGo.Core.Modules.QuickbaseEngine.IntegrationTests/ScrapGo.Core.Modules.QuickbaseEngine.IntegrationTests.csproj" />
   </Folder>
 </Solution>

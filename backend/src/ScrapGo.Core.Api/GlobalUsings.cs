@@ -1,0 +1,8 @@
+global using ScrapGo.Core.Api.Composition;
+global using ScrapGo.Core.Modules.Identity.Api;
+global using ScrapGo.Core.Modules.Identity.Application;
+global using ScrapGo.Core.Modules.Identity.Infrastructure;
+global using ScrapGo.Core.Modules.QuickbaseEngine.Api;
+global using ScrapGo.Core.Modules.QuickbaseEngine.Application;
+global using ScrapGo.Core.Modules.QuickbaseEngine.Infrastructure;
+global using ScrapGo.Core.Shared.Infrastructure;

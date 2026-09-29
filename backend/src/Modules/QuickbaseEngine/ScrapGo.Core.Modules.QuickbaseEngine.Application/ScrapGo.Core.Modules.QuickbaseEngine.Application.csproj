@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ScrapGo.Core.Modules.QuickbaseEngine.Domain\ScrapGo.Core.Modules.QuickbaseEngine.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Shared\ScrapGo.Core.Shared.Kernel\ScrapGo.Core.Shared.Kernel.csproj" />
   </ItemGroup>
 
 </Project>

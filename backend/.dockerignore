@@ -1,0 +1,21 @@
+**/bin/
+**/obj/
+**/TestResults/
+tests/
+infra/
+.git/
+.vs/
+.vscode/
+.idea/
+*.user
+*.md
+Dockerfile
+.dockerignore
+docker-compose*.yml
+cloudbuild.yaml
+
+# Secrets and local-only config never enter the image.
+.env
+.env.*
+**/appsettings.*.local.json
+**/secrets.json

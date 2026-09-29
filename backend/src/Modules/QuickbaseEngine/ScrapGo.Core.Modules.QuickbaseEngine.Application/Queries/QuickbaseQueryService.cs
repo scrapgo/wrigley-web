@@ -18,10 +18,17 @@ namespace ScrapGo.Core.Modules.QuickbaseEngine.Application.Queries;
 /// cross-instance request coalescing). Their writes are race-safe through the
 /// store's atomic upsert, and the newest response wins.
 /// </para>
+/// <para>
+/// Quickbase data, cached or live, is released only to an authenticated,
+/// provisioned and active caller (<see cref="IUserContext"/>). This is the
+/// floor; table-level access checks belong in the caller until the Quickbase
+/// table-access model exists.
+/// </para>
 /// </remarks>
 public sealed class QuickbaseQueryService(
     IQuickbaseClient quickbase,
     IQueryCacheStore cache,
+    IUserContext userContext,
     IOptions<QuickbaseQueryCacheOptions> options,
     TimeProvider timeProvider,
     ILogger<QuickbaseQueryService> logger) : IQuickbaseQueryService
@@ -31,6 +38,12 @@ public sealed class QuickbaseQueryService(
     {
         ArgumentNullException.ThrowIfNull(query);
         ArgumentException.ThrowIfNullOrWhiteSpace(query.TableId);
+
+        // Before the cache as well as Quickbase: cached rows are Quickbase data too.
+        if (!userContext.IsAuthenticated || !await userContext.IsActiveUserAsync(cancellationToken))
+        {
+            throw new UnauthorizedAccessException("Quickbase data requires an authenticated, active user.");
+        }
 
         var key = QueryKey.For(quickbase.Realm, query);
         var ttl = options.Value.Ttl;

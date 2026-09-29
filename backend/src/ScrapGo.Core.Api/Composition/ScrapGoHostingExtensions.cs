@@ -1,4 +1,9 @@
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.OpenApi;
+using ScrapGo.Core.Modules.Identity.Infrastructure.Persistence;
+using ScrapGo.Core.Modules.QuickbaseEngine.Infrastructure.Persistence;
+using ScrapGo.Core.Shared.Infrastructure.Audit;
+using ScrapGo.Core.Shared.Infrastructure.Web;
 
 namespace ScrapGo.Core.Api.Composition;
 
@@ -6,6 +11,7 @@ namespace ScrapGo.Core.Api.Composition;
 public static class ScrapGoHostingExtensions
 {
     private const string CorsPolicyName = "default";
+    private const string ReadyTag = "ready";
 
     public static WebApplicationBuilder AddScrapGoHosting(this WebApplicationBuilder builder)
     {
@@ -18,7 +24,13 @@ public static class ScrapGoHostingExtensions
         services.AddCors(options =>
             options.AddPolicy(CorsPolicyName, policy => policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
 
-        services.AddHealthChecks();
+        // /healthz is liveness (no dependencies; Cloud Run's probes). /healthz/ready
+        // also checks every module's database, so a Postgres outage shows up
+        // there without Cloud Run restarting healthy instances.
+        services.AddHealthChecks()
+            .AddDbContextCheck<AuditDbContext>("postgres-audit", tags: [ReadyTag])
+            .AddDbContextCheck<IdentityDbContext>("postgres-identity", tags: [ReadyTag])
+            .AddDbContextCheck<QuickbaseDbContext>("postgres-quickbase", tags: [ReadyTag]);
 
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen(c =>
@@ -54,6 +66,9 @@ public static class ScrapGoHostingExtensions
         // First, so it wraps every other middleware, not just endpoints.
         app.UseExceptionHandler();
 
+        // X-Content-Type-Options, Referrer-Policy, CSP, and HSTS outside Development.
+        app.UseMiddleware<SecureHeadersMiddleware>();
+
         // Cloud Run always runs ASPNETCORE_ENVIRONMENT=Production, so Swagger
         // is gated by explicit config rather than IsDevelopment(). Leave it off
         // outside deliberate, temporary verification.
@@ -82,7 +97,17 @@ public static class ScrapGoHostingExtensions
 
         app.UseAuthorization();
 
-        app.MapHealthChecks("/healthz");
+        app.MapHealthChecks("/healthz", new HealthCheckOptions
+        {
+            Predicate = _ => false,
+            ResponseWriter = HealthCheckResponseWriter.WriteAsync,
+        });
+        app.MapHealthChecks("/healthz/ready", new HealthCheckOptions
+        {
+            Predicate = check => check.Tags.Contains(ReadyTag),
+            ResponseWriter = HealthCheckResponseWriter.WriteAsync,
+        });
+
         app.MapControllers();
 
         return app;

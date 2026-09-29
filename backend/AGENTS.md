@@ -34,7 +34,9 @@ While Quickbase remains the System of Record for core business entities (Supplie
 
 - **Database:** PostgreSQL with EF Core via `Npgsql.EntityFrameworkCore.PostgreSQL`, snake_case via `EFCore.NamingConventions`
 
-- **External Integration:** Quickbase REST API (behind an Application-layer abstraction; not yet migrated)
+- **External Integration:** Quickbase REST API, via the QuickbaseEngine module (`IQuickbaseQueryService` over a typed, Polly-resilient `IHttpClientFactory` client)
+
+- **Hosting:** Google Cloud Run (container from `Dockerfile`), Cloud SQL Postgres 16, Secret Manager; infrastructure as code in `infra/terraform/`, CI/CD in `cloudbuild.yaml`
 
 - **Authentication:** GCIP ID tokens validated as JWT Bearer (RS256, 1-hour lifetime cap)
 
@@ -47,7 +49,9 @@ ScrapGo.Core.slnx
 Directory.Build.props      # net10.0, Nullable, ImplicitUsings, TreatWarningsAsErrors
 Directory.Packages.props   # central package versions (transitive pinning on)
 src/
-  ScrapGo.Core.Api/                             # host / composition root only: Program.cs, Composition/, appsettings
+  ScrapGo.Core.Api/                             # host / composition root only: Program.cs, Composition/, appsettings, Properties/launchSettings.json
+infra/
+  terraform/                                    # GCP infrastructure (Cloud Run, Cloud SQL, Secret Manager, Artifact Registry, Cloud Build)
   Shared/
     ScrapGo.Core.Shared.Kernel/                 # cross-module contracts (IAuditLog<TModule>, AuditEvent). No EF.
     ScrapGo.Core.Shared.Infrastructure/         # audit schema + AuditDbContext, Postgres conventions, ProblemDetails helpers
@@ -78,7 +82,7 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 
 - **Always go through `IQuickbaseQueryService`**, never `IQuickbaseClient` or `HttpClient` directly from a controller. The service hashes the query (`QueryKey`: SHA-256 of the realm plus the canonical query JSON), serves a cache row younger than `Quickbase:QueryCache:Ttl` (default 15 minutes), and otherwise calls Quickbase and upserts the row (`INSERT ... ON CONFLICT`, where the newest response wins).
 - **Failures are never cached.** With `Quickbase:QueryCache:ServeStaleOnError` (on by default), a failed refresh serves the expired row instead, flagged `StaleCache`.
-- **The service does no authorization.** One Quickbase credential serves all users, and cache rows are shared across callers. Enforce the caller's application/table access before calling it.
+- **UserContext gate.** `QuickbaseQueryService` checks `IUserContext` (defined in Shared.Kernel, implemented by Identity) before reading the cache or calling Quickbase. An unauthenticated or non-active caller gets `UnauthorizedAccessException`, which the host returns as 403 `access_denied`. That check is the floor. One Quickbase credential serves all users and cache rows are shared, so table-level access (`IUserContext.HasPermissionAsync`) must still be checked by the caller until the Quickbase table-access model exists.
 - **Configuration:** `Quickbase__RealmHostname` and `Quickbase__UserToken` (a secret, from Secret Manager) are validated on first use, not at startup. Never read `QuickbaseOptions` from anything that runs at startup, or every host will need the credentials to boot.
 - **Resilience (Polly v8, `AddStandardResilienceHandler`):** transient failures (408, 429 honoring `Retry-After`, 5xx, network errors, timeouts) are retried with exponential backoff and jitter; other 4xx responses are not. There is also a per-attempt timeout, a total timeout and a circuit breaker. Tune them with `Quickbase__Timeout` (per attempt), `Quickbase__MaxRetryAttempts` and `Quickbase__RetryBaseDelay` (`QuickbaseResilienceOptions`). Retries are safe only because every call on this client is a read; give any future write call a pipeline with `Retry.DisableForUnsafeHttpMethods()`.
 - **Changing the canonical query shape:** bump `QueryKey.Version`, which orphans the old keys.
@@ -96,10 +100,41 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 - **Layering:** Api → Application → Domain; Infrastructure → Application. Only the `ScrapGo.Core.Api` host references Infrastructure. A module never references another module's projects. Refer to another module's data by id only (no cross-module navigations or FKs).
 - **Controllers:** parse the request, call one Application handler, map the outcome. No business logic, no `DbContext`, no `HttpClient`, no repositories. Errors are RFC 7807 ProblemDetails with a `reason` extension (`ProblemResults`).
 - **DTOs:** entities never cross the wire. Handlers return Application DTO records.
+- **Caller context:** any module that needs "who is calling / may they do this" depends on `IUserContext` (Shared.Kernel.Security), never on Identity's projects or `HttpContext` directly.
 - **External systems (Quickbase, GCIP JWKS, …):** Application interface, Infrastructure implementation using `IHttpClientFactory`. Never called from a controller.
 - **Persistence:** one `DbContext` per module, own Postgres schema, own `__ef_migrations_history` table (`UseModulePostgres`). Status enums are `text` + `HasConversion<string>()` + a named CHECK constraint.
 - **Audit:** stage rows with `IAuditLog<TModule>`; they commit in the module's own transaction. `AuditDbContext` owns `audit.audit_logs`; module contexts map it via `MapAuditLogs()` (excluded from their migrations).
 - **C#:** primary constructors, file-scoped namespaces, a `GlobalUsings.cs` per project, pattern matching, collection expressions. `TimeProvider` for time, `IOptions<T>` for config (raw `IConfiguration` only in composition roots).
+
+## Hosting Pipeline (`Composition/ScrapGoHostingExtensions.cs`)
+
+The host-level setup ported from identity-platform's `Program.cs`, in pipeline order:
+
+1. Exception handler (RFC 7807 ProblemDetails; `UnauthorizedAccessException` → 403)
+2. Secure headers (`nosniff`, `no-referrer`, a deny-all CSP except on `/swagger`, HSTS outside Development)
+3. Swagger UI at `/swagger` when `Swagger:Enabled` (on in Development; off by default in Cloud Run)
+4. HTTPS redirection, routing, CORS allow-list
+5. Authentication, the Identity gates (disabled user, cross-tenant membership), authorization
+6. `/healthz` (liveness, no dependencies; Cloud Run's probes) and `/healthz/ready` (Postgres checks for every module DbContext), then controllers
+
+Not ported yet, because their modules or Redis aren't migrated: rate limiting, the audit export job, and the invitations, join-request, member-admin, platform-role, audit-log and enterprise-SSO endpoints.
+
+## Running Locally (against Cloud SQL, no local database)
+
+1. `gcloud auth login` and `gcloud auth application-default login`.
+2. Start the Cloud SQL Auth Proxy on port 5434: `cloud-sql-proxy <project>:<region>:<instance> --port 5434`.
+3. The connection string lives in **`dotnet user-secrets`** (`UserSecretsId` `scrapgo-core-api`), never in a committed file:
+   `dotnet user-secrets set "ConnectionStrings:Default" "Host=127.0.0.1;Port=5434;Database=…;Username=…;Password=…;SSL Mode=Disable" --project src/ScrapGo.Core.Api`
+4. `dotnet run --project src/ScrapGo.Core.Api` → http://localhost:5141/swagger. `appsettings.Development.json` holds only non-secret values (GCIP project `wrigley-cloud-prod`, CORS for `http://localhost:3000`, Swagger on).
+5. `src/ScrapGo.Core.Api/ScrapGo.Core.Api.http` has ready-made requests. Paste a GCIP ID token into `@token`.
+
+**Secrets never go in `appsettings*.json`, `.env.example` or tfvars examples.** `.gitignore` excludes `.env*` (except `.env.example`), `*.tfvars`, Terraform state and `appsettings.*.local.json`. For `docker run --env-file`, copy `.env.example` to `.env.local`.
+
+## Deploying (GCP)
+
+- `infra/terraform/`: VPC, Cloud SQL (private IP for Cloud Run, plus a proxy-only public IP for developers), Artifact Registry, Secret Manager, the Cloud Run service with its runtime service account, and the Cloud Build trigger, all named `scrapgo-core-api-<env>`. See `infra/terraform/README.md` for bootstrap, proxy access, the Quickbase token and migrations.
+- `cloudbuild.yaml` (build context `backend/`): restore, build, test (Testcontainers via the Docker socket), image, push to Artifact Registry, `gcloud run deploy`. It is triggered only by pushes that touch `backend/`.
+- `Dockerfile`: a multi-stage .NET 10 build running as a non-root user on port 8080.
 
 ## Common Commands
 

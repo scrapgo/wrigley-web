@@ -32,6 +32,9 @@ public class QueryCacheSpecFixture : IAsyncLifetime
 
     public SettableTimeProvider Clock { get; } = new(new DateTimeOffset(2026, 9, 29, 10, 0, 0, TimeSpan.Zero));
 
+    /// <summary>The caller every query runs as. It defaults to an authenticated, active user.</summary>
+    public FakeUserContext User { get; } = new();
+
     /// <summary>Extra configuration on top of the module's defaults, e.g. a different TTL.</summary>
     protected virtual IEnumerable<KeyValuePair<string, string?>> ConfigurationOverrides => [];
 
@@ -55,6 +58,9 @@ public class QueryCacheSpecFixture : IAsyncLifetime
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton<TimeProvider>(Clock);
+
+        // In the real host the Identity module provides IUserContext.
+        services.AddSingleton<IUserContext>(User);
         services.AddQuickbaseEngineApplication().AddQuickbaseEngineInfrastructure(configuration);
 
         // Same named client the module registers; a fresh handler per factory

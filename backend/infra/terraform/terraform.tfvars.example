@@ -1,0 +1,16 @@
+# Copy to environments/<env>.tfvars (git-ignored) and fill in.
+project_id  = "wrigley-cloud-prod"
+environment = "dev"
+
+gcip_project_id       = "wrigley-cloud-prod"
+cors_allowed_origins  = ["https://portal.example.com"]
+internal_hd_allowlist = ""
+
+quickbase_realm_hostname        = "scrapgo.quickbase.com"
+quickbase_user_token_configured = false # true once the secret has a version
+
+public_ingress = false
+
+github_repository_url             = "https://github.com/scrapgo/wrigley-web.git"
+github_app_installation_id        = "00000000"
+github_oauth_token_secret_version = "projects/<project-number>/secrets/<github-oauth-secret>/versions/latest"

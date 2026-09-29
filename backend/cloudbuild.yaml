@@ -1,0 +1,66 @@
+# CI/CD for the ScrapGo Core API: restore, build, test, image, push, deploy.
+# Triggered by infra/terraform/cloudbuild.tf on pushes that touch backend/.
+# A failing step fails the build, so nothing is pushed or deployed unless the
+# whole test suite passes.
+#
+# Substitutions (_REGION, _SERVICE_NAME, _REPOSITORY) are supplied by the
+# trigger; the defaults below are for manual `gcloud builds submit`.
+
+steps:
+  - id: restore
+    name: "mcr.microsoft.com/dotnet/sdk:10.0"
+    dir: backend
+    entrypoint: dotnet
+    args: ["restore", "ScrapGo.Core.slnx"]
+
+  - id: build
+    name: "mcr.microsoft.com/dotnet/sdk:10.0"
+    dir: backend
+    entrypoint: dotnet
+    args: ["build", "ScrapGo.Core.slnx", "--no-restore", "-c", "Release"]
+
+  # The integration specs start Postgres through Testcontainers, which needs
+  # the build VM's Docker daemon. Mounting /var/run shares its socket into
+  # this step.
+  - id: test
+    name: "mcr.microsoft.com/dotnet/sdk:10.0"
+    dir: backend
+    entrypoint: dotnet
+    args: ["test", "ScrapGo.Core.slnx", "--no-build", "-c", "Release", "--logger", "console;verbosity=normal"]
+    volumes:
+      - name: docker-sock
+        path: /var/run
+
+  - id: build-image
+    name: "gcr.io/cloud-builders/docker"
+    dir: backend
+    args: ["build", "-t", "${_IMAGE}:${SHORT_SHA}", "-t", "${_IMAGE}:latest", "."]
+
+  - id: push-image
+    name: "gcr.io/cloud-builders/docker"
+    args: ["push", "--all-tags", "${_IMAGE}"]
+
+  - id: deploy
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - "${_SERVICE_NAME}"
+      - "--image=${_IMAGE}:${SHORT_SHA}"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+
+images:
+  - "${_IMAGE}:${SHORT_SHA}"
+  - "${_IMAGE}:latest"
+
+substitutions:
+  _REGION: "us-central1"
+  _SERVICE_NAME: "scrapgo-core-api-dev"
+  _REPOSITORY: "scrapgo-core-api-dev"
+  _IMAGE: "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPOSITORY}/scrapgo-core-api"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  dynamic_substitutions: true

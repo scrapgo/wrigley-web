@@ -1,0 +1,26 @@
+# Requests against a locally running API (`dotnet run --project src/ScrapGo.Core.Api`).
+# Paste a GCIP ID token for project wrigley-cloud-prod into @token.
+@host = http://localhost:5141
+@token = paste-a-gcip-id-token
+
+### Health (anonymous)
+GET {{host}}/healthz
+
+### The caller's own user record (provisions it on first call)
+GET {{host}}/api/users/me
+Authorization: Bearer {{token}}
+
+### My organizations
+GET {{host}}/api/organizations
+Authorization: Bearer {{token}}
+
+### Create an organization (caller becomes OrganizationAdministrator)
+POST {{host}}/api/organizations
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "name": "Acme Metals" }
+
+### Permission catalog
+GET {{host}}/api/permissions
+Authorization: Bearer {{token}}

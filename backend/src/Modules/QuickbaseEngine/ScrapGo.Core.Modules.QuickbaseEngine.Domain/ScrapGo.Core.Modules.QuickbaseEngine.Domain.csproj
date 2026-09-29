@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Domain stays framework-free: no PackageReferences, no ProjectReferences. -->
+  <PropertyGroup>
+    <RootNamespace>ScrapGo.Core.Modules.QuickbaseEngine.Domain</RootNamespace>
+  </PropertyGroup>
+
+</Project>

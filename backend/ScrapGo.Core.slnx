@@ -1,0 +1,30 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Api/">
+    <Project Path="src/Api/ScrapGo.Core.Api/ScrapGo.Core.Api.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Identity/">
+    <Project Path="src/Modules/Identity/ScrapGo.Core.Modules.Identity.Api/ScrapGo.Core.Modules.Identity.Api.csproj" />
+    <Project Path="src/Modules/Identity/ScrapGo.Core.Modules.Identity.Application/ScrapGo.Core.Modules.Identity.Application.csproj" />
+    <Project Path="src/Modules/Identity/ScrapGo.Core.Modules.Identity.Domain/ScrapGo.Core.Modules.Identity.Domain.csproj" />
+    <Project Path="src/Modules/Identity/ScrapGo.Core.Modules.Identity.Infrastructure/ScrapGo.Core.Modules.Identity.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/QuickbaseEngine/">
+    <Project Path="src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Application/ScrapGo.Core.Modules.QuickbaseEngine.Application.csproj" />
+    <Project Path="src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Domain/ScrapGo.Core.Modules.QuickbaseEngine.Domain.csproj" />
+    <Project Path="src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Infrastructure/ScrapGo.Core.Modules.QuickbaseEngine.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/src/Shared/">
+    <Project Path="src/Shared/ScrapGo.Core.Shared.Infrastructure/ScrapGo.Core.Shared.Infrastructure.csproj" />
+    <Project Path="src/Shared/ScrapGo.Core.Shared.Kernel/ScrapGo.Core.Shared.Kernel.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/Modules/" />
+  <Folder Name="/tests/Modules/Identity/">
+    <Project Path="tests/Modules/Identity/ScrapGo.Core.Modules.Identity.IntegrationTests/ScrapGo.Core.Modules.Identity.IntegrationTests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Modules/QuickbaseEngine/">
+    <Project Path="tests/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.IntegrationTests/ScrapGo.Core.Modules.QuickbaseEngine.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

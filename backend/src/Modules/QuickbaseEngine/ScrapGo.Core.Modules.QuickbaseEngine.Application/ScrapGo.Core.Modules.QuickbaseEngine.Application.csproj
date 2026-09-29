@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>ScrapGo.Core.Modules.QuickbaseEngine.Application</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ScrapGo.Core.Modules.QuickbaseEngine.Domain\ScrapGo.Core.Modules.QuickbaseEngine.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

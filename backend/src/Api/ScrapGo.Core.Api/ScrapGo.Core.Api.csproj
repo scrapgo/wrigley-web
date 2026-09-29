@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>ScrapGo.Core.Api</RootNamespace>
+    <UserSecretsId>scrapgo-core-api</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared\ScrapGo.Core.Shared.Infrastructure\ScrapGo.Core.Shared.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Identity\ScrapGo.Core.Modules.Identity.Api\ScrapGo.Core.Modules.Identity.Api.csproj" />
+    <ProjectReference Include="..\..\Modules\Identity\ScrapGo.Core.Modules.Identity.Infrastructure\ScrapGo.Core.Modules.Identity.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\QuickbaseEngine\ScrapGo.Core.Modules.QuickbaseEngine.Infrastructure\ScrapGo.Core.Modules.QuickbaseEngine.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

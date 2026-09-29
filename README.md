@@ -18,7 +18,7 @@ This platform consolidates identity management, pricing transparency, and operat
 
 ### Prerequisites
 
-- .NET 8 SDK
+- .NET 10 SDK
 
 - Node.js (v20+)
 

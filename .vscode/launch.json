@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "ScrapGo API",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/Api/ScrapGo.Core.Api/bin/Debug/net10.0/ScrapGo.Core.Api.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/Api/ScrapGo.Core.Api",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    }
+  ]
+}

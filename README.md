@@ -45,7 +45,22 @@ The frontend talks only to the backend API; the backend is the only component th
 
    The API runs on http://localhost:5141, with Swagger at http://localhost:5141/swagger.
 
-2. **Frontend.** Not scaffolded yet (`frontend/` holds only its `AGENTS.md`). Once it is: `cd frontend && npm install && npm run dev`, on http://localhost:3000, which the API's CORS settings already allow in Development.
+2. **Frontend.** The frontend is now implemented and can be run with:
+
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+
+   The frontend runs on http://localhost:5174 (or the next available port if 5174 is busy) and connects to the backend API at http://localhost:5141. The API's CORS settings already allow requests from the frontend's development server.
+   
+   Key features of the frontend:
+   - Login page at `/login` with email/password authentication
+   - Dashboard at `/dashboard` with stats cards and activity table
+   - Protected routes that require authentication
+   - Mobile-responsive design using Tailwind CSS
+   - Loading skeletons for better UX during data fetching
 
 ## Folder Structure
 

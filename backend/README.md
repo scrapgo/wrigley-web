@@ -12,12 +12,12 @@ Quickbase. The frontend talks only to this API, never to Quickbase.
 
 ## Prerequisites
 
-| Tool | Why | Check |
-|---|---|---|
-| .NET SDK 10.0.101+ | Build and run (pinned in `global.json`) | `dotnet --version` |
-| Google Cloud SDK | Sign in to GCP; install the Cloud SQL Auth Proxy | `gcloud --version` |
-| Cloud SQL Auth Proxy | Reach the Cloud SQL Postgres database from your machine | `cloud-sql-proxy --version` |
-| Docker Desktop | Only for the test suite (Testcontainers) and container builds | `docker version` |
+| Tool                 | Why                                                           | Check                       |
+| -------------------- | ------------------------------------------------------------- | --------------------------- |
+| .NET SDK 10.0.101+   | Build and run (pinned in `global.json`)                       | `dotnet --version`          |
+| Google Cloud SDK     | Sign in to GCP; install the Cloud SQL Auth Proxy              | `gcloud --version`          |
+| Cloud SQL Auth Proxy | Reach the Cloud SQL Postgres database from your machine       | `cloud-sql-proxy --version` |
+| Docker Desktop       | Only for the test suite (Testcontainers) and container builds | `docker version`            |
 
 There is **no local database**: the API always runs against Postgres in Cloud
 SQL, reached through the Cloud SQL Auth Proxy.
@@ -76,14 +76,26 @@ profile. It opens Swagger automatically.
 
 ### 4. Check it works
 
-| URL | Expect |
-|---|---|
-| http://localhost:5141/swagger | Swagger UI listing every endpoint |
-| http://localhost:5141/healthz | `200` with `"status":"Healthy"` (the process is up) |
+| URL                                 | Expect                                                                                    |
+| ----------------------------------- | ----------------------------------------------------------------------------------------- |
+| http://localhost:5141/swagger       | Swagger UI listing every endpoint                                                         |
+| http://localhost:5141/healthz       | `200` with `"status":"Healthy"` (the process is up)                                       |
 | http://localhost:5141/healthz/ready | `200` once the database is reachable; `503` means the proxy or connection string is wrong |
-| http://localhost:5141/api/users/me | `401` without a token (authentication is enforced) |
+| http://localhost:5141/api/users/me  | `401` without a token (authentication is enforced)                                        |
 
-### 5. Call authenticated endpoints
+### 5. Running the Frontend
+
+The frontend is a React application located in the `frontend/` directory at the root of this repository. To run it:
+
+```bash
+cd ../frontend
+npm install
+npm run dev
+```
+
+The frontend will start on http://localhost:5174 and connect to this API at http://localhost:5141. CORS is already configured to allow requests from the frontend's development server.
+
+### 6. Call authenticated endpoints
 
 Every `/api/**` endpoint needs a **Google Cloud Identity Platform ID token**
 for project `wrigley-cloud-prod`, sent as `Authorization: Bearer <token>`.
@@ -101,16 +113,16 @@ Secrets live in `dotnet user-secrets` locally and Secret Manager in GCP;
 **they never go in a committed file**. The full list, as environment variables,
 is in [`.env.example`](.env.example).
 
-| Setting | Required | Local default | Purpose |
-|---|---|---|---|
-| `ConnectionStrings:Default` | Yes | user-secrets | Postgres (Npgsql) connection string |
-| `Gcip:ProjectId` | Yes | `wrigley-cloud-prod` | GCIP project whose ID tokens are accepted |
-| `Quickbase:RealmHostname` | On first Quickbase call | — | e.g. `scrapgo.quickbase.com` |
-| `Quickbase:UserToken` | On first Quickbase call | user-secrets | Quickbase user token (secret) |
-| `Quickbase:QueryCache:Ttl` | No | `00:15:00` | How long cached Quickbase results are served |
-| `Cors:AllowedOrigins` | No | `http://localhost:3000` | Browser origins allowed to call the API |
-| `INTERNAL_HD_ALLOWLIST` | No | — | Google Workspace domains treated as internal users |
-| `Swagger:Enabled` | No | `true` | Serves `/swagger` (off in Cloud Run unless set) |
+| Setting                     | Required                | Local default           | Purpose                                            |
+| --------------------------- | ----------------------- | ----------------------- | -------------------------------------------------- |
+| `ConnectionStrings:Default` | Yes                     | user-secrets            | Postgres (Npgsql) connection string                |
+| `Gcip:ProjectId`            | Yes                     | `wrigley-cloud-prod`    | GCIP project whose ID tokens are accepted          |
+| `Quickbase:RealmHostname`   | On first Quickbase call | —                       | e.g. `scrapgo.quickbase.com`                       |
+| `Quickbase:UserToken`       | On first Quickbase call | user-secrets            | Quickbase user token (secret)                      |
+| `Quickbase:QueryCache:Ttl`  | No                      | `00:15:00`              | How long cached Quickbase results are served       |
+| `Cors:AllowedOrigins`       | No                      | `http://localhost:3000` | Browser origins allowed to call the API            |
+| `INTERNAL_HD_ALLOWLIST`     | No                      | —                       | Google Workspace domains treated as internal users |
+| `Swagger:Enabled`           | No                      | `true`                  | Serves `/swagger` (off in Cloud Run unless set)    |
 
 Add the Quickbase token the same way as the connection string:
 `dotnet user-secrets set "Quickbase:UserToken" "<token>" --project src/ScrapGo.Core.Api`.
@@ -155,16 +167,16 @@ Inside the container, the proxy on your machine is `host.docker.internal:5434`
 
 ## Troubleshooting
 
-| Symptom | Cause / fix |
-|---|---|
-| `ConnectionStrings:Default is not configured` at startup | user-secrets not set: see step 1. Run from `backend/` with `--project src/ScrapGo.Core.Api`. |
-| `Gcip:ProjectId is not configured` | Running with an environment other than Development and no `Gcip__ProjectId` set. |
-| `/healthz/ready` returns `503` | The proxy isn't running, is on another port, or the credentials are wrong. |
-| Proxy: `could not find default credentials` | Run `gcloud auth application-default login`. |
-| Proxy can't connect to the instance | The instance has no proxy-reachable IP (private-IP only). See the infra README. |
-| Every `/api/**` call returns `401` | Missing or expired token (tokens last at most 1 hour), or it was issued for another GCIP project. |
-| `403` with `reason: user_disabled` | Your user record is disabled. |
-| `dotnet build` fails with "file is locked by testhost" | A test run is still going. Wait for it or stop it. |
+| Symptom                                                                  | Cause / fix                                                                                                                        |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `ConnectionStrings:Default is not configured` at startup                 | user-secrets not set: see step 1. Run from `backend/` with `--project src/ScrapGo.Core.Api`.                                       |
+| `Gcip:ProjectId is not configured`                                       | Running with an environment other than Development and no `Gcip__ProjectId` set.                                                   |
+| `/healthz/ready` returns `503`                                           | The proxy isn't running, is on another port, or the credentials are wrong.                                                         |
+| Proxy: `could not find default credentials`                              | Run `gcloud auth application-default login`.                                                                                       |
+| Proxy can't connect to the instance                                      | The instance has no proxy-reachable IP (private-IP only). See the infra README.                                                    |
+| Every `/api/**` call returns `401`                                       | Missing or expired token (tokens last at most 1 hour), or it was issued for another GCIP project.                                  |
+| `403` with `reason: user_disabled`                                       | Your user record is disabled.                                                                                                      |
+| `dotnet build` fails with "file is locked by testhost"                   | A test run is still going. Wait for it or stop it.                                                                                 |
 | `401` and the request shows `Authorization: Bearer "@token` (or similar) | A placeholder was pasted into Swagger's **Authorize** box. Paste the raw ID token (`eyJ…`) with no quotes and no `Bearer ` prefix. |
 
 ## Deployment

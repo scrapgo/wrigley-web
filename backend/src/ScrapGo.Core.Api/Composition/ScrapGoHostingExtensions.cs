@@ -78,7 +78,11 @@ public static class ScrapGoHostingExtensions
             app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "ScrapGo Core API v1"));
         }
 
-        app.UseHttpsRedirection();
+        // No UseHttpsRedirection(): Cloud Run terminates TLS and enforces HTTPS
+        // at Google's edge, and the container only listens on HTTP ($PORT). The
+        // middleware had nothing to redirect to and only logged
+        // "Failed to determine the https port" on every start. HSTS is still
+        // sent by SecureHeadersMiddleware outside Development.
 
         // Explicit so the order is visible: the Identity gates read the
         // matched route's {organizationId}, so routing must run before them.

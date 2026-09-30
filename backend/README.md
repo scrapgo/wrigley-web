@@ -165,7 +165,7 @@ Inside the container, the proxy on your machine is `host.docker.internal:5434`
 | Every `/api/**` call returns `401` | Missing or expired token (tokens last at most 1 hour), or it was issued for another GCIP project. |
 | `403` with `reason: user_disabled` | Your user record is disabled. |
 | `dotnet build` fails with "file is locked by testhost" | A test run is still going. Wait for it or stop it. |
-| Log line `Failed to determine the https port for redirect` | Harmless with the `http` profile. |
+| `401` and the request shows `Authorization: Bearer "@token` (or similar) | A placeholder was pasted into Swagger's **Authorize** box. Paste the raw ID token (`eyJ…`) with no quotes and no `Bearer ` prefix. |
 
 ## Deployment
 

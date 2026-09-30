@@ -113,7 +113,7 @@ The host-level setup ported from identity-platform's `Program.cs`, in pipeline o
 1. Exception handler (RFC 7807 ProblemDetails; `UnauthorizedAccessException` → 403)
 2. Secure headers (`nosniff`, `no-referrer`, a deny-all CSP except on `/swagger`, HSTS outside Development)
 3. Swagger UI at `/swagger` when `Swagger:Enabled` (on in Development; off by default in Cloud Run)
-4. HTTPS redirection, routing, CORS allow-list
+4. Routing, CORS allow-list (no HTTPS redirection: Cloud Run terminates TLS at its edge and the container only listens on HTTP)
 5. Authentication, the Identity gates (disabled user, cross-tenant membership), authorization
 6. `/healthz` (liveness, no dependencies; Cloud Run's probes) and `/healthz/ready` (Postgres checks for every module DbContext), then controllers
 

@@ -1,79 +1,86 @@
-import React, { useState, useEffect, useContext, createContext } from 'react'
+import React, { useState, useEffect, useContext, createContext, useCallback } from 'react'
 import type { ReactNode } from 'react'
+import { apiClient, type CurrentUser } from '../lib/api-client'
 
-interface User {
-    id: number
-    email: string
-    name: string
-}
+const TOKEN_KEY = 'authToken'
 
 interface AuthContextType {
-    user: User | null
+    user: CurrentUser | null
     login: (email: string, password: string) => Promise<void>
     logout: () => void
     isAuthenticated: boolean
+    /** True while the stored token is being validated against the API. */
+    isLoading: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-    const [user, setUser] = useState<User | null>(null)
-    const [isAuthenticated, setIsAuthenticated] = useState(false)
+    const [user, setUser] = useState<CurrentUser | null>(null)
+    // Only "loading" when there is a stored token to validate.
+    const [isLoading, setIsLoading] = useState(() => localStorage.getItem(TOKEN_KEY) !== null)
 
+    // On mount, validate any stored token against GET /api/users/me. A token
+    // that the backend rejects (expired, disabled user) is discarded.
     useEffect(() => {
-        // Check if user is already logged in
-        const token = localStorage.getItem('authToken')
-        if (token) {
-            // In a real app, you would validate the token with the backend
-            setIsAuthenticated(true)
-            // Set a mock user for demo purposes
-            setUser({
-                id: 1,
-                email: 'user@example.com',
-                name: 'Demo User'
+        const token = localStorage.getItem(TOKEN_KEY)
+        if (!token) {
+            return
+        }
+
+        apiClient.setAuthToken(token)
+        let cancelled = false
+
+        apiClient
+            .getCurrentUser()
+            .then((me) => {
+                if (!cancelled) setUser(me)
             })
+            .catch(() => {
+                apiClient.clearAuthToken()
+                localStorage.removeItem(TOKEN_KEY)
+                if (!cancelled) setUser(null)
+            })
+            .finally(() => {
+                if (!cancelled) setIsLoading(false)
+            })
+
+        return () => {
+            cancelled = true
         }
     }, [])
 
-    const login = async (email: string, _password: string) => {
-        // In a real app, you would make an API call to authenticate the user
-        // For demo purposes, we'll just simulate a successful login
+    const login = useCallback(async (email: string, password: string) => {
+        // 1. Exchange credentials for a GCIP ID token.
+        const token = await apiClient.signInWithPassword(email, password)
+        apiClient.setAuthToken(token)
 
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 1000))
-
-        // Mock successful login
-        const mockUser = {
-            id: 1,
-            email: email,
-            name: 'Demo User'
+        // 2. Prove the token works against our API before persisting it.
+        try {
+            const me = await apiClient.getCurrentUser()
+            localStorage.setItem(TOKEN_KEY, token)
+            setUser(me)
+        } catch (error) {
+            apiClient.clearAuthToken()
+            throw error
         }
+    }, [])
 
-        // Store token (in a real app, this would be a JWT from the backend)
-        localStorage.setItem('authToken', 'mock-jwt-token')
-
-        setUser(mockUser)
-        setIsAuthenticated(true)
-    }
-
-    const logout = () => {
-        localStorage.removeItem('authToken')
+    const logout = useCallback(() => {
+        apiClient.clearAuthToken()
+        localStorage.removeItem(TOKEN_KEY)
         setUser(null)
-        setIsAuthenticated(false)
-    }
+    }, [])
 
-    const value = {
+    const value: AuthContextType = {
         user,
         login,
         logout,
-        isAuthenticated
+        isAuthenticated: user !== null,
+        isLoading,
     }
 
-    return React.createElement(
-        AuthContext.Provider,
-        { value: value },
-        children
-    )
+    return React.createElement(AuthContext.Provider, { value }, children)
 }
 
 export function useAuth() {

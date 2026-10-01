@@ -91,6 +91,34 @@ src/
 - Protected routes that require authentication
 - Token-based session management
 
+Authentication is real, not mocked:
+
+1. The login form calls **Google Cloud Identity Platform (GCIP)** via the
+   `accounts:signInWithPassword` REST endpoint to obtain an ID token.
+2. The token is validated against the backend by calling **`GET /api/users/me`**
+   (which also auto-provisions the user on first sight). Only then is the token
+   persisted to `localStorage`.
+3. On every app load, a stored token is re-validated against `/api/users/me`;
+   tokens the backend rejects (expired, disabled user) are discarded.
+
+### Environment Variables
+
+Copy `.env.example` to `.env.local` (gitignored) and set:
+
+```
+# Leave empty in development to use the Vite dev proxy (see vite.config.ts),
+# which forwards /api to http://localhost:5141 and avoids CORS.
+VITE_API_BASE_URL=
+
+# Public GCIP web API key (not a secret).
+VITE_GCIP_API_KEY=your-gcip-web-api-key
+VITE_GCIP_PROJECT_ID=wrigley-cloud-prod
+```
+
+In development the Vite dev server proxies `/api` to the backend at
+`http://localhost:5141`, so the browser stays on a single origin and the
+backend's CORS allow-list is never exercised.
+
 ### Dashboard
 
 - Stats cards showing key metrics
@@ -110,14 +138,6 @@ src/
 - `npm run preview` - Preview production build
 - `npm run lint` - Run ESLint
 - `npm run routes` - Generate route tree
-
-## Environment Variables
-
-Create a `.env.local` file in the frontend directory to override defaults:
-
-```
-VITE_API_BASE_URL=http://localhost:5141
-```
 
 ## Browser Support
 

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 64" width="300" height="64" role="img" aria-label="ScrapGo">
+  <defs>
+    <linearGradient id="lgGreen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4ecb3a" />
+      <stop offset="1" stop-color="#2f9a20" />
+    </linearGradient>
+    <linearGradient id="lgGreyA" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a8a8a" />
+      <stop offset="1" stop-color="#6b6b6b" />
+    </linearGradient>
+    <linearGradient id="lgGreyB" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6f6f6f" />
+      <stop offset="1" stop-color="#4f4f4f" />
+    </linearGradient>
+  </defs>
+
+  <!-- Hexagon mark -->
+  <g transform="translate(0,0)">
+    <path d="M32 1.5 58.5 16.75v30.5L32 62.5 5.5 47.25v-30.5z" fill="#242429" />
+    <path d="M32 32 32 6 55 19.5z" fill="url(#lgGreyA)" />
+    <path d="M32 32 55 19.5 55 44.5z" fill="url(#lgGreen)" />
+    <path d="M32 32 55 44.5 32 58z" fill="url(#lgGreyB)" />
+    <path d="M32 32 32 58 9 44.5z" fill="url(#lgGreyA)" />
+    <path d="M32 32 9 44.5 9 19.5z" fill="url(#lgGreyB)" />
+    <path d="M32 32 9 19.5 32 6z" fill="url(#lgGreyA)" />
+    <path d="M32 24.5 38.5 28.25v7.5L32 39.5 25.5 35.75v-7.5z" fill="#0c0607" />
+  </g>
+
+  <!-- Wordmark -->
+  <text x="76" y="43" font-family="Inter, 'Segoe UI', system-ui, sans-serif" font-size="30" letter-spacing="0.5">
+    <tspan font-weight="300" fill="#242429">SCRAP</tspan><tspan font-weight="800" fill="#242429">GO</tspan>
+  </text>
+</svg>

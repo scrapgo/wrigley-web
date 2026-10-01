@@ -1,12 +1,32 @@
-// Base URL for the API - in development this would be http://localhost:5141
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5141'
+// ScrapGo.Core.Api client.
+//
+// Two responsibilities:
+//   1. Authenticate against Google Cloud Identity Platform (GCIP) to obtain an
+//      ID token. GCIP is the identity provider; the .NET API validates the
+//      resulting RS256 ID token as a JWT bearer.
+//   2. Call the ScrapGo.Core.Api with that token. The API is the only backend
+//      the frontend talks to — it never talks to Quickbase directly.
+//
+// In development VITE_API_BASE_URL is empty and requests go to the Vite dev
+// proxy (see vite.config.ts), which forwards /api to http://localhost:5141.
 
-interface LoginCredentials {
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
+const GCIP_API_KEY = import.meta.env.VITE_GCIP_API_KEY ?? ''
+
+const GCIP_SIGN_IN_URL =
+    'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword'
+
+/** The caller's own user record, as returned by GET /api/users/me. */
+export interface CurrentUser {
+    id: number
+    identityPlatformUid: string
     email: string
-    password: string
+    status: string
+    classification: string
 }
 
-interface LoginResponse {
+/** GCIP sign-in response (subset we care about). */
+interface GcipSignInResponse {
     idToken: string
     refreshToken: string
     expiresIn: string
@@ -14,12 +34,43 @@ interface LoginResponse {
     registered: boolean
 }
 
-interface User {
-    id: number
-    identityPlatformUid: string
-    email: string
-    status: string
-    classification: string
+/** RFC 7807 ProblemDetails with the API's `reason` extension. */
+interface ProblemDetails {
+    title?: string
+    status?: number
+    detail?: string
+    reason?: string
+}
+
+/** Error carrying the API's ProblemDetails `reason` for precise UI messaging. */
+export class ApiError extends Error {
+    readonly status: number
+    readonly reason?: string
+
+    constructor(message: string, status: number, reason?: string) {
+        super(message)
+        this.name = 'ApiError'
+        this.status = status
+        this.reason = reason
+    }
+}
+
+/** Maps GCIP error codes to human-readable messages. */
+function gcipErrorMessage(code: string | undefined): string {
+    switch (code) {
+        case 'EMAIL_NOT_FOUND':
+        case 'INVALID_PASSWORD':
+        case 'INVALID_LOGIN_CREDENTIALS':
+            return 'Invalid email or password.'
+        case 'USER_DISABLED':
+            return 'This account has been disabled.'
+        case 'TOO_MANY_ATTEMPTS_TRY_LATER':
+            return 'Too many attempts. Please try again later.'
+        case 'INVALID_EMAIL':
+            return 'Please enter a valid email address.'
+        default:
+            return 'Unable to sign in. Please try again.'
+    }
 }
 
 class ApiClient {
@@ -30,76 +81,84 @@ class ApiClient {
         this.baseUrl = baseUrl
     }
 
-    // Set the authentication token
-    setAuthToken(token: string) {
+    setAuthToken(token: string | null) {
         this.token = token
     }
 
-    // Clear the authentication token
     clearAuthToken() {
         this.token = null
     }
 
-    // Generic fetch wrapper with auth header
-    async fetchWithAuth(endpoint: string, options: RequestInit = {}) {
-        const url = `${this.baseUrl}${endpoint}`
+    /**
+     * Authenticate with GCIP and return the ID token. The token is NOT stored
+     * here — the caller (AuthProvider) owns persistence.
+     */
+    async signInWithPassword(email: string, password: string): Promise<string> {
+        if (!GCIP_API_KEY) {
+            throw new ApiError(
+                'Authentication is not configured (missing VITE_GCIP_API_KEY).',
+                0,
+                'missing_gcip_api_key'
+            )
+        }
 
-        const config: RequestInit = {
+        const response = await fetch(`${GCIP_SIGN_IN_URL}?key=${GCIP_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, returnSecureToken: true }),
+        })
+
+        const body = (await response.json()) as
+            | GcipSignInResponse
+            | { error?: { message?: string } }
+
+        if (!response.ok || !('idToken' in body)) {
+            const code = 'error' in body ? body.error?.message : undefined
+            throw new ApiError(gcipErrorMessage(code), response.status, code)
+        }
+
+        return body.idToken
+    }
+
+    /** Generic authenticated fetch against the ScrapGo.Core.Api. */
+    async fetchWithAuth<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+        const response = await fetch(`${this.baseUrl}${endpoint}`, {
             ...options,
             headers: {
                 'Content-Type': 'application/json',
-                ...(this.token && { 'Authorization': `Bearer ${this.token}` }),
+                ...(this.token && { Authorization: `Bearer ${this.token}` }),
                 ...options.headers,
             },
-        }
-
-        const response = await fetch(url, config)
+        })
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`)
+            let problem: ProblemDetails | undefined
+            try {
+                problem = (await response.json()) as ProblemDetails
+            } catch {
+                // Non-JSON error body — fall through to a generic message.
+            }
+            throw new ApiError(
+                problem?.detail || problem?.title || `Request failed (${response.status})`,
+                response.status,
+                problem?.reason
+            )
         }
 
-        return response.json()
+        if (response.status === 204) {
+            return undefined as T
+        }
+
+        return (await response.json()) as T
     }
 
-    // Login endpoint (this would integrate with your backend auth system)
-    async login(_credentials: LoginCredentials): Promise<LoginResponse> {
-        // In a real implementation, this would call your backend auth endpoint
-        // For now, we'll simulate a successful login
-
-        // This is a mock response - in reality you'd get this from your backend
-        return {
-            idToken: 'mock-jwt-token',
-            refreshToken: 'mock-refresh-token',
-            expiresIn: '3600',
-            localId: 'mock-user-id',
-            registered: true
-        }
-    }
-
-    // Get current user endpoint
-    async getCurrentUser(): Promise<User> {
-        // In a real implementation, this would call GET /api/users/me
-        // For now, we'll return mock data
-
-        return {
-            id: 1,
-            identityPlatformUid: 'mock-uid',
-            email: 'user@example.com',
-            status: 'Active',
-            classification: 'Internal'
-        }
-    }
-
-    // Example method for getting dashboard stats
-    async getDashboardStats(): Promise<any> {
-        // Mock data for dashboard stats
-        return {
-            activeLoads: 24,
-            scrapIndexStatus: 'Healthy',
-            pendingInquiries: 8,
-            quickbaseSync: 'Up to date'
-        }
+    /**
+     * GET /api/users/me — returns the caller's user record, auto-provisioning
+     * it on first sight. This is the proof that the token is valid and the
+     * backend recognises the caller.
+     */
+    async getCurrentUser(): Promise<CurrentUser> {
+        return this.fetchWithAuth<CurrentUser>('/api/users/me')
     }
 }
 

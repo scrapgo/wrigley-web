@@ -85,6 +85,11 @@ public static class IdentityInfrastructureServiceCollectionExtensions
         services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
             .Configure<IGcipSigningKeyProvider, IOptions<GcipOptions>>((options, signingKeyProvider, gcipOptions) =>
             {
+                // Keep the raw JWT claim names (sub, email, hd, ...). Without
+                // this, the handler remaps "email" to the long WS-Federation
+                // URI, so User.FindFirst("email") returns null and the caller's
+                // email is provisioned as an empty string.
+                options.MapInboundClaims = false;
                 options.TokenValidationParameters = GcipTokenValidationParametersFactory.Create(gcipOptions.Value, signingKeyProvider);
                 options.Events = new JwtBearerEvents { OnChallenge = WriteTokenLifetimeExceededChallengeAsync };
             });

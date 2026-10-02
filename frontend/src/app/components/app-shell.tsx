@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react"
+import { Link } from "@tanstack/react-router"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
 import {
     LayoutDashboard,
@@ -25,6 +26,7 @@ import { cn } from "../lib/utils"
 import { BrandLogo } from "./brand-logo"
 import { Button } from "./ui/button"
 import { useAuth } from "../hooks/useAuth"
+import { useAdminAccess } from "../hooks/useAdminAccess"
 
 export type NavKey =
     | "home"
@@ -82,6 +84,13 @@ interface Workspace {
     kind: string
 }
 
+/** Route path for each nav key. Keys without a route yet are omitted. */
+const NAV_PATHS: Partial<Record<NavKey, string>> = {
+    home: "/dashboard",
+    admin: "/admin",
+    settings: "/settings",
+}
+
 const WORKSPACES: Workspace[] = [
     { id: "scrapgo", name: "ScrapGo", kind: "Internal" },
     { id: "midwest", name: "Midwest Metals", kind: "Supplier" },
@@ -100,6 +109,7 @@ export function AppShell({ active, title, subtitle, actions, children }: AppShel
     const [mobileOpen, setMobileOpen] = useState(false)
     const [workspace, setWorkspace] = useState<Workspace>(WORKSPACES[0])
     const { user, logout } = useAuth()
+    const { isAdmin } = useAdminAccess()
 
     const initials = (user?.email || "SG")
         .split(/[\s@.]+/)
@@ -116,6 +126,7 @@ export function AppShell({ active, title, subtitle, actions, children }: AppShel
                     active={active}
                     workspace={workspace}
                     onWorkspaceChange={setWorkspace}
+                    isAdmin={isAdmin}
                 />
             </aside>
 
@@ -140,6 +151,7 @@ export function AppShell({ active, title, subtitle, actions, children }: AppShel
                             workspace={workspace}
                             onWorkspaceChange={setWorkspace}
                             onNavigate={() => setMobileOpen(false)}
+                            isAdmin={isAdmin}
                         />
                     </aside>
                 </div>
@@ -233,11 +245,13 @@ function SidebarContent({
     workspace,
     onWorkspaceChange,
     onNavigate,
+    isAdmin,
 }: {
     active: NavKey
     workspace: Workspace
     onWorkspaceChange: (workspace: Workspace) => void
     onNavigate?: () => void
+    isAdmin: boolean
 }) {
     return (
         <>
@@ -301,7 +315,9 @@ function SidebarContent({
             </div>
 
             <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-3">
-                {NAV_SECTIONS.map((section) => (
+                {NAV_SECTIONS.filter(
+                    (section) => section.label !== "Administration" || isAdmin
+                ).map((section) => (
                     <div key={section.label} className="space-y-1">
                         <p className="px-3 pb-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-steel-500">
                             {section.label}
@@ -309,21 +325,15 @@ function SidebarContent({
                         {section.items.map((item) => {
                             const Icon = item.icon
                             const isActive = item.key === active
-                            return (
-                                <a
-                                    key={item.key}
-                                    href="#"
-                                    onClick={(e) => {
-                                        e.preventDefault()
-                                        onNavigate?.()
-                                    }}
-                                    className={cn(
-                                        "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                                        isActive
-                                            ? "bg-brand-500/15 text-white"
-                                            : "text-steel-300 hover:bg-white/5 hover:text-white"
-                                    )}
-                                >
+                            const path = NAV_PATHS[item.key]
+                            const itemClassName = cn(
+                                "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                                isActive
+                                    ? "bg-brand-500/15 text-white"
+                                    : "text-steel-300 hover:bg-white/5 hover:text-white"
+                            )
+                            const content = (
+                                <>
                                     <Icon
                                         className={cn(
                                             "h-5 w-5 shrink-0",
@@ -339,6 +349,29 @@ function SidebarContent({
                                         </span>
                                     )}
                                     {isActive && <ChevronRight className="h-4 w-4 text-brand-400" />}
+                                </>
+                            )
+
+                            return path ? (
+                                <Link
+                                    key={item.key}
+                                    to={path}
+                                    onClick={() => onNavigate?.()}
+                                    className={itemClassName}
+                                >
+                                    {content}
+                                </Link>
+                            ) : (
+                                <a
+                                    key={item.key}
+                                    href="#"
+                                    onClick={(e) => {
+                                        e.preventDefault()
+                                        onNavigate?.()
+                                    }}
+                                    className={itemClassName}
+                                >
+                                    {content}
                                 </a>
                             )
                         })}

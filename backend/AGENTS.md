@@ -119,6 +119,8 @@ The host-level setup ported from identity-platform's `Program.cs`, in pipeline o
 
 Not ported yet, because their modules or Redis aren't migrated: rate limiting, the audit export job, and the invitations, join-request, member-admin, platform-role, audit-log and enterprise-SSO endpoints.
 
+The admin-portal API surface (user listing, role listing/read-back, role assignment, user status, organization/membership management) is also not migrated; see [`ADMIN-API-GAPS.md`](ADMIN-API-GAPS.md) for the full list and implementation order.
+
 ## Running Locally (against Cloud SQL, no local database)
 
 1. `gcloud auth login` and `gcloud auth application-default login`.

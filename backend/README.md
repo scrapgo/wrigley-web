@@ -179,6 +179,14 @@ Inside the container, the proxy on your machine is `host.docker.internal:5434`
 | `dotnet build` fails with "file is locked by testhost"                   | A test run is still going. Wait for it or stop it.                                                                                 |
 | `401` and the request shows `Authorization: Bearer "@token` (or similar) | A placeholder was pasted into Swagger's **Authorize** box. Paste the raw ID token (`eyJ…`) with no quotes and no `Bearer ` prefix. |
 
+## Admin API roadmap
+
+The admin portal needs endpoints this API does not expose yet (user listing,
+role listing and read-back, role assignment, user status, organization and
+membership management), plus a fix for `Admin.Access` never being granted.
+The complete gap list and suggested implementation order are in
+[`ADMIN-API-GAPS.md`](ADMIN-API-GAPS.md).
+
 ## Deployment
 
 Pushes to `main` that touch `backend/` run [`cloudbuild.yaml`](cloudbuild.yaml):

@@ -125,6 +125,18 @@ backend's CORS allow-list is never exercised.
 - Recent activity table with loading skeletons
 - Responsive layout for mobile and desktop
 
+### Admin Portal (planned)
+
+An admin area at `/admin` (Organizations, Roles, Permissions) and `/settings`
+is planned. It uses only the existing API, so some screens are blocked on
+backend endpoints that do not exist yet — see
+[`../backend/ADMIN-API-GAPS.md`](../backend/ADMIN-API-GAPS.md) and the
+dependency table in [`AGENTS.md`](AGENTS.md).
+
+Buildable today: organization list/create, role create/edit/delete, permission
+attach/detach, permission catalog, and profile/settings.
+Blocked: user administration, role listing/read-back, organization editing.
+
 ### Routing
 
 - File-based routing with TanStack Router

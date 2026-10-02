@@ -37,3 +37,24 @@ The frontend communicates **exclusively** with the `ScrapGo.Core.Api`. It has no
 - **Components:** Shadcn/UI
 
 - **PWA Capabilities:** Service Workers for offline caching of critical data.
+
+## Admin Portal — Next Steps & Backend Dependencies
+
+The admin area (`/admin`, `/settings`) is planned but not built. It consumes
+only `ScrapGo.Core.Api`; several screens are blocked on backend work listed in
+[`../backend/ADMIN-API-GAPS.md`](../backend/ADMIN-API-GAPS.md).
+
+| Frontend feature            | Depends on                                            | Status                                           |
+| --------------------------- | ----------------------------------------------------- | ------------------------------------------------ |
+| Admin nav + route gate      | `CurrentUserDto.permissions` (extend `/api/users/me`) | Interim: gate on `classification === "Internal"` |
+| Organizations list/create   | `GET/POST /api/organizations`                         | Buildable now                                    |
+| Organization edit           | `PUT /api/organizations/{id}`                         | Blocked                                          |
+| Roles table                 | `GET /api/roles`                                      | Interim: browser-local registry of created roles |
+| Role create/edit/delete     | `POST/PUT/DELETE /api/roles`                          | Buildable now                                    |
+| Role permission composition | `GET /api/roles/{id}/permissions` (read-back)         | Attach/detach buildable; read-back blocked       |
+| Permission catalog          | `GET /api/permissions`                                | Buildable now                                    |
+| User administration         | `GET /api/users`, role assignment, enable/disable     | Blocked entirely                                 |
+| Settings / profile          | `GET /api/users/me`, linked-provider link             | Buildable now                                    |
+
+Interim workarounds (local role registry, `classification` gate) must be
+removed once the corresponding backend endpoints land.

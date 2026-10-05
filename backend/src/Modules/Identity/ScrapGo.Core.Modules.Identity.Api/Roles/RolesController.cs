@@ -19,8 +19,9 @@ public sealed record AttachPermissionResponse(bool Attached, string Permission);
 /// These routes carry no <c>{organizationId}</c>: organization context comes
 /// from the request body (create) or the stored role (everything else). The
 /// membership guard therefore can't cover them. Tenant isolation is enforced
-/// inside <see cref="RoleService"/>, which requires the caller to be an
-/// OrganizationAdministrator of the role's own organization.
+/// inside <see cref="RoleService"/>, which requires an active membership in
+/// the role's own organization and the matching Role.* permission there, and
+/// applies the escalation guard.
 /// </remarks>
 [ApiController]
 [Authorize]
@@ -46,7 +47,7 @@ public sealed class RolesController(RoleService roleService) : ControllerBase
         return result.Role is { } role && result.Outcome == RoleMutationOutcome.Success
             ? Created($"/api/roles/{role.Id}", role)
             : MutationProblem(result.Outcome, "organizationId and a non-blank name are required.",
-                "Only an OrganizationAdministrator of the target organization may create roles for it.");
+                "Creating a role requires Role.Create in the target organization.");
     }
 
     [HttpPut("{id:int}")]
@@ -67,7 +68,7 @@ public sealed class RolesController(RoleService roleService) : ControllerBase
         return result.Role is { } role && result.Outcome == RoleMutationOutcome.Success
             ? Ok(role)
             : MutationProblem(result.Outcome, "A non-blank name is required.",
-                "Only an OrganizationAdministrator of this role's organization may edit it.");
+                "Editing a role requires Role.Update in its organization.");
     }
 
     /// <summary>Soft-deletes the role. Refused (409) while any user role still references it.</summary>
@@ -87,8 +88,9 @@ public sealed class RolesController(RoleService roleService) : ControllerBase
         {
             RoleDeletionOutcome.Success => NoContent(),
             RoleDeletionOutcome.NotFound => ControllerProblems.NotFound(),
-            RoleDeletionOutcome.Forbidden => ControllerProblems.NotAnOrganizationAdministrator(
-                "Only an OrganizationAdministrator of this role's organization may delete it."),
+            RoleDeletionOutcome.Forbidden => ControllerProblems.MissingPermission(
+                "Deleting a role requires Role.Delete in its organization."),
+            RoleDeletionOutcome.CannotModifyOwnRole => ControllerProblems.CannotModifyOwnRole(),
             RoleDeletionOutcome.StillAssigned => ProblemResults.Create(
                 StatusCodes.Status409Conflict,
                 "Role is still assigned",
@@ -143,7 +145,8 @@ public sealed class RolesController(RoleService roleService) : ControllerBase
         {
             RoleMutationOutcome.InvalidRequest => ProblemResults.Create(
                 StatusCodes.Status400BadRequest, "Invalid role request", invalidDetail, "invalid_request").ToActionResult(),
-            RoleMutationOutcome.Forbidden => ControllerProblems.NotAnOrganizationAdministrator(forbiddenDetail),
+            RoleMutationOutcome.Forbidden => ControllerProblems.MissingPermission(forbiddenDetail),
+            RoleMutationOutcome.CannotModifyOwnRole => ControllerProblems.CannotModifyOwnRole(),
             RoleMutationOutcome.NotFound => ControllerProblems.NotFound(),
             RoleMutationOutcome.DuplicateName => ProblemResults.Create(
                 StatusCodes.Status409Conflict,
@@ -157,8 +160,14 @@ public sealed class RolesController(RoleService roleService) : ControllerBase
         outcome switch
         {
             RolePermissionOutcome.RoleNotFound => ControllerProblems.NotFound(),
-            RolePermissionOutcome.Forbidden => ControllerProblems.NotAnOrganizationAdministrator(
-                "Only an OrganizationAdministrator of this role's organization may change its permissions."),
+            RolePermissionOutcome.Forbidden => ControllerProblems.MissingPermission(
+                "Changing a role's permissions requires Role.Update in its organization."),
+            RolePermissionOutcome.CannotModifyOwnRole => ControllerProblems.CannotModifyOwnRole(),
+            RolePermissionOutcome.CannotGrantUnheldPermission => ProblemResults.Create(
+                StatusCodes.Status403Forbidden,
+                "Cannot grant unheld permission",
+                "You may only attach permissions you hold yourself in this organization.",
+                "cannot_grant_unheld_permission").ToActionResult(),
             RolePermissionOutcome.UnknownPermission => ProblemResults.Create(
                 StatusCodes.Status400BadRequest, "Unknown permission", unknownPermissionDetail, "unknown_permission").ToActionResult(),
             _ => throw new InvalidOperationException($"Unhandled {nameof(RolePermissionOutcome)}: {outcome}."),

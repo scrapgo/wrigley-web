@@ -1,4 +1,4 @@
-// STORY-016: Custom role CRUD, gated on OrganizationAdministrator of the role's organization.
+// STORY-016: Custom role CRUD, gated on Role.* permissions in the role's organization.
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -21,6 +21,17 @@ public class CustomRoleCrud
             Assert.Equal(organizationId, role.OrganizationId);
             Assert.Equal("Support Lead", role.Name);
             Assert.Equal("Handles support tickets", role.Description);
+        }
+
+        [Fact]
+        public async Task The_response_body_carries_the_roles_organization_id()
+        {
+            var (uid, _, organizationId) = await fixture.SeedOrganizationAdministratorAsync();
+
+            var response = await PostRoleAsync(fixture, uid, organizationId, "Dispatcher", null);
+
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(organizationId, body.GetProperty("organizationId").GetInt32());
         }
 
         [Fact]
@@ -148,9 +159,8 @@ public class CustomRoleCrud
         }
     }
 
-    // Hardening over the legacy check: only the built-in, platform-defined
-    // OrganizationAdministrator role confers admin rights. A custom role that
-    // merely shares the name confers nothing.
+    // Access is permission-based, never by role name: a custom role that
+    // merely shares the built-in name, with no permissions, confers nothing.
     public class Given_a_member_holding_a_custom_role_named_organization_administrator(IdentitySpecFixture fixture)
         : IClassFixture<IdentitySpecFixture>
     {
@@ -167,6 +177,63 @@ public class CustomRoleCrud
             var response = await PostRoleAsync(fixture, memberUid, organizationId, "Escalated", null);
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+    }
+
+    // The flip side: any role carrying Role.Create works, whatever its name.
+    public class Given_a_member_holding_role_create_through_a_custom_role(IdentitySpecFixture fixture)
+        : IClassFixture<IdentitySpecFixture>
+    {
+        [Fact]
+        public async Task Post_roles_creates_the_role()
+        {
+            var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
+            await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.RoleCreate);
+
+            var response = await PostRoleAsync(fixture, uid, organizationId, "Delegated Role", null);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        }
+
+        [Fact]
+        public async Task Post_roles_in_an_org_where_they_lack_it_returns_four_hundred_three()
+        {
+            var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
+            await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.RoleRead);
+
+            var response = await PostRoleAsync(fixture, uid, organizationId, "Not Allowed", null);
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Equal("missing_permission", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+        }
+    }
+
+    // Escalation guard: nobody edits or deletes a role they hold themselves.
+    public class Given_a_member_changing_a_role_they_hold(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    {
+        [Fact]
+        public async Task Put_returns_four_hundred_three_with_reason_cannot_modify_own_role()
+        {
+            var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
+            var ownRoleId = await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.RoleUpdate);
+
+            var response = await fixture.SendAsync(HttpMethod.Put, $"/api/roles/{ownRoleId}", fixture.CreateToken(uid),
+                new { name = "Renamed By Holder" });
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Equal("cannot_modify_own_role", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+        }
+
+        [Fact]
+        public async Task Delete_returns_four_hundred_three_with_reason_cannot_modify_own_role()
+        {
+            var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
+            var ownRoleId = await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.RoleDelete);
+
+            var response = await fixture.SendAsync(HttpMethod.Delete, $"/api/roles/{ownRoleId}", fixture.CreateToken(uid));
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Equal("cannot_modify_own_role", await IdentitySpecFixture.ReadProblemReasonAsync(response));
         }
     }
 

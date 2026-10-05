@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authorization;
+
 namespace ScrapGo.Core.Api.Composition;
 
 /// <summary>
@@ -37,7 +39,12 @@ public static class ScrapGoModulesServiceCollectionExtensions
         services.AddIdentityModule(config);
         services.AddQuickbaseEngineModule(config);
 
-        services.AddAuthorization();
+        // Deny-by-default: an endpoint that declares no authorization at all
+        // still requires an authenticated caller. Every controller also carries
+        // [Authorize]; this catches the one that forgets. Health checks opt out
+        // explicitly with AllowAnonymous.
+        services.AddAuthorization(options => options.FallbackPolicy =
+            new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
 
         // Controllers live in the module Api assemblies, not in this host:
         // register one application part per module Api project.

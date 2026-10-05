@@ -31,11 +31,11 @@ public sealed class UserRoleConfiguration : IEntityTypeConfiguration<UserRole>
         // composite one.
         builder.HasIndex(ur => new { ur.UserId, ur.RoleId, ur.OrganizationId })
             .IsUnique()
-            .HasDatabaseName("ux_user_roles_user_id_role_id_organization_id");
+            .HasDatabaseName(IdentityUniqueConstraints.OrganizationRoleAssignment);
 
         builder.HasIndex(ur => new { ur.UserId, ur.RoleId })
             .IsUnique()
-            .HasDatabaseName("ux_user_roles_user_id_role_id_platform_scope")
+            .HasDatabaseName(IdentityUniqueConstraints.PlatformRoleAssignment)
             .HasFilter("organization_id IS NULL");
 
         builder.HasOne<User>()

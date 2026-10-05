@@ -106,6 +106,35 @@ Get one by signing in through the portal (or any GCIP client), then either:
 
 Start with `GET /api/users/me`: the first call provisions your user record.
 
+### 7. Bootstrap the first platform administrator (once per database)
+
+Platform-wide admin routes (`Admin.Access` at platform scope) deny everyone
+until someone holds the built-in `PlatformAdministrator` role. Nobody gets a
+role by signing in, so the first one is granted by an explicit host command:
+
+1. Apply the Identity migrations (see [Database migrations](#database-migrations)).
+2. Sign in as the person to promote and call `GET /api/users/me` once, which
+   provisions their user record. Their GCIP UID is the token's `sub` claim
+   (also `identityPlatformUid` in the `/api/users/me` response).
+3. With the Cloud SQL proxy running and user-secrets pointing at the target
+   database, run:
+
+   ```bash
+   dotnet run --project src/ScrapGo.Core.Api -- bootstrap-platform-admin --uid <GCIP uid>
+   ```
+
+   The command does not start the web server. It prints one of:
+
+   | Output                       | Exit code | Meaning                                                                    |
+   | ---------------------------- | --------- | -------------------------------------------------------------------------- |
+   | `Granted`                    | 0         | The user now holds `PlatformAdministrator`. An audit row was written.      |
+   | `AlreadyGranted`             | 0         | They already held it. Nothing changed; it is safe to re-run.               |
+   | `UserNotProvisioned`         | 1         | No user for that UID. Do step 2 first.                                     |
+   | `AnotherAdministratorExists` | 1         | Someone else already holds it. Bootstrap is one-time; it never adds a second admin. |
+
+Permissions are resolved per request, so the new admin's next request already
+carries `Admin.Access`. No new token is needed.
+
 ## Configuration
 
 Non-secret development values live in `src/ScrapGo.Core.Api/appsettings.Development.json`.
@@ -183,8 +212,8 @@ Inside the container, the proxy on your machine is `host.docker.internal:5434`
 
 The admin portal needs endpoints this API does not expose yet (user listing,
 role listing and read-back, role assignment, user status, organization and
-membership management), plus a fix for `Admin.Access` never being granted.
-The complete gap list and suggested implementation order are in
+membership management). `Admin.Access` is now reachable through the
+`PlatformAdministrator` bootstrap (above). The complete gap list and suggested implementation order are in
 [`ADMIN-API-GAPS.md`](ADMIN-API-GAPS.md).
 
 ## Deployment

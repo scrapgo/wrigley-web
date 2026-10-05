@@ -27,7 +27,7 @@ public sealed class OrganizationMembershipConfiguration : IEntityTypeConfigurati
         // One membership per (user, organization). Status changes in place.
         builder.HasIndex(m => new { m.UserId, m.OrganizationId })
             .IsUnique()
-            .HasDatabaseName("ux_organization_memberships_user_id_organization_id");
+            .HasDatabaseName(IdentityUniqueConstraints.OrganizationMembership);
 
         builder.HasIndex(m => m.OrganizationId)
             .HasDatabaseName("ix_organization_memberships_organization_id");

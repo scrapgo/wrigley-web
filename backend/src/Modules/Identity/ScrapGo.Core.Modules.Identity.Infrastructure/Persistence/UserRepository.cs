@@ -73,4 +73,27 @@ public sealed class UserRepository(IdentityDbContext dbContext) : IUserRepositor
             .Where(u => u.IdentityPlatformUid == identityPlatformUid)
             .Select(u => (int?)u.Id)
             .SingleOrDefaultAsync(cancellationToken);
+
+    public Task<User?> GetByIdAsync(int userId, CancellationToken cancellationToken) =>
+        dbContext.Users.SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
+
+    public async Task<UserStatus?> UpdateStatusAsync(int userId, UserStatus status, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        if (await GetByIdAsync(userId, cancellationToken) is not { } user)
+        {
+            return null;
+        }
+
+        var previous = user.Status;
+        if (status == UserStatus.Disabled)
+        {
+            user.Disable(now);
+        }
+        else
+        {
+            user.Enable(now);
+        }
+
+        return previous;
+    }
 }

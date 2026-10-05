@@ -52,6 +52,22 @@ public partial class Organization
 
     public bool IsActive => Status == OrganizationStatus.Active;
 
+    /// <summary>
+    /// Changes the display name only. The slug is an identifier and stays as
+    /// created, so renaming never breaks a link or collides with another slug.
+    /// </summary>
+    public void Rename(string name, DateTimeOffset now)
+    {
+        var trimmedName = name.Trim();
+        if (ToSlug(trimmedName).Length == 0)
+        {
+            throw new ArgumentException("An organization name must contain at least one letter or digit.", nameof(name));
+        }
+
+        Name = trimmedName;
+        UpdatedAt = now;
+    }
+
     public void Disable(DateTimeOffset now)
     {
         Status = OrganizationStatus.Disabled;

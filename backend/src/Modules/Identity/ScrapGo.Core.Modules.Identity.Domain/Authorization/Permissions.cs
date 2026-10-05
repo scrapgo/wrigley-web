@@ -33,6 +33,9 @@ public static class Permissions
 
     public const string AdminAccess = "Admin.Access";
 
+    /// <summary>Rename and otherwise edit an organization's own details. Catalog id 18.</summary>
+    public const string OrganizationUpdate = "Organization.Update";
+
     public static readonly IReadOnlyList<string> All =
     [
         UserRead, UserCreate, UserUpdate, UserDelete,
@@ -40,5 +43,6 @@ public static class Permissions
         InvoiceRead, InvoiceCreate, InvoiceUpdate, InvoiceDelete, InvoiceApprove,
         ReportRead, ReportExport,
         AdminAccess,
+        OrganizationUpdate,
     ];
 }

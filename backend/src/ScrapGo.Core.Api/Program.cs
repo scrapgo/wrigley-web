@@ -5,6 +5,4 @@ builder.AddScrapGoHosting();
 
 var app = builder.Build();
 
-app.UseScrapGoPipeline();
-
-app.Run();
+await app.RunScrapGoAsync(args);

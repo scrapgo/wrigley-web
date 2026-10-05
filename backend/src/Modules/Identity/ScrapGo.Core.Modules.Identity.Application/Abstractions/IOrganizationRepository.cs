@@ -10,4 +10,17 @@ public interface IOrganizationRepository
     void Add(Organization organization);
 
     void AddMembership(OrganizationMembership membership);
+
+    /// <summary>A tracked organization, or null. Mutate it through its domain methods and save through <see cref="IUnitOfWork"/>.</summary>
+    Task<Organization?> GetByIdAsync(int organizationId, CancellationToken cancellationToken);
+
+    /// <summary>A tracked membership (any status), or null.</summary>
+    Task<OrganizationMembership?> FindMembershipAsync(int userId, int organizationId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Stages a hard delete of a membership found by <see cref="FindMembershipAsync"/>.
+    /// It does not touch the user's roles in that organization; the caller
+    /// decides whether to revoke them too.
+    /// </summary>
+    void RemoveMembership(OrganizationMembership membership);
 }

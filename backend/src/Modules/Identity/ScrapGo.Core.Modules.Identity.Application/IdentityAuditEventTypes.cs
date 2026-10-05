@@ -27,4 +27,21 @@ public static class IdentityAuditEventTypes
     public const string RolePermissionAttached = "role_permission_attached";
 
     public const string RolePermissionDetached = "role_permission_detached";
+
+    public const string UserDisabled = "user_disabled";
+
+    public const string UserEnabled = "user_enabled";
+
+    public const string RoleAssigned = "role_assigned";
+
+    public const string RoleRevoked = "role_revoked";
+
+    public const string OrganizationUpdated = "organization_updated";
+
+    public const string MembershipAdded = "membership_added";
+
+    public const string MembershipRemoved = "membership_removed";
+
+    /// <summary>The <c>bootstrap-platform-admin</c> command granted the first PlatformAdministrator.</summary>
+    public const string PlatformAdministratorBootstrapped = "platform_administrator_bootstrapped";
 }

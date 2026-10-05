@@ -74,6 +74,41 @@ public class ComposeRoleFromPermissionSubset
         }
     }
 
+    // Escalation guard: an organization administrator holds everything but
+    // Admin.Access, so it can't put Admin.Access on a role it hands out.
+    public class Given_an_org_admin_attaching_a_permission_they_do_not_hold(IdentitySpecFixture fixture)
+        : IClassFixture<IdentitySpecFixture>
+    {
+        [Fact]
+        public async Task Post_role_permissions_returns_four_hundred_three_with_reason_cannot_grant_unheld_permission()
+        {
+            var (uid, roleId) = await SeedAdminWithRoleAsync(fixture);
+
+            var response = await AttachAsync(fixture, uid, roleId, Permissions.AdminAccess);
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Equal("cannot_grant_unheld_permission", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+            Assert.Empty(await PermissionNamesOfAsync(fixture, roleId));
+        }
+    }
+
+    // Escalation guard: a Role.Update holder can't widen the very role that
+    // gives them Role.Update.
+    public class Given_a_member_composing_a_role_they_hold(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    {
+        [Fact]
+        public async Task Post_role_permissions_returns_four_hundred_three_with_reason_cannot_modify_own_role()
+        {
+            var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
+            var ownRoleId = await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.RoleUpdate, Permissions.InvoiceRead);
+
+            var response = await AttachAsync(fixture, uid, ownRoleId, Permissions.InvoiceRead);
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Equal("cannot_modify_own_role", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+        }
+    }
+
     public class Given_a_role_id_that_does_not_exist(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]

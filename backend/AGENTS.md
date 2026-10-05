@@ -48,10 +48,10 @@ While Quickbase remains the System of Record for core business entities (Supplie
 ScrapGo.Core.slnx
 Directory.Build.props      # net10.0, Nullable, ImplicitUsings, TreatWarningsAsErrors
 Directory.Packages.props   # central package versions (transitive pinning on)
-src/
-  ScrapGo.Core.Api/                             # host / composition root only: Program.cs, Composition/, appsettings, Properties/launchSettings.json
 infra/
   terraform/                                    # GCP infrastructure (Cloud Run, Cloud SQL, Secret Manager, Artifact Registry, Cloud Build)
+src/
+  ScrapGo.Core.Api/                             # host / composition root only: Program.cs, Composition/, appsettings, Properties/launchSettings.json
   Shared/
     ScrapGo.Core.Shared.Kernel/                 # cross-module contracts (IAuditLog<TModule>, AuditEvent). No EF.
     ScrapGo.Core.Shared.Infrastructure/         # audit schema + AuditDbContext, Postgres conventions, ProblemDetails helpers
@@ -72,7 +72,7 @@ Every project, test projects included, has a `GlobalUsings.cs`, and each namespa
 
 Naming: folder name == project name == assembly name == root namespace, always prefixed `ScrapGo.Core.` (the `ScrapGo.Core.Api` product name; the frontend is `ScrapGo.Portal.Web`).
 
-Composition: `Program.cs` only calls `AddScrapGoModules(config)`, `AddScrapGoHosting()` and `UseScrapGoPipeline()` (in `src/ScrapGo.Core.Api/Composition/`). To add a module, add one private `Add{Module}Module` call in `ScrapGoModulesServiceCollectionExtensions`; each module keeps its own `Add{Module}Application`/`Add{Module}Infrastructure` extensions.
+Composition: `Program.cs` only calls `AddScrapGoModules(config)`, `AddScrapGoHosting()` and `RunScrapGoAsync(args)` (in `src/ScrapGo.Core.Api/Composition/`). `RunScrapGoAsync` runs a one-shot operator command when `args` names one (`ScrapGoCommands`, e.g. `bootstrap-platform-admin`), and otherwise applies `UseScrapGoPipeline()` and serves HTTP. To add a module, add one private `Add{Module}Module` call in `ScrapGoModulesServiceCollectionExtensions`; each module keeps its own `Add{Module}Application`/`Add{Module}Infrastructure` extensions.
 
 Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user gate, account linking, organizations and memberships, custom roles and the permission catalog, the `[RequirePermission]` engine, and the cross-tenant membership guard.
 
@@ -91,7 +91,12 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 
 - **Organization context comes from the route, never the token.** Any route with an `{organizationId}` segment is covered by `OrganizationMembershipGuardMiddleware` (403 `no_active_membership` without an active membership). Name the segment exactly `organizationId`: a route using `{orgId}` silently gets no guard.
 - **Protect endpoints with permissions, not role names:** `[RequirePermission(Permissions.X)]` (organization-scoped, resolved against the route's `{organizationId}`), or `[RequirePermission(Permissions.X, PlatformScope = true)]` (only platform-scoped assignments, those with no organization, satisfy it). The only role-name literal allowed is in `DefaultRoleNames`.
-- **Role management** (`RoleService`) is gated on the built-in `OrganizationAdministrator` role, held in the role's own organization with an active membership. A custom role that shares the name grants nothing.
+- **Role management** (`RoleService`) is permission-based, never by role name. The caller needs an active membership in the role's organization and, there: `Role.Create` to create, `Role.Update` to edit or attach/detach permissions, `Role.Delete` to delete. (`Role.Assign` is reserved for assigning roles to users.)
+- **Escalation guard:** a caller may only attach a permission they already hold in that organization (403 `cannot_grant_unheld_permission`), and may never edit, delete or recompose a role they hold themselves (403 `cannot_modify_own_role`). Keep both on any new role or assignment write path.
+- **Built-in roles** (`DefaultRoleNames`, platform-defined, not editable over HTTP). Their permissions are seeded by migration:
+  - `OrganizationAdministrator` (id 1): every catalog permission except `Admin.Access`. Granted only per organization, to whoever creates it.
+  - `PlatformAdministrator`: `User.*`, `Role.*`, `Admin.Access`. Assigned only at platform scope (`organization_id` NULL).
+- **No role is ever assigned at sign-in.** Deny-by-default: a freshly provisioned user holds nothing. The first `PlatformAdministrator` is granted only by the explicit, one-time, audited `bootstrap-platform-admin` host command (see README). It is never an HTTP endpoint.
 - **The permission catalog** (`Permissions.All`) is seeded by migration with positional ids, and is read-only over HTTP. Append new permissions; never reorder.
 - **Permission cache:** `IPermissionCache` is a pass-through until Redis is migrated. Every mutation that changes a user's effective permissions must invalidate the affected scopes.
 

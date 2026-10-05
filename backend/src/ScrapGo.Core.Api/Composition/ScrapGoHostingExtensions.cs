@@ -101,16 +101,18 @@ public static class ScrapGoHostingExtensions
 
         app.UseAuthorization();
 
+        // Anonymous by intent: Cloud Run's probes carry no token, and the
+        // authorization fallback policy would otherwise require one.
         app.MapHealthChecks("/healthz", new HealthCheckOptions
         {
             Predicate = _ => false,
             ResponseWriter = HealthCheckResponseWriter.WriteAsync,
-        });
+        }).AllowAnonymous();
         app.MapHealthChecks("/healthz/ready", new HealthCheckOptions
         {
             Predicate = check => check.Tags.Contains(ReadyTag),
             ResponseWriter = HealthCheckResponseWriter.WriteAsync,
-        });
+        }).AllowAnonymous();
 
         app.MapControllers();
 

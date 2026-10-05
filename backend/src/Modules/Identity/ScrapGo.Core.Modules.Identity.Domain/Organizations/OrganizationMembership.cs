@@ -41,4 +41,11 @@ public class OrganizationMembership
         Status = MembershipStatus.Disabled;
         UpdatedAt = now;
     }
+
+    /// <summary>Reactivates a disabled membership, so re-adding a member reuses their row.</summary>
+    public void Enable(DateTimeOffset now)
+    {
+        Status = MembershipStatus.Active;
+        UpdatedAt = now;
+    }
 }

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ScrapGo.Core.Modules.Identity.Application.Authorization;
 
 namespace ScrapGo.Core.Modules.Identity.Application.Roles;
 
@@ -8,24 +9,33 @@ namespace ScrapGo.Core.Modules.Identity.Application.Roles;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Every operation is organization-scoped and re-authorized server-side. The
-/// caller must be an OrganizationAdministrator, with an active membership,
-/// of the role's own organization. For create, that organization is the one
-/// named in the request. For every other operation it is the organization
-/// the stored role belongs to, never anything the client sends. A caller who
-/// can't rename a role can't change what it grants either.
+/// Every operation is organization-scoped, permission-based and re-authorized
+/// server-side. The caller needs an active membership in the role's
+/// organization, plus the permission for the operation there: <c>Role.Create</c>,
+/// <c>Role.Update</c> (edit, and attach or detach permissions) or
+/// <c>Role.Delete</c>. For create, the organization is the one named in the
+/// request. For every other operation it is the organization the stored role
+/// belongs to, never anything the client sends. No role name is consulted:
+/// whoever holds the permission there, through any role, may act.
 /// </para>
 /// <para>
-/// Built-in platform-scoped roles (e.g. OrganizationAdministrator) and
-/// soft-deleted roles are not editable here: they resolve as NotFound.
-/// Every successful mutation is audit-logged in the same transaction and
-/// invalidates the cached permission sets of every current holder of the role.
+/// Escalation guard. A caller may only attach a permission they already hold
+/// in that organization, and may not change a role they hold themselves.
+/// Without it, a <c>Role.Update</c> holder could grant themselves anything.
+/// </para>
+/// <para>
+/// Built-in platform-defined roles (OrganizationAdministrator,
+/// PlatformAdministrator) and soft-deleted roles are not editable here: they
+/// resolve as NotFound. Every successful mutation is audit-logged in the same
+/// transaction and invalidates the cached permission sets of every current
+/// holder of the role.
 /// </para>
 /// </remarks>
 public sealed class RoleService(
     IRoleRepository roles,
     IUserRepository users,
     IAuthorizationQueries authorization,
+    PermissionResolver permissionResolver,
     IPermissionCache permissionCache,
     IUnitOfWork unitOfWork,
     IAuditLog<IdentityModule> auditLog,
@@ -38,7 +48,7 @@ public sealed class RoleService(
             return new(RoleMutationOutcome.InvalidRequest);
         }
 
-        if (await ResolveAdministratorAsync(command.ActorUid, organizationId, cancellationToken) is not { } actorUserId)
+        if (await AuthorizeAsync(command.ActorUid, organizationId, Permissions.RoleCreate, cancellationToken) is not { } actorUserId)
         {
             return new(RoleMutationOutcome.Forbidden);
         }
@@ -72,9 +82,15 @@ public sealed class RoleService(
             return new(RoleMutationOutcome.NotFound);
         }
 
-        if (await ResolveAdministratorAsync(command.ActorUid, role.OrganizationId!.Value, cancellationToken) is not { } actorUserId)
+        var organizationId = role.OrganizationId!.Value;
+        if (await AuthorizeAsync(command.ActorUid, organizationId, Permissions.RoleUpdate, cancellationToken) is not { } actorUserId)
         {
             return new(RoleMutationOutcome.Forbidden);
+        }
+
+        if (await roles.IsHeldByAsync(actorUserId, role.Id, organizationId, cancellationToken))
+        {
+            return new(RoleMutationOutcome.CannotModifyOwnRole);
         }
 
         var before = new { name = role.Name, description = role.Description };
@@ -83,7 +99,7 @@ public sealed class RoleService(
         auditLog.Record(new AuditEvent(
             IdentityAuditEventTypes.RoleUpdated,
             UserId: actorUserId,
-            OrganizationId: role.OrganizationId,
+            OrganizationId: organizationId,
             Metadata: JsonSerializer.Serialize(new { before, after = new { name = role.Name, description = role.Description } })));
 
         if (!await TrySaveRoleAsync(cancellationToken))
@@ -103,9 +119,15 @@ public sealed class RoleService(
             return RoleDeletionOutcome.NotFound;
         }
 
-        if (await ResolveAdministratorAsync(command.ActorUid, role.OrganizationId!.Value, cancellationToken) is not { } actorUserId)
+        var organizationId = role.OrganizationId!.Value;
+        if (await AuthorizeAsync(command.ActorUid, organizationId, Permissions.RoleDelete, cancellationToken) is not { } actorUserId)
         {
             return RoleDeletionOutcome.Forbidden;
+        }
+
+        if (await roles.IsHeldByAsync(actorUserId, role.Id, organizationId, cancellationToken))
+        {
+            return RoleDeletionOutcome.CannotModifyOwnRole;
         }
 
         // No cascading revocation: every assignment must be revoked explicitly first.
@@ -119,10 +141,10 @@ public sealed class RoleService(
         auditLog.Record(new AuditEvent(
             IdentityAuditEventTypes.RoleDeleted,
             UserId: actorUserId,
-            OrganizationId: role.OrganizationId,
+            OrganizationId: organizationId,
             Metadata: JsonSerializer.Serialize(new { roleId = role.Id, name = role.Name })));
 
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        await CommitAsync(cancellationToken);
         await InvalidateHoldersAsync(role.Id, cancellationToken);
 
         return RoleDeletionOutcome.Success;
@@ -144,7 +166,10 @@ public sealed class RoleService(
             return RolePermissionOutcome.RoleNotFound;
         }
 
-        if (await ResolveAdministratorAsync(command.ActorUid, role.OrganizationId!.Value, cancellationToken) is not { } actorUserId)
+        // Composing a role is editing it, so attach and detach both need Role.Update.
+        // Role.Assign is reserved for assigning roles to users.
+        var organizationId = role.OrganizationId!.Value;
+        if (await AuthorizeAsync(command.ActorUid, organizationId, Permissions.RoleUpdate, cancellationToken) is not { } actorUserId)
         {
             return RolePermissionOutcome.Forbidden;
         }
@@ -153,6 +178,17 @@ public sealed class RoleService(
             || await roles.FindPermissionIdAsync(command.PermissionName, cancellationToken) is not { } permissionId)
         {
             return RolePermissionOutcome.UnknownPermission;
+        }
+
+        if (await roles.IsHeldByAsync(actorUserId, role.Id, organizationId, cancellationToken))
+        {
+            return RolePermissionOutcome.CannotModifyOwnRole;
+        }
+
+        // Only attaching can escalate; detaching only ever removes access.
+        if (attach && !await permissionResolver.HasPermissionAsync(command.ActorUid, organizationId, command.PermissionName, cancellationToken))
+        {
+            return RolePermissionOutcome.CannotGrantUnheldPermission;
         }
 
         var existing = await roles.FindRolePermissionAsync(role.Id, permissionId, cancellationToken);
@@ -172,23 +208,30 @@ public sealed class RoleService(
         auditLog.Record(new AuditEvent(
             attach ? IdentityAuditEventTypes.RolePermissionAttached : IdentityAuditEventTypes.RolePermissionDetached,
             UserId: actorUserId,
-            OrganizationId: role.OrganizationId,
+            OrganizationId: organizationId,
             Metadata: JsonSerializer.Serialize(new { roleId = role.Id, permissionName = command.PermissionName })));
 
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        await CommitAsync(cancellationToken);
         await InvalidateHoldersAsync(role.Id, cancellationToken);
 
         return RolePermissionOutcome.Success;
     }
 
     /// <summary>
-    /// The actor's user id if they administer <paramref name="organizationId"/>
-    /// (active membership plus the OrganizationAdministrator role there),
-    /// otherwise null.
+    /// The actor's user id when they have an active membership in
+    /// <paramref name="organizationId"/> and hold <paramref name="permissionName"/>
+    /// there, otherwise null.
     /// </summary>
-    private async Task<int?> ResolveAdministratorAsync(string actorUid, int organizationId, CancellationToken cancellationToken) =>
+    /// <remarks>
+    /// The membership check is explicit because these routes carry no
+    /// <c>{organizationId}</c>, so the membership guard middleware never runs
+    /// for them, and <see cref="PermissionResolver"/> doesn't check membership.
+    /// </remarks>
+    private async Task<int?> AuthorizeAsync(
+        string actorUid, int organizationId, string permissionName, CancellationToken cancellationToken) =>
         await users.GetIdByUidAsync(actorUid, cancellationToken) is { } userId
-        && await authorization.IsOrganizationAdministratorAsync(userId, organizationId, cancellationToken)
+        && await authorization.HasActiveMembershipAsync(userId, organizationId, cancellationToken)
+        && await permissionResolver.HasPermissionAsync(actorUid, organizationId, permissionName, cancellationToken)
             ? userId
             : null;
 
@@ -197,7 +240,7 @@ public sealed class RoleService(
     {
         try
         {
-            await unitOfWork.SaveChangesAsync(cancellationToken);
+            await CommitAsync(cancellationToken);
             return true;
         }
         catch (UniqueConstraintViolationException ex) when (ex.ConstraintName == IdentityUniqueConstraints.RoleNamePerOrganization)
@@ -205,6 +248,17 @@ public sealed class RoleService(
             return false;
         }
     }
+
+    /// <summary>
+    /// Commits the staged change and its staged audit row together, through the
+    /// module's transaction boundary like every other Identity write.
+    /// </summary>
+    private Task CommitAsync(CancellationToken cancellationToken) =>
+        unitOfWork.ExecuteInTransactionAsync(async ct =>
+        {
+            await unitOfWork.SaveChangesAsync(ct);
+            return true;
+        }, cancellationToken);
 
     private async Task InvalidateHoldersAsync(int roleId, CancellationToken cancellationToken)
     {

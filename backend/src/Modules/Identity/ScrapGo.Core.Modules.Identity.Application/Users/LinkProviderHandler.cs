@@ -76,26 +76,30 @@ public sealed class LinkProviderHandler(
             return new(LinkProviderOutcome.UserNotProvisioned);
         }
 
-        auditLog.Record(new AuditEvent(
-            IdentityAuditEventTypes.ProviderLinked,
-            UserId: userId,
-            Metadata: JsonSerializer.Serialize(new { provider = reauth.SignInProvider })));
-
-        // Upserted, not appended: the table mirrors current linked-provider state.
-        if (!string.IsNullOrWhiteSpace(reauth.SignInProvider))
+        await unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
-            var existing = await linkedCredentials.FindAsync(userId, reauth.SignInProvider, cancellationToken);
-            if (existing is null)
-            {
-                linkedCredentials.Add(LinkedCredential.Link(userId, reauth.SignInProvider, now));
-            }
-            else
-            {
-                existing.Relink(now);
-            }
-        }
+            auditLog.Record(new AuditEvent(
+                IdentityAuditEventTypes.ProviderLinked,
+                UserId: userId,
+                Metadata: JsonSerializer.Serialize(new { provider = reauth.SignInProvider })));
 
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+            // Upserted, not appended: the table mirrors current linked-provider state.
+            if (!string.IsNullOrWhiteSpace(reauth.SignInProvider))
+            {
+                var existing = await linkedCredentials.FindAsync(userId, reauth.SignInProvider, ct);
+                if (existing is null)
+                {
+                    linkedCredentials.Add(LinkedCredential.Link(userId, reauth.SignInProvider, now));
+                }
+                else
+                {
+                    existing.Relink(now);
+                }
+            }
+
+            await unitOfWork.SaveChangesAsync(ct);
+            return true;
+        }, cancellationToken);
 
         return new(LinkProviderOutcome.Linked, reauth.SignInProvider);
     }

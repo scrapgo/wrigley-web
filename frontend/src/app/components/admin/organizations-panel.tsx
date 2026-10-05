@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Building2, Plus } from "lucide-react"
+import { Link } from "@tanstack/react-router"
 
 import { Button } from "../ui/button"
 import { Badge } from "../ui/badge"
@@ -122,6 +123,7 @@ export function OrganizationsPanel() {
                                 <TableHead>Name</TableHead>
                                 <TableHead>Slug</TableHead>
                                 <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -141,6 +143,13 @@ export function OrganizationsPanel() {
                                         >
                                             {org.status}
                                         </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="outline" size="sm" asChild>
+                                            <Link to="/admin/organizations/$organizationId" params={{ organizationId: org.id.toString() }}>
+                                                Manage
+                                            </Link>
+                                        </Button>
                                     </TableCell>
                                 </TableRow>
                             ))}

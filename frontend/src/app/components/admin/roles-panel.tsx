@@ -52,12 +52,12 @@ import {
     useDeleteRole,
     useDetachPermission,
     useOrganizations,
+    useOrganizationRoles,
     usePermissions,
-    useRegisteredRoles,
     useUpdateRole,
 } from "../../hooks/useAdminQueries"
-import type { RegisteredRole } from "../../lib/role-registry"
 import { adminErrorMessage } from "../../lib/admin-errors"
+import { useAdminAccess } from "../../hooks/useAdminAccess"
 
 const schema = z.object({
     organizationId: z.string().min(1, "Select an organization."),
@@ -68,21 +68,27 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>
 
 export function RolesPanel() {
-    const rolesQuery = useRegisteredRoles()
     const organizationsQuery = useOrganizations()
     const permissionsQuery = usePermissions()
+    const { toast } = useToast()
+    const { user, holdsRole, can } = useAdminAccess()
+
+    // For now, we'll use the first organization as default
+    // In a real implementation, we'd want to let the user select an organization
+    const firstOrganizationId = organizationsQuery.data?.[0]?.id
+
+    const rolesQuery = useOrganizationRoles(firstOrganizationId || 0)
 
     const createRole = useCreateRole()
     const updateRole = useUpdateRole()
     const deleteRole = useDeleteRole()
     const attachPermission = useAttachPermission()
     const detachPermission = useDetachPermission()
-    const { toast } = useToast()
 
     const [formOpen, setFormOpen] = useState(false)
-    const [editing, setEditing] = useState<RegisteredRole | null>(null)
-    const [deleting, setDeleting] = useState<RegisteredRole | null>(null)
-    const [managing, setManaging] = useState<RegisteredRole | null>(null)
+    const [editing, setEditing] = useState<any | null>(null)
+    const [deleting, setDeleting] = useState<any | null>(null)
+    const [managing, setManaging] = useState<any | null>(null)
 
     const organizations = organizationsQuery.data ?? []
     const roles = rolesQuery.data ?? []
@@ -111,10 +117,10 @@ export function RolesPanel() {
         setFormOpen(true)
     }
 
-    function openEdit(role: RegisteredRole) {
+    function openEdit(role: any) {
         setEditing(role)
         reset({
-            organizationId: String(role.organizationId),
+            organizationId: String(role.organizationId || ""),
             name: role.name,
             description: role.description,
         })
@@ -128,6 +134,7 @@ export function RolesPanel() {
                     id: editing.id,
                     name: values.name,
                     description: values.description,
+                    organizationId: Number(values.organizationId),
                 })
                 toast({ title: "Role updated", variant: "success" })
             } else {
@@ -155,7 +162,10 @@ export function RolesPanel() {
     async function confirmDelete() {
         if (!deleting) return
         try {
-            await deleteRole.mutateAsync(deleting.id)
+            await deleteRole.mutateAsync({
+                id: deleting.id,
+                organizationId: deleting.organizationId || firstOrganizationId || 0
+            })
             toast({ title: "Role deleted", variant: "success" })
             setDeleting(null)
         } catch (err) {
@@ -185,11 +195,7 @@ export function RolesPanel() {
                 </Button>
             </div>
 
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                <strong className="font-semibold">Limited view.</strong> The API has no
-                role-list endpoint, so this table only shows roles created in this browser.
-                Roles created elsewhere will not appear.
-            </div>
+            {/* Warning message removed since we now have server-side role listing */}
 
             {rolesQuery.isLoading ? (
                 <div className="space-y-2 rounded-xl border border-border bg-card p-4">
@@ -237,7 +243,7 @@ export function RolesPanel() {
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant="neutral">
-                                            {role.permissions.length}
+                                            {(role as any).permissions?.length || 0}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
@@ -246,6 +252,8 @@ export function RolesPanel() {
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => setManaging(role)}
+                                                disabled={holdsRole(role.id, role.organizationId)}
+                                                title={holdsRole(role.id, role.organizationId) ? "You cannot modify a role you hold yourself" : ""}
                                             >
                                                 <KeyRound className="h-4 w-4" />
                                                 Permissions
@@ -255,6 +263,7 @@ export function RolesPanel() {
                                                 size="icon"
                                                 aria-label="Edit role"
                                                 onClick={() => openEdit(role)}
+                                                disabled={holdsRole(role.id, role.organizationId)}
                                             >
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
@@ -263,6 +272,7 @@ export function RolesPanel() {
                                                 size="icon"
                                                 aria-label="Delete role"
                                                 onClick={() => setDeleting(role)}
+                                                disabled={holdsRole(role.id, role.organizationId)}
                                             >
                                                 <Trash2 className="h-4 w-4 text-red-600" />
                                             </Button>
@@ -387,10 +397,16 @@ export function RolesPanel() {
             <PermissionDialog
                 role={managing}
                 permissions={(permissionsQuery.data ?? []).map((p) => p.name)}
+                userPermissions={user?.permissions || []}
+                organizationId={firstOrganizationId || 0}
                 onClose={() => setManaging(null)}
                 onAttach={async (roleId, name) => {
                     try {
-                        await attachPermission.mutateAsync({ roleId, permissionName: name })
+                        await attachPermission.mutateAsync({
+                            roleId,
+                            permissionName: name,
+                            organizationId: firstOrganizationId || 0
+                        })
                         setManaging((current) =>
                             current && current.id === roleId
                                 ? {
@@ -411,7 +427,11 @@ export function RolesPanel() {
                 }}
                 onDetach={async (roleId, name) => {
                     try {
-                        await detachPermission.mutateAsync({ roleId, permissionName: name })
+                        await detachPermission.mutateAsync({
+                            roleId,
+                            permissionName: name,
+                            organizationId: firstOrganizationId || 0
+                        })
                         setManaging((current) =>
                             current && current.id === roleId
                                 ? {
@@ -438,28 +458,38 @@ export function RolesPanel() {
 function PermissionDialog({
     role,
     permissions,
+    userPermissions,
+    organizationId,
     onClose,
     onAttach,
     onDetach,
 }: {
-    role: RegisteredRole | null
+    role: any | null
     permissions: string[]
+    userPermissions: { organizationId: number | null; permissions: string[] }[]
+    organizationId: number
     onClose: () => void
     onAttach: (roleId: number, name: string) => Promise<void>
     onDetach: (roleId: number, name: string) => Promise<void>
 }) {
     const [pending, setPending] = useState<string | null>(null)
 
+    // Filter permissions to only those the user holds in this organization
+    const userOrgPermissions = userPermissions.find(p => p.organizationId === organizationId);
+    const availablePermissions = userOrgPermissions
+        ? permissions.filter(p => userOrgPermissions.permissions.includes(p))
+        : [];
+
     const grouped = useMemo(() => {
         const groups = new Map<string, string[]>()
-        for (const name of permissions) {
+        for (const name of availablePermissions) {
             const [resource] = name.split(".")
             const list = groups.get(resource) ?? []
             list.push(name)
             groups.set(resource, list)
         }
         return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b))
-    }, [permissions])
+    }, [availablePermissions])
 
     if (!role) return null
 
@@ -483,8 +513,8 @@ function PermissionDialog({
                 <DialogHeader>
                     <DialogTitle>Permissions for “{role.name}”</DialogTitle>
                     <DialogDescription>
-                        Changes apply immediately. The API has no read-back endpoint, so this
-                        list reflects only what was changed in this browser.
+                        Changes apply immediately. The API now supports read-back of role permissions.
+                        Only permissions you hold in this organization are available for assignment.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-5 py-2">
@@ -495,6 +525,9 @@ function PermissionDialog({
                             </p>
                             <div className="grid gap-2 sm:grid-cols-2">
                                 {names.map((name) => {
+                                    // Only show permissions the user holds
+                                    if (!availablePermissions.includes(name)) return null;
+
                                     const checked = role.permissions.includes(name)
                                     return (
                                         <label

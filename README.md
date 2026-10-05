@@ -54,13 +54,35 @@ The frontend talks only to the backend API; the backend is the only component th
    ```
 
    The frontend runs on http://localhost:5174 (or the next available port if 5174 is busy) and connects to the backend API at http://localhost:5141. The API's CORS settings already allow requests from the frontend's development server.
-   
+
    Key features of the frontend:
    - Login page at `/login` with email/password authentication
    - Dashboard at `/dashboard` with stats cards and activity table
    - Protected routes that require authentication
    - Mobile-responsive design using Tailwind CSS
    - Loading skeletons for better UX during data fetching
+
+### Admin Access
+
+The portal includes administrative features for managing organizations, roles, permissions, and users. There are two levels of administrative access:
+
+1. **Platform Administrator**: A single user with full system access. This role is bootstrapped using the command:
+
+   ```bash
+   dotnet run --project src/ScrapGo.Core.Api -- bootstrap-platform-admin --uid <GCIP_UID>
+   ```
+
+2. **Organization Administrators**: Users with administrative access limited to specific organizations. These roles can be assigned through the API.
+
+### Recent Work Completed
+
+A summary of recent work to set up administrative access is available in [WORK-DONE.md](WORK-DONE.md).
+
+For detailed information about administrative APIs and features, see:
+
+- Backend admin implementation: [`backend/ADMIN-API-GAPS-v2.md`](backend/ADMIN-API-GAPS-v2.md)
+- Frontend admin status: [`frontend/ADMIN-FRONTEND-STATUS.md`](frontend/ADMIN-FRONTEND-STATUS.md)
+- Frontend admin gaps: [`frontend/ADMIN-FRONTEND-GAPS.md`](frontend/ADMIN-FRONTEND-GAPS.md)
 
 ## Folder Structure
 

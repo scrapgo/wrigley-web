@@ -23,6 +23,9 @@ export interface CurrentUser {
     email: string
     status: string
     classification: string
+    roles: { roleId: number; name: string; organizationId: number | null }[]
+    // One entry per scope the caller holds anything in. organizationId null = platform scope.
+    permissions: { organizationId: number | null; permissions: string[] }[]
 }
 
 /** GCIP sign-in response (subset we care about). */

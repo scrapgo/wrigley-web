@@ -1,11 +1,12 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { ShieldCheck } from 'lucide-react'
+import { ShieldCheck, User, Users } from 'lucide-react'
 
 import { AppShell } from '../components/app-shell'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { OrganizationsPanel } from '../components/admin/organizations-panel'
 import { RolesPanel } from '../components/admin/roles-panel'
 import { PermissionsPanel } from '../components/admin/permissions-panel'
+import { UsersPanel } from '../components/admin/users-panel'
 
 export const Route = createFileRoute('/admin')({
     component: AdminComponent,
@@ -32,6 +33,10 @@ function AdminComponent() {
                         <ShieldCheck className="h-4 w-4" />
                         Permissions
                     </TabsTrigger>
+                    <TabsTrigger value="users">
+                        <Users className="h-4 w-4" />
+                        Users
+                    </TabsTrigger>
                 </TabsList>
                 <TabsContent value="organizations">
                     <OrganizationsPanel />
@@ -41,6 +46,9 @@ function AdminComponent() {
                 </TabsContent>
                 <TabsContent value="permissions">
                     <PermissionsPanel />
+                </TabsContent>
+                <TabsContent value="users">
+                    <UsersPanel />
                 </TabsContent>
             </Tabs>
         </AppShell>

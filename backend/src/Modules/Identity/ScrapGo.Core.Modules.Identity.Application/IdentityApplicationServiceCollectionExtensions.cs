@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using ScrapGo.Core.Modules.Identity.Application.Applications;
 using ScrapGo.Core.Modules.Identity.Application.Authorization;
 using ScrapGo.Core.Modules.Identity.Application.Organizations;
 using ScrapGo.Core.Modules.Identity.Application.Roles;
@@ -24,6 +25,12 @@ public static class IdentityApplicationServiceCollectionExtensions
         services.AddScoped<EvaluateOrganizationMembershipHandler>();
         services.AddScoped<OrganizationReadService>();
         services.AddScoped<OrganizationAdminService>();
+        services.AddScoped<PlatformOrganizationService>();
+        services.AddScoped<InvitationService>();
+
+        services.AddScoped<ApplicationCatalogService>();
+        services.AddScoped<OrganizationApplicationService>();
+        services.AddScoped<ApplicationAccessService>();
 
         services.AddScoped<RoleService>();
         services.AddScoped<RoleReadService>();

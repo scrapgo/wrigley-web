@@ -12,7 +12,7 @@ public class RequirePermission
         public async Task The_request_is_allowed()
         {
             var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
-            await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.InvoiceRead);
+            await fixture.GrantPermissionsAsync(userId, organizationId, SpecPermissions.Alpha);
 
             var response = await SendPermissionScopedAsync(fixture, fixture.CreateToken(uid), organizationId);
 
@@ -42,7 +42,7 @@ public class RequirePermission
         public async Task The_request_is_denied_with_four_hundred_three()
         {
             var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
-            await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.ReportRead);
+            await fixture.GrantPermissionsAsync(userId, organizationId, SpecPermissions.Beta);
 
             var response = await SendPermissionScopedAsync(fixture, fixture.CreateToken(uid), organizationId);
 
@@ -59,7 +59,7 @@ public class RequirePermission
         public async Task Resolution_uses_the_route_org_not_the_claim()
         {
             var (uid, userId, orgA) = await fixture.SeedMemberAsync();
-            await fixture.GrantPermissionsAsync(userId, orgA, Permissions.InvoiceRead);
+            await fixture.GrantPermissionsAsync(userId, orgA, SpecPermissions.Alpha);
             var orgB = await fixture.SeedOrganizationAsync();
             await fixture.SeedMembershipAsync(userId, orgB);
 
@@ -77,7 +77,7 @@ public class RequirePermission
         public async Task The_request_returns_four_hundred_with_reason_organization_context_required()
         {
             var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
-            await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.InvoiceRead);
+            await fixture.GrantPermissionsAsync(userId, organizationId, SpecPermissions.Alpha);
 
             var response = await fixture.SendAsync(HttpMethod.Get, "/api/_test/permission-scoped-no-org", fixture.CreateToken(uid));
 
@@ -110,7 +110,7 @@ public class RequirePermission
         public async Task The_request_is_denied()
         {
             var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
-            var roleId = await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.InvoiceRead);
+            var roleId = await fixture.GrantPermissionsAsync(userId, organizationId, SpecPermissions.Alpha);
             var role = await fixture.DbContext.Roles.SingleAsync(r => r.Id == roleId);
             role.MarkDeleted(DateTimeOffset.UtcNow);
             await fixture.DbContext.SaveChangesAsync();

@@ -14,6 +14,14 @@ public sealed class UserRoleConfiguration : IEntityTypeConfiguration<UserRole>
         builder.Property(ur => ur.OrganizationId)
             .IsRequired(false);
 
+        // Set for an application grant; always the granted role's own
+        // application (enforced by the granting service).
+        builder.Property(ur => ur.ApplicationId).IsRequired(false);
+
+        builder.Property(ur => ur.ExpiresAt)
+            .HasColumnType("timestamptz")
+            .IsRequired(false);
+
         builder.Property(ur => ur.CreatedAt)
             .HasColumnType("timestamptz")
             .IsRequired();
@@ -25,6 +33,12 @@ public sealed class UserRoleConfiguration : IEntityTypeConfiguration<UserRole>
         builder.HasIndex(ur => ur.UserId).HasDatabaseName("ix_user_roles_user_id");
         builder.HasIndex(ur => ur.RoleId).HasDatabaseName("ix_user_roles_role_id");
         builder.HasIndex(ur => ur.OrganizationId).HasDatabaseName("ix_user_roles_organization_id");
+        builder.HasIndex(ur => new { ur.OrganizationId, ur.ApplicationId }).HasDatabaseName("ix_user_roles_organization_id_application_id");
+
+        // No platform-wide application grants: an application grant is always
+        // inside one organization.
+        builder.ToTable(t => t.HasCheckConstraint(
+            "ck_user_roles_application_scope", "application_id IS NULL OR organization_id IS NOT NULL"));
 
         // A role is held at most once per scope. The partial index covers the
         // platform scope, since NULL organization ids never collide in the
@@ -49,6 +63,12 @@ public sealed class UserRoleConfiguration : IEntityTypeConfiguration<UserRole>
             .HasForeignKey(ur => ur.RoleId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_user_roles_role_id");
+
+        builder.HasOne<CatalogApplication>()
+            .WithMany()
+            .HasForeignKey(ur => ur.ApplicationId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_user_roles_application_id");
 
         builder.HasOne<Organization>()
             .WithMany()

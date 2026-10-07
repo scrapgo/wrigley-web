@@ -174,7 +174,9 @@ public sealed class RoleService(
             return RolePermissionOutcome.Forbidden;
         }
 
+        // Retired permissions can still be detached (cleanup), never attached.
         if (string.IsNullOrWhiteSpace(command.PermissionName)
+            || (attach && Permissions.IsRetired(command.PermissionName))
             || await roles.FindPermissionIdAsync(command.PermissionName, cancellationToken) is not { } permissionId)
         {
             return RolePermissionOutcome.UnknownPermission;

@@ -6,13 +6,15 @@ public class BuiltInRolePermissionSeed
     public class Given_the_migration_has_applied(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
-        public async Task Platform_administrator_holds_user_role_and_admin_access_only()
+        public async Task Platform_administrator_holds_user_role_admin_access_and_platform_administration()
         {
             string[] expected =
             [
                 Permissions.UserRead, Permissions.UserCreate, Permissions.UserUpdate, Permissions.UserDelete,
                 Permissions.RoleRead, Permissions.RoleCreate, Permissions.RoleUpdate, Permissions.RoleDelete, Permissions.RoleAssign,
                 Permissions.AdminAccess,
+                Permissions.OrganizationCreate, Permissions.OrganizationDeactivate,
+                Permissions.ApplicationAssign, Permissions.ModuleManage, Permissions.CatalogManage,
             ];
 
             Assert.Equal(expected.Order(StringComparer.Ordinal), await PermissionNamesOfAsync(DefaultRoleNames.PlatformAdministrator));
@@ -21,7 +23,7 @@ public class BuiltInRolePermissionSeed
         [Fact]
         public async Task Organization_administrator_holds_every_permission_except_admin_access() =>
             Assert.Equal(
-                Permissions.All.Where(p => p != Permissions.AdminAccess).Order(StringComparer.Ordinal),
+                SpecPermissions.OrganizationAdministratorGrants.Order(StringComparer.Ordinal),
                 await PermissionNamesOfAsync(DefaultRoleNames.OrganizationAdministrator));
 
         [Fact]

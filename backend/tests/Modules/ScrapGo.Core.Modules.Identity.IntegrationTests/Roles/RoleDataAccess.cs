@@ -13,8 +13,8 @@ public class RoleDataAccess
         {
             var (_, userA, orgA) = await fixture.SeedMemberAsync();
             var (_, userB, orgB) = await fixture.SeedMemberAsync();
-            var orgARole = await fixture.GrantPermissionsAsync(userA, orgA, Permissions.InvoiceRead);
-            var orgBRole = await fixture.GrantPermissionsAsync(userB, orgB, Permissions.InvoiceRead);
+            var orgARole = await fixture.GrantPermissionsAsync(userA, orgA, SpecPermissions.Alpha);
+            var orgBRole = await fixture.GrantPermissionsAsync(userB, orgB, SpecPermissions.Alpha);
 
             await using var scope = fixture.Services.CreateAsyncScope();
             var roles = await scope.ServiceProvider.GetRequiredService<IAuthorizationQueries>()
@@ -31,7 +31,7 @@ public class RoleDataAccess
         public async Task Soft_deleted_roles_are_not_listed()
         {
             var (_, userId, orgId) = await fixture.SeedMemberAsync();
-            var roleId = await fixture.GrantPermissionsAsync(userId, orgId, Permissions.InvoiceRead);
+            var roleId = await fixture.GrantPermissionsAsync(userId, orgId, SpecPermissions.Alpha);
             var role = await fixture.DbContext.Roles.SingleAsync(r => r.Id == roleId);
             role.MarkDeleted(DateTimeOffset.UtcNow);
             await fixture.DbContext.SaveChangesAsync();
@@ -50,7 +50,7 @@ public class RoleDataAccess
         public async Task List_user_roles_returns_every_scope_platform_first()
         {
             var (_, userId, orgId) = await fixture.SeedMemberAsync();
-            var orgRole = await fixture.GrantPermissionsAsync(userId, orgId, Permissions.InvoiceRead);
+            var orgRole = await fixture.GrantPermissionsAsync(userId, orgId, SpecPermissions.Alpha);
             var platformRole = await fixture.GrantPermissionsAsync(userId, organizationId: null, Permissions.UserRead);
 
             await using var scope = fixture.Services.CreateAsyncScope();
@@ -64,20 +64,20 @@ public class RoleDataAccess
         public async Task Get_role_permissions_returns_the_grants_by_name()
         {
             var (_, userId, orgId) = await fixture.SeedMemberAsync();
-            var roleId = await fixture.GrantPermissionsAsync(userId, orgId, Permissions.ReportRead, Permissions.InvoiceRead);
+            var roleId = await fixture.GrantPermissionsAsync(userId, orgId, SpecPermissions.Beta, SpecPermissions.Alpha);
 
             await using var scope = fixture.Services.CreateAsyncScope();
             var names = await scope.ServiceProvider.GetRequiredService<IRoleRepository>()
                 .GetRolePermissionsAsync(roleId, CancellationToken.None);
 
-            Assert.Equal([Permissions.InvoiceRead, Permissions.ReportRead], names);
+            Assert.Equal([SpecPermissions.Alpha, SpecPermissions.Beta], names);
         }
 
         [Fact]
         public async Task Remove_user_role_inside_a_transaction_revokes_only_that_scope()
         {
             var (_, userId, orgId) = await fixture.SeedMemberAsync();
-            var roleId = await fixture.GrantPermissionsAsync(userId, orgId, Permissions.InvoiceRead);
+            var roleId = await fixture.GrantPermissionsAsync(userId, orgId, SpecPermissions.Alpha);
             var otherOrg = await fixture.SeedOrganizationAsync();
             await fixture.SeedMembershipAsync(userId, otherOrg);
             await fixture.AssignRoleAsync(userId, roleId, otherOrg);

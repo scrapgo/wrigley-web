@@ -1,3 +1,4 @@
+using ScrapGo.Core.Modules.Identity.Application.Users;
 using ScrapGo.Core.Shared.Kernel.Paging;
 
 namespace ScrapGo.Core.Modules.Identity.Application.Organizations;
@@ -37,6 +38,14 @@ public sealed class OrganizationReadService(IAuthorizationQueries authorization)
         await authorization.GetOrganizationDetailAsync(organizationId, cancellationToken) is { } organization
             ? new(OrganizationReadOutcome.Success, organization)
             : new(OrganizationReadOutcome.NotFound);
+
+    /// <summary>
+    /// Every role one member holds in this organization: organization-level
+    /// roles and application grants, with expiry. Null (NotFound) if they
+    /// aren't a member, so other users can't be probed.
+    /// </summary>
+    public Task<IReadOnlyList<AssignedRoleDto>?> ListMemberGrantsAsync(int organizationId, int userId, CancellationToken cancellationToken) =>
+        authorization.ListMemberGrantsAsync(organizationId, userId, cancellationToken);
 
     public async Task<OrganizationMembersResult> ListMembersAsync(
         int organizationId, int? page, int? pageSize, CancellationToken cancellationToken)

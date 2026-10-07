@@ -15,7 +15,7 @@ public class PlatformAdministratorBootstrap
         [Fact]
         public async Task A_platform_scoped_admin_access_check_is_allowed()
         {
-            var (uid, _) = await fixture.SeedUserAsync();
+            var (uid, _) = await fixture.SeedUserAsync(classification: UserClassification.Internal);
 
             Assert.Equal(BootstrapPlatformAdministratorOutcome.Granted, await BootstrapAsync(fixture, uid));
 
@@ -30,7 +30,7 @@ public class PlatformAdministratorBootstrap
         [Fact]
         public async Task The_second_run_is_a_no_op_with_one_grant_and_one_audit_row()
         {
-            var (uid, userId) = await fixture.SeedUserAsync();
+            var (uid, userId) = await fixture.SeedUserAsync(classification: UserClassification.Internal);
 
             Assert.Equal(BootstrapPlatformAdministratorOutcome.Granted, await BootstrapAsync(fixture, uid));
             Assert.Equal(BootstrapPlatformAdministratorOutcome.AlreadyGranted, await BootstrapAsync(fixture, uid));
@@ -57,7 +57,7 @@ public class PlatformAdministratorBootstrap
         [Fact]
         public async Task A_platform_scoped_admin_access_check_is_denied()
         {
-            var (uid, _) = await fixture.SeedUserAsync();
+            var (uid, _) = await fixture.SeedUserAsync(classification: UserClassification.Internal);
 
             var response = await fixture.SendAsync(HttpMethod.Get, PlatformScopedPath, fixture.CreateToken(uid));
 
@@ -105,8 +105,8 @@ public class PlatformAdministratorBootstrap
         [Fact]
         public async Task Bootstrapping_a_different_user_is_refused()
         {
-            var (firstUid, _) = await fixture.SeedUserAsync();
-            var (secondUid, secondUserId) = await fixture.SeedUserAsync("second@example.com");
+            var (firstUid, _) = await fixture.SeedUserAsync(classification: UserClassification.Internal);
+            var (secondUid, secondUserId) = await fixture.SeedUserAsync("second@example.com", UserClassification.Internal);
             Assert.Equal(BootstrapPlatformAdministratorOutcome.Granted, await BootstrapAsync(fixture, firstUid));
 
             Assert.Equal(BootstrapPlatformAdministratorOutcome.AnotherAdministratorExists, await BootstrapAsync(fixture, secondUid));

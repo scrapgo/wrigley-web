@@ -13,7 +13,7 @@ public class PermissionsDoNotLeakAcrossOrgs
         public async Task InitializeAsync()
         {
             (var uid, var userId, _orgA) = await fixture.SeedMemberAsync();
-            await fixture.GrantPermissionsAsync(userId, _orgA, Permissions.InvoiceRead);
+            await fixture.GrantPermissionsAsync(userId, _orgA, SpecPermissions.Alpha);
             _orgB = await fixture.SeedOrganizationAsync();
             await fixture.SeedMembershipAsync(userId, _orgB);
             _token = fixture.CreateToken(uid);
@@ -38,7 +38,7 @@ public class PermissionsDoNotLeakAcrossOrgs
         public async Task Requesting_invoice_read_in_org_b_returns_four_hundred_three()
         {
             var (uid, userId, orgA) = await fixture.SeedMemberAsync();
-            await fixture.GrantPermissionsAsync(userId, orgA, Permissions.InvoiceRead);
+            await fixture.GrantPermissionsAsync(userId, orgA, SpecPermissions.Alpha);
             var orgB = await fixture.SeedOrganizationAsync();
 
             var response = await RequirePermission.SendPermissionScopedAsync(fixture, fixture.CreateToken(uid), orgB);

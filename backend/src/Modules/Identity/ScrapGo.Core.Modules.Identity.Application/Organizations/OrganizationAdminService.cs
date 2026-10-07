@@ -163,6 +163,7 @@ public sealed class OrganizationAdminService(
         }
 
         var actorUserId = await users.GetIdByUidAsync(command.ActorUid, cancellationToken);
+        var revokedApplicationIds = new HashSet<int>();
 
         var outcome = await unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
@@ -179,8 +180,14 @@ public sealed class OrganizationAdminService(
             foreach (var assignment in await roles.ListUserRoleAssignmentsAsync(command.UserId, command.OrganizationId, ct))
             {
                 roles.RemoveUserRole(assignment);
+                if (assignment.ApplicationId is { } applicationId)
+                {
+                    revokedApplicationIds.Add(applicationId);
+                }
+
+                // Organization-level grants are role_revoked; application grants access_revoked.
                 auditLog.Record(new AuditEvent(
-                    IdentityAuditEventTypes.RoleRevoked,
+                    assignment.ApplicationId is null ? IdentityAuditEventTypes.RoleRevoked : IdentityAuditEventTypes.AccessRevoked,
                     UserId: actorUserId,
                     OrganizationId: command.OrganizationId,
                     Metadata: JsonSerializer.Serialize(new
@@ -188,6 +195,7 @@ public sealed class OrganizationAdminService(
                         targetUserId = command.UserId,
                         roleId = assignment.RoleId,
                         organizationId = command.OrganizationId,
+                        applicationId = assignment.ApplicationId,
                         reason = IdentityAuditEventTypes.MembershipRemoved,
                     })));
             }
@@ -206,6 +214,11 @@ public sealed class OrganizationAdminService(
         if (outcome == RemoveMemberOutcome.Removed)
         {
             await permissionCache.InvalidateAsync(new PermissionScope(command.UserId, command.OrganizationId), cancellationToken);
+            foreach (var applicationId in revokedApplicationIds)
+            {
+                await permissionCache.InvalidateAsync(
+                    new PermissionScope(command.UserId, command.OrganizationId, applicationId), cancellationToken);
+            }
         }
 
         return outcome;

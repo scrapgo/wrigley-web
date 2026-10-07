@@ -40,6 +40,16 @@ public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
             .IsRequired();
 
         builder.Ignore(r => r.IsOrganizationScoped);
+        builder.Ignore(r => r.IsApplicationRole);
+
+        // Set for application roles (templates and org custom).
+        builder.Property(r => r.ApplicationId).IsRequired(false);
+        builder.HasIndex(r => r.ApplicationId).HasDatabaseName("ix_roles_application_id");
+        builder.HasOne<CatalogApplication>()
+            .WithMany()
+            .HasForeignKey(r => r.ApplicationId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_roles_application_id");
 
         // Names are unique per organization. Postgres treats NULLs as distinct
         // in a unique index, so platform-scoped names need their own partial
@@ -79,6 +89,7 @@ public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
             Name = DefaultRoleNames.OrganizationAdministrator,
             Description = string.Empty,
             OrganizationId = (int?)null,
+            ApplicationId = (int?)null,
             Status = RoleStatus.Active,
             CreatedAt = seededAt,
             UpdatedAt = seededAt,

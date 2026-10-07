@@ -18,6 +18,9 @@ public enum BootstrapPlatformAdministratorOutcome
 
     /// <summary>A different user already holds it. Bootstrap is one-time; later grants go through the role-assignment API.</summary>
     AnotherAdministratorExists,
+
+    /// <summary>The user is External (a customer). Platform roles are for internal (Google Workspace) users only.</summary>
+    ExternalUserNotAllowed,
 }
 
 /// <summary>
@@ -46,6 +49,11 @@ public sealed class BootstrapPlatformAdministratorHandler(
             || await users.GetIdByUidAsync(command.IdentityPlatformUid, cancellationToken) is not { } userId)
         {
             return BootstrapPlatformAdministratorOutcome.UserNotProvisioned;
+        }
+
+        if (await users.GetByIdAsync(userId, cancellationToken) is { Classification: UserClassification.External })
+        {
+            return BootstrapPlatformAdministratorOutcome.ExternalUserNotAllowed;
         }
 
         BootstrapPlatformAdministratorOutcome outcome;

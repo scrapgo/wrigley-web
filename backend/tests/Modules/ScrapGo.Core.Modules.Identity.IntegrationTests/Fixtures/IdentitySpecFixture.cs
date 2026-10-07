@@ -40,12 +40,19 @@ namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Fixtures;
 public class IdentitySpecFixture : IAsyncLifetime
 {
     public const string ProjectId = "scrapgo-identity-spec-project";
+
+    /// <summary>
+    /// The fixture's internal Google Workspace domain, on <c>INTERNAL_HD_ALLOWLIST</c>
+    /// by default. Tokens minted for users seeded as Internal carry it as
+    /// <c>hd</c>, as real Workspace sign-ins do.
+    /// </summary>
+    public const string InternalDomain = "scrapgo.example";
     public static readonly string Issuer = $"https://securetoken.google.com/{ProjectId}";
 
     private const string SigningKeyId = "identity-spec-signing-key-1";
 
     private static readonly string[] EnvironmentVariables =
-        ["ConnectionStrings__Default", "Gcip__ProjectId", "Gcip__JwksUri", "INTERNAL_HD_ALLOWLIST"];
+        ["ConnectionStrings__Default", "Gcip__ProjectId", "Gcip__JwksUri", "INTERNAL_HD_ALLOWLIST", "Identity__RequireMfaForExternalUsers"];
 
     private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
     private readonly RSA _signingRsa = RSA.Create(2048);
@@ -61,8 +68,19 @@ public class IdentitySpecFixture : IAsyncLifetime
             new RsaSecurityKey(_signingRsa) { KeyId = SigningKeyId }, SecurityAlgorithms.RsaSha256);
     }
 
-    /// <summary><c>INTERNAL_HD_ALLOWLIST</c> for this fixture. Null (the default) leaves it unset.</summary>
-    protected virtual string? HdAllowlist => null;
+    /// <summary><c>INTERNAL_HD_ALLOWLIST</c> for this fixture: <see cref="InternalDomain"/> by default; null leaves it unset.</summary>
+    protected virtual string? HdAllowlist => InternalDomain;
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, bool> _internalUids = new();
+
+    /// <summary>
+    /// Marks a uid as an internal Workspace user: tokens minted for it carry
+    /// <c>hd</c> = <see cref="InternalDomain"/> unless the caller says otherwise.
+    /// </summary>
+    public void MarkInternal(string uid) => _internalUids[uid] = true;
+
+    /// <summary><c>Identity:RequireMfaForExternalUsers</c> for this fixture. Null (the default) leaves it unset, i.e. off.</summary>
+    protected virtual string? RequireMfaForExternalUsers => null;
 
     public HttpClient Client { get; private set; } = null!;
 
@@ -92,6 +110,7 @@ public class IdentitySpecFixture : IAsyncLifetime
         // below. Set to something JWKS-shaped for clarity in diagnostics.
         Environment.SetEnvironmentVariable("Gcip__JwksUri", "https://fake-gcip-jwks.invalid/keys");
         Environment.SetEnvironmentVariable("INTERNAL_HD_ALLOWLIST", HdAllowlist);
+        Environment.SetEnvironmentVariable("Identity__RequireMfaForExternalUsers", RequireMfaForExternalUsers);
 
         var jwksJson = BuildJwksJson(_signingRsa, SigningKeyId);
 
@@ -118,6 +137,8 @@ public class IdentitySpecFixture : IAsyncLifetime
 
         DbContext = _scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         await DbContext.Database.MigrateAsync();
+        await SpecPermissions.SeedAsync(DbContext);
+        await SpecApplications.SeedAsync(DbContext);
 
         Client = _factory.CreateClient();
     }
@@ -162,6 +183,7 @@ public class IdentitySpecFixture : IAsyncLifetime
         string? hd = null,
         DateTimeOffset? authTime = null,
         string? signInProvider = null,
+        string? signInSecondFactor = null,
         string? issuer = null,
         string? audience = null,
         DateTime? notBefore = null,
@@ -170,7 +192,8 @@ public class IdentitySpecFixture : IAsyncLifetime
         bool includeIat = true,
         bool includeNbf = true,
         bool tamperSignature = false,
-        IEnumerable<(string Type, string Value)>? extraClaims = null)
+        IEnumerable<(string Type, string Value)>? extraClaims = null,
+        bool withoutHostedDomain = false)
     {
         var notBeforeInstant = notBefore ?? DateTime.UtcNow.AddMinutes(-1);
         var resolvedExpires = expires ?? DateTime.UtcNow.AddMinutes(30);
@@ -197,6 +220,9 @@ public class IdentitySpecFixture : IAsyncLifetime
             claims.Add(new Claim("email", email));
         }
 
+        // An internal (Workspace) user's token carries hd unless the spec says
+        // otherwise, e.g. to prove a non-Workspace sign-in gets no platform access.
+        hd ??= !withoutHostedDomain && _internalUids.ContainsKey(uid) ? InternalDomain : null;
         if (hd is not null)
         {
             claims.Add(new Claim("hd", hd));
@@ -207,10 +233,12 @@ public class IdentitySpecFixture : IAsyncLifetime
             claims.Add(EpochClaim("auth_time", authTime.Value.UtcDateTime));
         }
 
-        if (signInProvider is not null)
+        if (signInProvider is not null || signInSecondFactor is not null)
         {
             claims.Add(new Claim(
-                "firebase", JsonSerializer.Serialize(new { sign_in_provider = signInProvider }), JsonClaimValueTypes.Json));
+                "firebase",
+                JsonSerializer.Serialize(new { sign_in_provider = signInProvider, sign_in_second_factor = signInSecondFactor }),
+                JsonClaimValueTypes.Json));
         }
 
         // Lets a spec mint an attacker-shaped claim (e.g. a forged organizationId)
@@ -298,8 +326,20 @@ public class IdentitySpecFixture : IAsyncLifetime
     }
 }
 
-/// <summary><see cref="IdentitySpecFixture"/> with <c>INTERNAL_HD_ALLOWLIST=example.com</c>.</summary>
+/// <summary><see cref="IdentitySpecFixture"/> with <c>INTERNAL_HD_ALLOWLIST</c> also containing <c>example.com</c>.</summary>
 public sealed class AllowlistedHdIdentitySpecFixture : IdentitySpecFixture
 {
-    protected override string? HdAllowlist => "example.com";
+    protected override string? HdAllowlist => $"example.com,{InternalDomain}";
+}
+
+/// <summary><see cref="IdentitySpecFixture"/> with no <c>INTERNAL_HD_ALLOWLIST</c> at all.</summary>
+public sealed class NoAllowlistIdentitySpecFixture : IdentitySpecFixture
+{
+    protected override string? HdAllowlist => null;
+}
+
+/// <summary><see cref="IdentitySpecFixture"/> with the external-user MFA requirement turned on.</summary>
+public sealed class MfaRequiredIdentitySpecFixture : IdentitySpecFixture
+{
+    protected override string? RequireMfaForExternalUsers => "true";
 }

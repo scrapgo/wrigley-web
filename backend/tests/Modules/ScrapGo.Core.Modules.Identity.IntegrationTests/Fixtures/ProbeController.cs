@@ -23,18 +23,23 @@ public sealed class ProbeController : ControllerBase
     [AcceptVerbs("GET", "POST", "PUT", "DELETE", Route = "org-scoped/{organizationId:int}")]
     public IActionResult OrgScoped() => Ok(new { ok = true });
 
-    [RequirePermission(Permissions.InvoiceRead)]
+    [RequirePermission(SpecPermissions.Alpha)]
     [HttpGet("permission-scoped/{organizationId:int}")]
     public IActionResult PermissionScoped() => Ok(new { ok = true });
 
     /// <summary>An organization-scoped permission on a route with no {organizationId}: must be 400, not 403.</summary>
-    [RequirePermission(Permissions.InvoiceRead)]
+    [RequirePermission(SpecPermissions.Alpha)]
     [HttpGet("permission-scoped-no-org")]
     public IActionResult PermissionScopedWithoutOrganization() => Ok(new { ok = true });
 
     [RequirePermission(Permissions.AdminAccess, PlatformScope = true)]
     [HttpGet("platform-scoped")]
     public IActionResult PlatformScoped() => Ok(new { ok = true });
+
+    /// <summary>Application-scoped: SpecApp.Alpha.Read within the route's organization and application.</summary>
+    [RequirePermission(SpecApplications.AlphaRead)]
+    [HttpGet("app-scoped/{organizationId:int}/{applicationId:int}")]
+    public IActionResult AppScoped() => Ok(new { ok = true });
 
     /// <summary>No authorization attribute at all: only the fallback policy stands between it and an anonymous caller.</summary>
     [HttpGet("no-attribute")]

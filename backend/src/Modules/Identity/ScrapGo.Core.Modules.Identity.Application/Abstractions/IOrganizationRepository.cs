@@ -23,4 +23,12 @@ public interface IOrganizationRepository
     /// decides whether to revoke them too.
     /// </summary>
     void RemoveMembership(OrganizationMembership membership);
+
+    /// <summary>
+    /// Hard-deletes the organization and everything that belongs to it:
+    /// application entitlements and modules, invitations and their grants,
+    /// every role grant in it, its custom roles and their permissions, and its
+    /// memberships. Audit entries are kept. Runs in the caller's transaction.
+    /// </summary>
+    Task DeleteWithDependentsAsync(int organizationId, CancellationToken cancellationToken);
 }

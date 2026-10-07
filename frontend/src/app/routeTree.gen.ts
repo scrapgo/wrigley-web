@@ -12,8 +12,11 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as InvitationsRouteImport } from './routes/invitations'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as AdminOrganizationsOrganizationIdRouteImport } from './routes/admin_.organizations.$organizationId'
+import { Route as AdminUsersUserIdRouteImport } from './routes/admin_.users.$userId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -30,6 +33,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InvitationsRoute = InvitationsRouteImport.update({
+  id: '/invitations',
+  path: '/invitations',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -40,43 +48,91 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminOrganizationsOrganizationIdRoute =
+  AdminOrganizationsOrganizationIdRouteImport.update({
+    id: '/admin_/organizations/$organizationId',
+    path: '/admin/organizations/$organizationId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AdminUsersUserIdRoute = AdminUsersUserIdRouteImport.update({
+  id: '/admin_/users/$userId',
+  path: '/admin/users/$userId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/dashboard': typeof DashboardRoute
+  '/invitations': typeof InvitationsRoute
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
+  '/admin/users/$userId': typeof AdminUsersUserIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/dashboard': typeof DashboardRoute
+  '/invitations': typeof InvitationsRoute
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
+  '/admin/users/$userId': typeof AdminUsersUserIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/dashboard': typeof DashboardRoute
+  '/invitations': typeof InvitationsRoute
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/admin_/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
+  '/admin_/users/$userId': typeof AdminUsersUserIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/dashboard' | '/login' | '/settings'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/dashboard'
+    | '/invitations'
+    | '/login'
+    | '/settings'
+    | '/admin/organizations/$organizationId'
+    | '/admin/users/$userId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin' | '/dashboard' | '/login' | '/settings'
-  id: '__root__' | '/' | '/admin' | '/dashboard' | '/login' | '/settings'
+  to:
+    | '/'
+    | '/admin'
+    | '/dashboard'
+    | '/invitations'
+    | '/login'
+    | '/settings'
+    | '/admin/organizations/$organizationId'
+    | '/admin/users/$userId'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/dashboard'
+    | '/invitations'
+    | '/login'
+    | '/settings'
+    | '/admin_/organizations/$organizationId'
+    | '/admin_/users/$userId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   DashboardRoute: typeof DashboardRoute
+  InvitationsRoute: typeof InvitationsRoute
   LoginRoute: typeof LoginRoute
   SettingsRoute: typeof SettingsRoute
+  AdminOrganizationsOrganizationIdRoute: typeof AdminOrganizationsOrganizationIdRoute
+  AdminUsersUserIdRoute: typeof AdminUsersUserIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -102,6 +158,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/invitations': {
+      id: '/invitations'
+      path: '/invitations'
+      fullPath: '/invitations'
+      preLoaderRoute: typeof InvitationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -116,6 +179,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin_/organizations/$organizationId': {
+      id: '/admin_/organizations/$organizationId'
+      path: '/admin/organizations/$organizationId'
+      fullPath: '/admin/organizations/$organizationId'
+      preLoaderRoute: typeof AdminOrganizationsOrganizationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin_/users/$userId': {
+      id: '/admin_/users/$userId'
+      path: '/admin/users/$userId'
+      fullPath: '/admin/users/$userId'
+      preLoaderRoute: typeof AdminUsersUserIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -123,8 +200,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   DashboardRoute: DashboardRoute,
+  InvitationsRoute: InvitationsRoute,
   LoginRoute: LoginRoute,
   SettingsRoute: SettingsRoute,
+  AdminOrganizationsOrganizationIdRoute: AdminOrganizationsOrganizationIdRoute,
+  AdminUsersUserIdRoute: AdminUsersUserIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

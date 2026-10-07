@@ -28,8 +28,8 @@ public class OrganizationDataAccess
             var (_, userId, orgA) = await fixture.SeedMemberAsync();
             var orgB = await fixture.SeedOrganizationAsync();
             await fixture.SeedMembershipAsync(userId, orgB);
-            var orgARole = await fixture.GrantPermissionsAsync(userId, orgA, Permissions.InvoiceRead);
-            await fixture.GrantPermissionsAsync(userId, orgB, Permissions.ReportRead);
+            var orgARole = await fixture.GrantPermissionsAsync(userId, orgA, SpecPermissions.Alpha);
+            await fixture.GrantPermissionsAsync(userId, orgB, SpecPermissions.Beta);
             await fixture.GrantPermissionsAsync(userId, organizationId: null, Permissions.UserRead);
 
             var member = Assert.Single((await ListMembersAsync(fixture, orgA, new PageRequest())).Items);

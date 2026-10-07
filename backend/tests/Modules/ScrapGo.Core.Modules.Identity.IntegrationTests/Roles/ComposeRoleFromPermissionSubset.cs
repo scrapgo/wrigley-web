@@ -10,36 +10,36 @@ public class ComposeRoleFromPermissionSubset
         {
             var (uid, roleId) = await SeedAdminWithRoleAsync(fixture);
 
-            var response = await AttachAsync(fixture, uid, roleId, Permissions.InvoiceRead);
+            var response = await AttachAsync(fixture, uid, roleId, SpecPermissions.Alpha);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            Assert.Equal([Permissions.InvoiceRead], await PermissionNamesOfAsync(fixture, roleId));
+            Assert.Equal([SpecPermissions.Alpha], await PermissionNamesOfAsync(fixture, roleId));
         }
 
         [Fact]
         public async Task Attaching_the_same_permission_twice_is_idempotent()
         {
             var (uid, roleId) = await SeedAdminWithRoleAsync(fixture);
-            (await AttachAsync(fixture, uid, roleId, Permissions.InvoiceRead)).EnsureSuccessStatusCode();
+            (await AttachAsync(fixture, uid, roleId, SpecPermissions.Alpha)).EnsureSuccessStatusCode();
 
-            var response = await AttachAsync(fixture, uid, roleId, Permissions.InvoiceRead);
+            var response = await AttachAsync(fixture, uid, roleId, SpecPermissions.Alpha);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            Assert.Equal([Permissions.InvoiceRead], await PermissionNamesOfAsync(fixture, roleId));
+            Assert.Equal([SpecPermissions.Alpha], await PermissionNamesOfAsync(fixture, roleId));
         }
 
         [Fact]
         public async Task Delete_role_permissions_detaches_only_the_named_permission()
         {
             var (uid, roleId) = await SeedAdminWithRoleAsync(fixture);
-            (await AttachAsync(fixture, uid, roleId, Permissions.InvoiceRead)).EnsureSuccessStatusCode();
-            (await AttachAsync(fixture, uid, roleId, Permissions.ReportRead)).EnsureSuccessStatusCode();
+            (await AttachAsync(fixture, uid, roleId, SpecPermissions.Alpha)).EnsureSuccessStatusCode();
+            (await AttachAsync(fixture, uid, roleId, SpecPermissions.Beta)).EnsureSuccessStatusCode();
 
             var response = await fixture.SendAsync(
-                HttpMethod.Delete, $"/api/roles/{roleId}/permissions/{Permissions.InvoiceRead}", fixture.CreateToken(uid));
+                HttpMethod.Delete, $"/api/roles/{roleId}/permissions/{SpecPermissions.Alpha}", fixture.CreateToken(uid));
 
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-            Assert.Equal([Permissions.ReportRead], await PermissionNamesOfAsync(fixture, roleId));
+            Assert.Equal([SpecPermissions.Beta], await PermissionNamesOfAsync(fixture, roleId));
         }
     }
 
@@ -100,9 +100,9 @@ public class ComposeRoleFromPermissionSubset
         public async Task Post_role_permissions_returns_four_hundred_three_with_reason_cannot_modify_own_role()
         {
             var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
-            var ownRoleId = await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.RoleUpdate, Permissions.InvoiceRead);
+            var ownRoleId = await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.RoleUpdate, SpecPermissions.Alpha);
 
-            var response = await AttachAsync(fixture, uid, ownRoleId, Permissions.InvoiceRead);
+            var response = await AttachAsync(fixture, uid, ownRoleId, SpecPermissions.Alpha);
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
             Assert.Equal("cannot_modify_own_role", await IdentitySpecFixture.ReadProblemReasonAsync(response));
@@ -116,7 +116,7 @@ public class ComposeRoleFromPermissionSubset
         {
             var (uid, _, _) = await fixture.SeedOrganizationAdministratorAsync();
 
-            var response = await AttachAsync(fixture, uid, roleId: 999_999, Permissions.InvoiceRead);
+            var response = await AttachAsync(fixture, uid, roleId: 999_999, SpecPermissions.Alpha);
 
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }

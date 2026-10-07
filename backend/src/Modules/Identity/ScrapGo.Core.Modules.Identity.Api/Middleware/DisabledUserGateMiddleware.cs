@@ -22,26 +22,61 @@ public sealed class DisabledUserGateMiddleware(RequestDelegate next)
     /// <summary>The 403 <c>reason</c> extension member value.</summary>
     public const string DisabledUserReason = "user_disabled";
 
+    /// <summary>The 403 <c>reason</c> when an external user's token lacks a second factor (MFA requirement on).</summary>
+    public const string MfaRequiredReason = "mfa_required";
+
     public async Task InvokeAsync(HttpContext context, EvaluateUserStatusGateHandler gate)
     {
         // A missing uid on an authenticated principal is defensive only (GCIP
         // tokens always carry sub). It falls through so the anomaly surfaces
         // in the endpoint, not as a silent pass here.
-        if (context.User.Identity?.IsAuthenticated == true
-            && context.User.GetIdentityPlatformUid() is { } uid
-            && await gate.HandleAsync(uid, context.RequestAborted) == UserStatusGateDecision.Deny)
+        if (context.User.Identity?.IsAuthenticated == true && context.User.GetIdentityPlatformUid() is { } uid)
         {
-            // No WWW-Authenticate header: RFC 6750 §3 governs bearer
-            // challenges, and this is an application-level 403 against a
-            // caller who already presented a valid token.
-            await ProblemResults.WriteAsync(context.Response, ProblemResults.Create(
-                StatusCodes.Status403Forbidden,
-                "User disabled",
-                "This account has been disabled.",
-                DisabledUserReason));
-            return;
+            // No WWW-Authenticate header on these 403s: RFC 6750 §3 governs
+            // bearer challenges, and this is an application-level 403 against
+            // a caller who already presented a valid token.
+            switch (await gate.HandleAsync(uid, HasSecondFactor(context.User), context.RequestAborted))
+            {
+                case UserStatusGateDecision.Deny:
+                    await ProblemResults.WriteAsync(context.Response, ProblemResults.Create(
+                        StatusCodes.Status403Forbidden,
+                        "User disabled",
+                        "This account has been disabled.",
+                        DisabledUserReason));
+                    return;
+
+                case UserStatusGateDecision.DenyMfaRequired:
+                    await ProblemResults.WriteAsync(context.Response, ProblemResults.Create(
+                        StatusCodes.Status403Forbidden,
+                        "Multi-factor authentication required",
+                        "Sign in again with your second factor.",
+                        MfaRequiredReason));
+                    return;
+            }
         }
 
         await next(context);
+    }
+
+    /// <summary>GCIP records a completed second factor as <c>firebase.sign_in_second_factor</c>.</summary>
+    private static bool HasSecondFactor(System.Security.Claims.ClaimsPrincipal user)
+    {
+        if (user.FindFirst("firebase")?.Value is not { Length: > 0 } firebase)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(firebase);
+            return document.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
+                && document.RootElement.TryGetProperty("sign_in_second_factor", out var factor)
+                && factor.ValueKind == System.Text.Json.JsonValueKind.String
+                && !string.IsNullOrEmpty(factor.GetString());
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return false;
+        }
     }
 }

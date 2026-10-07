@@ -62,6 +62,17 @@ public sealed class OrganizationDetailController(OrganizationReadService organiz
             var result => throw new InvalidOperationException($"Unhandled {nameof(OrganizationReadOutcome)}: {result.Outcome}."),
         };
 
+    /// <summary>Every role the member holds here, organization-level and per application, with expiry.</summary>
+    [HttpGet("members/{userId:int}/grants")]
+    [RequirePermission(PermissionCatalog.UserRead)]
+    [ProducesResponseType<IReadOnlyList<AssignedRoleDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ListMemberGrants(int organizationId, int userId, CancellationToken cancellationToken) =>
+        await organizationReads.ListMemberGrantsAsync(organizationId, userId, cancellationToken) is { } grants
+            ? Ok(grants)
+            : ControllerProblems.NotFound();
+
     /// <summary>Renames the organization (its slug stays as created) and returns the updated detail.</summary>
     [HttpPut]
     [RequirePermission(PermissionCatalog.OrganizationUpdate)]

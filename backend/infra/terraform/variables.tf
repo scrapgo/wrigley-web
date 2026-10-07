@@ -112,9 +112,9 @@ variable "cors_allowed_origins" {
 }
 
 variable "internal_hd_allowlist" {
-  description = "Comma-separated Google Workspace hosted domains classified as Internal users (INTERNAL_HD_ALLOWLIST). Blank means everyone is External."
+  description = "Comma-separated Google Workspace hosted domains (INTERNAL_HD_ALLOWLIST). Users signing in with Google from these domains are Internal, and platform access requires such a sign-in on every request. Blank means nobody has platform access."
   type        = string
-  default     = ""
+  default     = "scrapgo.com"
 }
 
 variable "quickbase_realm_hostname" {

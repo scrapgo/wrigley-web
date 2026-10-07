@@ -1,150 +1,62 @@
 # Admin Frontend Status
 
-This document tracks the current status of admin frontend implementation, reflecting what has been completed and what remains to be done.
+Where the admin portal (`/admin`, `/admin/organizations/$organizationId`,
+`/admin/users/$userId`, `/settings`) stands against the backend admin API.
 
-## Current Status
+- **Verified:** 2026-10-05 against the code, after commit `31612ca` and the build fixes below.
+- **Endpoint contracts:** see [`ADMIN-FRONTEND-GAPS.md`](ADMIN-FRONTEND-GAPS.md).
+- **Paths:** relative to `frontend/src/app/`.
 
-As of 2026-10-05, the backend admin API has been fully implemented (Tasks 1-10 completed). The frontend now needs to be updated to use the real permissions system instead of the interim admin gate.
+## Build health
 
-## Completed Backend Work
+| Check | Result |
+| --- | --- |
+| `npm run build` (`tsr generate && tsc -b && vite build`) | **Passes** |
+| `npx tsc -p tsconfig.app.json --noEmit` | **0 errors** (was 38 after `31612ca`) |
+| `npm run lint` | 15 errors, 2 warnings (was 66 problems). Mostly `react-refresh/only-export-components` in route files (`dashboard`, `index`, `login`, `settings`), which predate the admin work |
 
-The following backend features are now available:
+**Fixed on 2026-10-05:**
+- **New route files moved out of the `/admin` layout.** They are now `routes/admin_.users.$userId.tsx` and `routes/admin_.organizations.$organizationId.tsx`. The old names (`admin.users…`) nested them under `/admin`, which has no `<Outlet/>`, so the pages could never render. The URLs are unchanged.
+- **Wrong import paths** (`../../components/…` → `../components/…`).
+- **Stale `routeTree.gen.ts`, now regenerated.** The project has no Vite router plugin, so `dev` and `build` now run `tsr generate` first.
+- **`roles-panel.tsx`:**
+  - The Permissions dialog was opened with a list row that has no `permissions`, so the first attach threw. It now reads the role from `GET …/roles/{id}` (`useOrganizationRoleDetail`), which attach and detach refresh.
+  - The "permissions" column always showed 0; it now shows Built-in / Custom.
+  - Built-in roles are read-only in the UI (the API answers 404 to writes on them).
+- **`Role.organizationId`** added to the `Role` type.
+- **No more requests for organization 0 or role 0:** queries are `enabled` only for real ids.
+- **Unused imports and variables** removed across the admin panels.
 
-1. **User Management**
-   - `GET /api/users/me` now includes roles and per-scope permissions
-   - Platform-scoped user management: `GET /api/users`, `GET /api/users/{id}`
-   - User enable/disable: `POST /api/users/{id}/disable`, `POST /api/users/{id}/enable`
+## Feature status
 
-2. **Role Management**
-   - Organization-scoped role reads: `GET /api/organizations/{organizationId}/roles`, `GET /api/organizations/{organizationId}/roles/{id}`, `GET /api/organizations/{organizationId}/roles/{id}/permissions`
-   - Role assignment: `POST /api/users/{id}/roles`, `DELETE /api/users/{id}/roles/{roleId}?organizationId=`
+| Feature | Endpoints | Status | Notes |
+| --- | --- | --- | --- |
+| Admin nav + gate | `GET /api/users/me` (`roles`, `permissions`) | **Done** | `hooks/useAdminAccess.ts`: `can(permission, organizationId \| null)`, `isPlatformAdmin`, `holdsRole`. The nav shows Administration only when `isAdmin`. |
+| Browser-local role registry | n/a | **Removed** | `lib/role-registry.ts` deleted; roles come from the API. |
+| Organizations list | `GET /api/organizations` | **Done** | The caller's own organizations only. |
+| Organization create | `POST /api/admin/organizations` | **Done (platform admins)** | Self-service creation was removed (ORG-APP-MODULE-MODEL.md, Decision 11). The form asks for the first administrator's user id and shows only to platform admins. Invite-by-email is in v2. |
+| Organization detail + rename | `GET/PUT /api/organizations/{organizationId}` | **Done** | `components/admin/organization-detail-panel.tsx`. |
+| Organization members | `GET/POST/DELETE /api/organizations/{organizationId}/members[/{userId}]` | **Done** | `organization-members-panel.tsx`. Members are added by **numeric user id**; there's no user search for org admins (backend gap). |
+| Roles table | `GET /api/organizations/{organizationId}/roles` | **Partial** | Always shows the caller's **first** organization; there's no organization picker yet. |
+| Role create / edit / delete | `POST /api/roles`, `PUT/DELETE /api/roles/{id}` | **Done** | Disabled for built-in roles and roles the caller holds. |
+| Role permission composition | `POST /api/roles/{id}/permissions`, `DELETE /api/roles/{id}/permissions/{name}`, read-back `GET /api/organizations/{organizationId}/roles/{id}` | **Done** | The picker offers only permissions the caller holds in that organization. |
+| Permission catalog | `GET /api/permissions` | **Done** | |
+| User administration (platform) | `GET /api/users`, `GET /api/users/{id}`, `POST /api/users/{id}/disable` / `enable` | **Done** | `users-panel.tsx`. The Users tab is visible to every admin, but non-platform admins get 403 from the API; gate it on `isPlatformAdmin`. |
+| Role assignment | `POST /api/users/{id}/roles`, `DELETE /api/users/{id}/roles/{roleId}?organizationId=` | **Partial** | `role-assignment-panel.tsx` at `/admin/users/$userId`. The organization is a free-text id field; it should be a picker. Platform-scope assignment (empty organization) only works for platform admins. |
+| Error messages | all `reason` codes | **Done** | `lib/admin-errors.ts` maps every reason the API sends; `not_organization_administrator` is removed. |
+| Settings / profile | `GET /api/users/me`, `POST /api/users/me/linked-providers/link` | **Done** | |
 
-3. **Organization Management**
-   - Organization CRUD: `GET/PUT /api/organizations/{organizationId}`
-   - Membership management: `GET/POST/DELETE /api/organizations/{organizationId}/members/{userId}`
+## Remaining frontend work
 
-4. **Permission System**
-   - Platform Administrator role with `Admin.Access` permission
-   - Organization Administrator role with comprehensive org-level permissions
-   - Bootstrap command for first Platform Administrator
+1. **Organization picker** in the roles panel and role assignment, instead of "first organization" and a free-text id.
+2. **Gate the Users tab** (and the `/admin/users/$userId` route) on `isPlatformAdmin`.
+3. **Refetch `/me` after role or membership changes** that affect the caller, so `can()` stays current. Mutations invalidate admin queries today, not the current-user query.
+4. **Lint:** move the non-component exports out of the route files (`react-refresh/only-export-components`).
+5. **Code-split** the 700 kB bundle (Vite warns over 500 kB).
+6. **Application and module administration, invitations, and the `/me` application tree:** see [`ADMIN-FRONTEND-GAPS-v2.md`](ADMIN-FRONTEND-GAPS-v2.md).
 
-## Frontend Implementation Status
+## Endpoint reference (correct paths)
 
-### 1. Critical: Replace Interim Admin Gate (Priority 1)
-
-**Status**: Incomplete
-**Files affected**: `hooks/useAdminAccess.ts`, `lib/api-client.ts`
-
-The current implementation shows admin features to every authenticated user. This needs to be replaced with real permission checking:
-
-```ts
-interface CurrentUser {
-  id: number;
-  identityPlatformUid: string;
-  email: string;
-  status: string;
-  classification: string;
-  roles: { roleId: number; name: string; organizationId: number | null }[];
-  // One entry per scope the caller holds anything in. organizationId null = platform scope.
-  permissions: { organizationId: number | null; permissions: string[] }[];
-}
-```
-
-Implementation requirements:
-
-- Platform admin: `Admin.Access` in the entry where `organizationId === null`
-- Organization admin views: Check permissions in that organization's entry
-- Add helper function `can(permission, organizationId | null)` for nav items, route guards and buttons
-- After any role or membership change, refetch `/me` (invalidate its query)
-
-### 2. Delete Browser-Local Role Registry (Priority 2)
-
-**Status**: Incomplete
-**Files affected**: `lib/role-registry.ts`, `hooks/useAdminQueries.ts`
-
-The read endpoints that were missing now exist. Remove the local registry and replace with server queries:
-
-- Remove `lib/role-registry.ts`
-- Replace `useRegisteredRoles` with server queries
-
-### 3. Implement Organization-Scoped Admin Features (Priority 3)
-
-**Status**: Incomplete
-**Files affected**: Various admin components
-
-With the user having OrganizationAdministrator role for organization ID 1, implement the following:
-
-#### 3.1 Organization Management
-
-- List organizations: `GET /api/organizations`
-- Organization detail: `GET /api/organizations/{organizationId}`
-- Update organization: `PUT /api/organizations/{organizationId}` (requires `Organization.Update`)
-
-#### 3.2 Role Management within Organization
-
-- List roles: `GET /api/organizations/{organizationId}/roles`
-- Role detail: `GET /api/organizations/{organizationId}/roles/{id}`
-- Role permissions: `GET /api/organizations/{organizationId}/roles/{id}/permissions`
-- Create role: `POST /api/roles` (with organizationId in body)
-- Update role: `PUT /api/roles/{id}`
-- Delete role: `DELETE /api/roles/{id}`
-- Attach permission: `POST /api/roles/{id}/permissions`
-- Detach permission: `DELETE /api/roles/{id}/permissions?permissionName=`
-
-#### 3.3 User Management within Organization
-
-- List members: `GET /api/organizations/{organizationId}/members`
-- Add member: `POST /api/organizations/{organizationId}/members/{userId}`
-- Remove member: `DELETE /api/organizations/{organizationId}/members/{userId}`
-- Assign role: `POST /api/users/{id}/roles`
-- Revoke role: `DELETE /api/users/{id}/roles/{roleId}?organizationId=`
-
-### 4. Implement Platform Admin Features (Priority 4)
-
-**Status**: Incomplete
-**Note**: Requires Platform Administrator access
-
-#### 4.1 Platform User Management
-
-- List users: `GET /api/users?search=&status=&page=&pageSize=`
-- User detail: `GET /api/users/{id}`
-- Disable/enable users: `POST /api/users/{id}/disable`, `POST /api/users/{id}/enable`
-
-#### 4.2 Platform Role Management
-
-- Manage platform-scoped roles and permissions
-- Assign platform-level roles to users
-
-## Implementation Guidelines
-
-### Permission Checking
-
-Never flatten scopes. For example, `Role.Update` in org 12 grants nothing in org 15 or at platform scope. An organization appears only while the caller's membership there is active.
-
-### Error Handling
-
-Update error handling to account for new error reasons:
-
-- `cannot_modify_own_role`
-- `cannot_grant_unheld_permission`
-- `last_organization_administrator`
-- `last_platform_administrator`
-- `cannot_disable_self`
-
-### UI/UX Considerations
-
-- Disable actions for roles the user holds themselves
-- Only offer permissions in the permission picker that the user actually holds in that organization
-- Show built-in roles (organizationId === null) as read-only
-- Implement proper loading states and error handling
-
-## Next Steps
-
-1. **Immediate**: Replace interim admin gate with real permission checking
-2. **Short-term**: Remove browser-local role registry and implement server queries
-3. **Medium-term**: Implement organization-scoped admin features using available permissions
-4. **Long-term**: Implement platform admin features (requires Platform Administrator access)
-
-## Testing
-
-All backend endpoints are covered by integration tests. Frontend implementation should be tested against these endpoints to ensure proper functionality and error handling.
+- Detach a permission from a role: **`DELETE /api/roles/{id}/permissions/{name}`** (path segment, URL-encoded), not a query string.
+- Revoke a role: `DELETE /api/users/{id}/roles/{roleId}?organizationId={organizationId}`. Omit `organizationId` for platform scope.
+- Role reads are organization-scoped: `GET /api/organizations/{organizationId}/roles[/{id}[/permissions]]`.

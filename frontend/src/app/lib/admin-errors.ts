@@ -33,6 +33,20 @@ const REASON_MESSAGES: Record<string, string> = {
     user_not_a_member: 'Add the user to the organization first.',
     last_platform_administrator: 'Assign another platform administrator first.',
     last_organization_administrator: 'Assign another organization administrator first.',
+    invitation_not_found: 'This invitation is no longer valid.',
+    invitation_expired: 'This invitation has expired. Ask for a new one.',
+    email_not_verified: 'Verify your email address (or sign in with Google), then accept again.',
+    invitation_email_mismatch: 'Sign in with the email address the invitation was sent to.',
+    invitation_pending: 'This email already has a pending invitation.',
+    application_not_assigned: 'Assign the application to the organization first.',
+    application_not_found: "This organization doesn't have that application.",
+    module_not_found: "That module isn't part of this application.",
+    last_application_administrator: 'Appoint another application administrator first.',
+    organization_deactivated: 'This organization has been deactivated.',
+    external_user_not_allowed: "External users can't hold platform roles.",
+    organization_active: 'Deactivate the organization before deleting it.',
+    user_not_found: 'No user with that id or email. They must sign in once first.',
+    workspace_sign_in_required: 'Platform administration requires signing in with your Google Workspace account. Sign out and use "Sign in with Google".',
 }
 
 export function adminErrorMessage(error: unknown): string {

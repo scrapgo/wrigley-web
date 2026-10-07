@@ -2,12 +2,11 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Search, User, UserCog, UserX, Users } from "lucide-react"
+import { Search, UserCog, UserX, Users } from "lucide-react"
 import { Link } from "@tanstack/react-router"
 
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
-import { Label } from "../ui/label"
 import { Skeleton } from "../ui/skeleton"
 import { EmptyState } from "../ui/empty-state"
 import {
@@ -18,30 +17,11 @@ import {
     TableHeader,
     TableRow,
 } from "../ui/table"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from "../ui/dialog"
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "../ui/alert-dialog"
 import { useToast } from "../ui/toast"
 import {
     useDisableUser,
     useEnableUser,
     useUsers,
-    useUserDetail,
 } from "../../hooks/useAdminQueries"
 import { adminErrorMessage } from "../../lib/admin-errors"
 
@@ -66,7 +46,6 @@ export function UsersPanel() {
     const {
         register,
         handleSubmit,
-        reset,
     } = useForm<SearchFormValues>({
         resolver: zodResolver(searchSchema),
         defaultValues: { search: "", status: undefined },

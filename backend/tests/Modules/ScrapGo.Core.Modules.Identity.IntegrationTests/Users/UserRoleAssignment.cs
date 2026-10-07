@@ -12,7 +12,7 @@ public class UserRoleAssignment
         {
             var (adminUid, adminId, organizationId) = await fixture.SeedOrganizationAdministratorAsync();
             var memberId = await SeedMemberOfAsync(fixture, organizationId);
-            var roleId = await CreateOrgRoleAsync(fixture, adminUid, organizationId, Permissions.InvoiceRead);
+            var roleId = await CreateOrgRoleAsync(fixture, adminUid, organizationId, SpecPermissions.Alpha);
 
             var response = await AssignAsync(fixture, adminUid, memberId, roleId, organizationId);
 
@@ -32,7 +32,7 @@ public class UserRoleAssignment
         {
             var (adminUid, _, organizationId) = await fixture.SeedOrganizationAdministratorAsync();
             var memberId = await SeedMemberOfAsync(fixture, organizationId);
-            var roleId = await CreateOrgRoleAsync(fixture, adminUid, organizationId, Permissions.InvoiceRead);
+            var roleId = await CreateOrgRoleAsync(fixture, adminUid, organizationId, SpecPermissions.Alpha);
             (await AssignAsync(fixture, adminUid, memberId, roleId, organizationId)).EnsureSuccessStatusCode();
 
             var response = await AssignAsync(fixture, adminUid, memberId, roleId, organizationId);
@@ -47,7 +47,7 @@ public class UserRoleAssignment
         {
             var (adminUid, adminId, organizationId) = await fixture.SeedOrganizationAdministratorAsync();
             var memberId = await SeedMemberOfAsync(fixture, organizationId);
-            var roleId = await CreateOrgRoleAsync(fixture, adminUid, organizationId, Permissions.InvoiceRead);
+            var roleId = await CreateOrgRoleAsync(fixture, adminUid, organizationId, SpecPermissions.Alpha);
             (await AssignAsync(fixture, adminUid, memberId, roleId, organizationId)).EnsureSuccessStatusCode();
 
             var response = await RevokeAsync(fixture, adminUid, memberId, roleId, organizationId);
@@ -63,7 +63,7 @@ public class UserRoleAssignment
         {
             var (adminUid, _, organizationId) = await fixture.SeedOrganizationAdministratorAsync();
             var memberId = await SeedMemberOfAsync(fixture, organizationId);
-            var roleId = await CreateOrgRoleAsync(fixture, adminUid, organizationId, Permissions.InvoiceRead);
+            var roleId = await CreateOrgRoleAsync(fixture, adminUid, organizationId, SpecPermissions.Alpha);
 
             var response = await RevokeAsync(fixture, adminUid, memberId, roleId, organizationId);
 
@@ -78,7 +78,7 @@ public class UserRoleAssignment
             var (adminUid, _, organizationId) = await fixture.SeedOrganizationAdministratorAsync();
             var (memberUid, memberId) = await fixture.SeedUserAsync();
             await fixture.SeedMembershipAsync(memberId, organizationId);
-            var roleId = await CreateOrgRoleAsync(fixture, adminUid, organizationId, Permissions.InvoiceRead);
+            var roleId = await CreateOrgRoleAsync(fixture, adminUid, organizationId, SpecPermissions.Alpha);
             var probe = $"/api/_test/permission-scoped/{organizationId}";
 
             Assert.Equal(HttpStatusCode.Forbidden, (await fixture.SendAsync(HttpMethod.Get, probe, fixture.CreateToken(memberUid))).StatusCode);
@@ -97,7 +97,7 @@ public class UserRoleAssignment
         public async Task Assigning_platform_administrator_at_platform_scope_grants_admin_access_on_the_next_request()
         {
             var (adminUid, _) = await SeedPlatformAdministratorAsync(fixture);
-            var (newUid, newId) = await fixture.SeedUserAsync();
+            var (newUid, newId) = await fixture.SeedUserAsync("new-platform-admin@scrapgo.example", UserClassification.Internal);
             var platformAdminRoleId = await PlatformAdministratorRoleIdAsync(fixture);
 
             var response = await AssignAsync(fixture, adminUid, newId, platformAdminRoleId, organizationId: null);
@@ -164,7 +164,7 @@ public class UserRoleAssignment
             var (adminAUid, _, orgA) = await fixture.SeedOrganizationAdministratorAsync();
             var (adminBUid, _, orgB) = await fixture.SeedOrganizationAdministratorAsync();
             var memberId = await SeedMemberOfAsync(fixture, orgA);
-            var orgBRoleId = await CreateOrgRoleAsync(fixture, adminBUid, orgB, Permissions.InvoiceRead);
+            var orgBRoleId = await CreateOrgRoleAsync(fixture, adminBUid, orgB, SpecPermissions.Alpha);
 
             var response = await AssignAsync(fixture, adminAUid, memberId, orgBRoleId, orgA);
 
@@ -181,7 +181,7 @@ public class UserRoleAssignment
         {
             var (adminUid, _, organizationId) = await fixture.SeedOrganizationAdministratorAsync();
             var (_, outsiderId) = await fixture.SeedUserAsync();
-            var roleId = await CreateOrgRoleAsync(fixture, adminUid, organizationId, Permissions.InvoiceRead);
+            var roleId = await CreateOrgRoleAsync(fixture, adminUid, organizationId, SpecPermissions.Alpha);
 
             var response = await AssignAsync(fixture, adminUid, outsiderId, roleId, organizationId);
 
@@ -262,7 +262,7 @@ public class UserRoleAssignment
             await fixture.SeedMembershipAsync(userId, organizationId);
             await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.RoleRead);
             var memberId = await SeedMemberOfAsync(fixture, organizationId);
-            var roleId = await CreateOrgRoleAsync(fixture, adminUid, organizationId, Permissions.InvoiceRead);
+            var roleId = await CreateOrgRoleAsync(fixture, adminUid, organizationId, SpecPermissions.Alpha);
 
             var assign = await AssignAsync(fixture, uid, memberId, roleId, organizationId);
             var revoke = await RevokeAsync(fixture, uid, memberId, roleId, organizationId);

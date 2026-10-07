@@ -3,16 +3,24 @@ namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Fixtures;
 /// <summary>
 /// Arranges identity/RBAC rows directly through the real DbContext, using the
 /// domain factories, so scenarios read as intent ("an org admin", "a member
-/// holding Invoice.Read in org A") rather than row plumbing.
+/// holding Spec.Alpha in org A") rather than row plumbing.
 /// </summary>
 public static class IdentitySeed
 {
-    public static async Task<(string Uid, int UserId)> SeedUserAsync(this IdentitySpecFixture fixture, string email = "member@example.com")
+    /// <param name="classification">External by default, as for any sign-in outside the internal Workspace domains.</param>
+    public static async Task<(string Uid, int UserId)> SeedUserAsync(
+        this IdentitySpecFixture fixture,
+        string email = "member@example.com",
+        UserClassification classification = UserClassification.External)
     {
         var uid = Guid.NewGuid().ToString();
-        var user = User.Provision(uid, email, UserClassification.External, DateTimeOffset.UtcNow);
+        var user = User.Provision(uid, email, classification, DateTimeOffset.UtcNow);
         fixture.DbContext.Users.Add(user);
         await fixture.DbContext.SaveChangesAsync();
+        if (classification == UserClassification.Internal)
+        {
+            fixture.MarkInternal(uid);
+        }
 
         return (uid, user.Id);
     }
@@ -70,6 +78,19 @@ public static class IdentitySeed
         return (uid, userId, organizationId);
     }
 
+    /// <summary>A new internal user holding the built-in PlatformAdministrator at platform scope.</summary>
+    public static async Task<(string Uid, int UserId)> SeedPlatformAdministratorAsync(this IdentitySpecFixture fixture)
+    {
+        var (uid, userId) = await fixture.SeedUserAsync("platform-admin@scrapgo.example", UserClassification.Internal);
+        var roleId = await fixture.DbContext.Roles
+            .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator && r.OrganizationId == null)
+            .Select(r => r.Id)
+            .SingleAsync();
+        await fixture.AssignRoleAsync(userId, roleId, organizationId: null);
+
+        return (uid, userId);
+    }
+
     /// <summary>
     /// Creates a role granting <paramref name="permissionNames"/> and assigns it
     /// to the user. It is organization-scoped when <paramref name="organizationId"/>
@@ -101,9 +122,54 @@ public static class IdentitySeed
         return role.Id;
     }
 
+    /// <summary>Assigns the application to the organization and enables the given modules, as a platform admin would.</summary>
+    public static async Task EntitleAsync(this IdentitySpecFixture fixture, int organizationId, int applicationId, params int[] moduleIds)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var organizationApplication = OrganizationApplication.Assign(organizationId, applicationId, now);
+        fixture.DbContext.OrganizationApplications.Add(organizationApplication);
+        await fixture.DbContext.SaveChangesAsync();
+
+        fixture.DbContext.OrganizationApplicationModules.AddRange(
+            moduleIds.Select(moduleId => OrganizationApplicationModule.Enable(organizationApplication.Id, applicationId, moduleId, now)));
+        await fixture.DbContext.SaveChangesAsync();
+    }
+
+    public static Task<int> ApplicationRoleIdAsync(this IdentitySpecFixture fixture, string templateName) =>
+        fixture.DbContext.Roles.AsNoTracking()
+            .Where(r => r.Name == templateName && r.OrganizationId == null && r.ApplicationId != null)
+            .Select(r => r.Id)
+            .SingleAsync();
+
+    /// <summary>Grants an application role at (organization, application) scope directly in the database.</summary>
+    public static async Task GrantApplicationRoleAsync(
+        this IdentitySpecFixture fixture, int userId, int roleId, int organizationId, int applicationId, DateTimeOffset? expiresAt = null)
+    {
+        fixture.DbContext.UserRoles.Add(UserRole.AssignForApplication(userId, roleId, organizationId, applicationId, expiresAt, DateTimeOffset.UtcNow));
+        await fixture.DbContext.SaveChangesAsync();
+    }
+
     public static async Task AssignRoleAsync(this IdentitySpecFixture fixture, int userId, int roleId, int? organizationId)
     {
+        if (organizationId is null)
+        {
+            await fixture.MakeInternalAsync(userId);
+        }
+
         fixture.DbContext.UserRoles.Add(UserRole.Assign(userId, roleId, organizationId, DateTimeOffset.UtcNow));
         await fixture.DbContext.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Platform roles belong only to internal Workspace users (external users
+    /// can never hold them), so seeding one makes the holder Internal, and their
+    /// tokens then carry the internal <c>hd</c>.
+    /// </summary>
+    private static async Task MakeInternalAsync(this IdentitySpecFixture fixture, int userId)
+    {
+        await fixture.DbContext.Database.ExecuteSqlAsync(
+            $"UPDATE identity.users SET classification = 'Internal' WHERE id = {userId}");
+        var uid = await fixture.DbContext.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.IdentityPlatformUid).SingleAsync();
+        fixture.MarkInternal(uid);
     }
 }

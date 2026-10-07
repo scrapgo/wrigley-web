@@ -6,8 +6,61 @@ public sealed class RoleRepository(IdentityDbContext dbContext) : IRoleRepositor
 {
     public Task<Role?> FindEditableOrganizationRoleAsync(int roleId, CancellationToken cancellationToken) =>
         dbContext.Roles
-            .Where(r => r.Id == roleId && r.OrganizationId != null && r.Status == RoleStatus.Active)
+            .Where(r => r.Id == roleId && r.OrganizationId != null && r.ApplicationId == null && r.Status == RoleStatus.Active)
             .SingleOrDefaultAsync(cancellationToken);
+
+    public Task<Role?> FindApplicationRoleAsync(int roleId, int organizationId, int applicationId, CancellationToken cancellationToken) =>
+        dbContext.Roles
+            .AsNoTracking()
+            .SingleOrDefaultAsync(r => r.Id == roleId
+                && r.ApplicationId == applicationId
+                && (r.OrganizationId == null || r.OrganizationId == organizationId)
+                && r.Status == RoleStatus.Active,
+                cancellationToken);
+
+    public Task<Role?> FindEditableApplicationRoleAsync(int roleId, int organizationId, int applicationId, CancellationToken cancellationToken) =>
+        dbContext.Roles
+            .SingleOrDefaultAsync(r => r.Id == roleId
+                && r.ApplicationId == applicationId
+                && r.OrganizationId == organizationId
+                && r.Status == RoleStatus.Active,
+                cancellationToken);
+
+    public Task<int?> FindApplicationPermissionIdAsync(string permissionName, int applicationId, CancellationToken cancellationToken)
+    {
+        var applicationScopeOnly = Permissions.ApplicationScopeOnly;
+        var retired = Permissions.Retired;
+
+        return dbContext.Permissions
+            .AsNoTracking()
+            .Where(p => p.Name == permissionName && !retired.Contains(p.Name))
+            .Where(p => (p.ModuleId == null && applicationScopeOnly.Contains(p.Name))
+                || dbContext.CatalogModules.Any(m => m.Id == p.ModuleId && m.ApplicationId == applicationId))
+            .Select(p => (int?)p.Id)
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<int> CountOtherApplicationAdministratorsAsync(
+        int organizationId, int applicationId, int excludingUserId, DateTimeOffset now, CancellationToken cancellationToken) =>
+        (from ur in dbContext.UserRoles.AsNoTracking()
+         join u in dbContext.Users.AsNoTracking() on ur.UserId equals u.Id
+         where ur.OrganizationId == organizationId
+             && ur.ApplicationId == applicationId
+             && ur.UserId != excludingUserId
+             && (ur.ExpiresAt == null || ur.ExpiresAt > now)
+             && ur.Role.Status == RoleStatus.Active
+             && ur.Role.RolePermissions.Any(rp => rp.Permission.Name == Permissions.ApplicationManageAccess)
+             && u.Status == UserStatus.Active
+             && dbContext.OrganizationMemberships.Any(m =>
+                 m.UserId == ur.UserId && m.OrganizationId == organizationId && m.Status == MembershipStatus.Active)
+         select ur.UserId)
+        .Distinct()
+        .CountAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<UserRole>> ListApplicationGrantsAsync(int organizationId, int applicationId, CancellationToken cancellationToken) =>
+        await dbContext.UserRoles
+            .Where(ur => ur.OrganizationId == organizationId && ur.ApplicationId == applicationId)
+            .ToListAsync(cancellationToken);
 
     public Task<Role?> FindActiveRoleAsync(int roleId, CancellationToken cancellationToken) =>
         dbContext.Roles
@@ -79,19 +132,23 @@ public sealed class RoleRepository(IdentityDbContext dbContext) : IRoleRepositor
         var holders = await dbContext.UserRoles
             .AsNoTracking()
             .Where(ur => ur.RoleId == roleId)
-            .Select(ur => new { ur.UserId, ur.OrganizationId })
+            .Select(ur => new { ur.UserId, ur.OrganizationId, ur.ApplicationId })
             .Distinct()
             .ToListAsync(cancellationToken);
 
-        return [.. holders.Select(h => new PermissionScope(h.UserId, h.OrganizationId))];
+        return [.. holders.Select(h => new PermissionScope(h.UserId, h.OrganizationId, h.ApplicationId))];
     }
 
-    public Task<int?> FindPermissionIdAsync(string permissionName, CancellationToken cancellationToken) =>
-        dbContext.Permissions
+    public Task<int?> FindPermissionIdAsync(string permissionName, CancellationToken cancellationToken)
+    {
+        var applicationScopeOnly = Permissions.ApplicationScopeOnly;
+
+        return dbContext.Permissions
             .AsNoTracking()
-            .Where(p => p.Name == permissionName)
+            .Where(p => p.Name == permissionName && p.ModuleId == null && !applicationScopeOnly.Contains(p.Name))
             .Select(p => (int?)p.Id)
             .SingleOrDefaultAsync(cancellationToken);
+    }
 
     public Task<RolePermission?> FindRolePermissionAsync(int roleId, int permissionId, CancellationToken cancellationToken) =>
         dbContext.RolePermissions
@@ -110,11 +167,14 @@ public sealed class RoleRepository(IdentityDbContext dbContext) : IRoleRepositor
             .AsNoTracking()
             .Where(ur => ur.UserId == userId && ur.Role.Status == RoleStatus.Active)
             // Postgres sorts NULL last in ascending order, so put platform
-            // scope first explicitly.
+            // scope first, and organization-level before application grants,
+            // explicitly.
             .OrderBy(ur => ur.OrganizationId != null)
             .ThenBy(ur => ur.OrganizationId)
+            .ThenBy(ur => ur.ApplicationId != null)
+            .ThenBy(ur => ur.ApplicationId)
             .ThenBy(ur => ur.Role.Name)
-            .Select(ur => new AssignedRoleDto(ur.RoleId, ur.Role.Name, ur.OrganizationId))
+            .Select(ur => new AssignedRoleDto(ur.RoleId, ur.Role.Name, ur.OrganizationId, ur.ApplicationId, ur.ExpiresAt))
             .ToListAsync(cancellationToken);
 
     public Task<UserRole?> FindUserRoleAsync(int userId, int roleId, int? organizationId, CancellationToken cancellationToken)

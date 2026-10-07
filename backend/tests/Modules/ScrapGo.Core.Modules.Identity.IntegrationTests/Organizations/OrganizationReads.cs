@@ -108,7 +108,7 @@ public class OrganizationReads
         public async Task Each_read_returns_four_hundred_three(string suffix)
         {
             var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
-            await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.InvoiceRead);
+            await fixture.GrantPermissionsAsync(userId, organizationId, SpecPermissions.Alpha);
 
             var response = await fixture.SendAsync(HttpMethod.Get, OrganizationPath(organizationId) + suffix, fixture.CreateToken(uid));
 

@@ -53,7 +53,7 @@ public class AdminUserReads
         {
             var token = await PlatformReaderTokenAsync(fixture);
             var (_, userId, organizationId) = await fixture.SeedMemberAsync();
-            var orgRoleId = await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.InvoiceRead);
+            var orgRoleId = await fixture.GrantPermissionsAsync(userId, organizationId, SpecPermissions.Alpha);
 
             var response = await fixture.SendAsync(HttpMethod.Get, $"/api/users/{userId}", token);
 

@@ -105,11 +105,11 @@ public class OrganizationAdministration
             var (uid, adminId, orgA) = await fixture.SeedOrganizationAdministratorAsync();
             var (memberUid, memberId) = await fixture.SeedUserAsync();
             await fixture.SeedMembershipAsync(memberId, orgA);
-            var roleOne = await fixture.GrantPermissionsAsync(memberId, orgA, Permissions.InvoiceRead);
-            var roleTwo = await fixture.GrantPermissionsAsync(memberId, orgA, Permissions.ReportRead);
+            var roleOne = await fixture.GrantPermissionsAsync(memberId, orgA, SpecPermissions.Alpha);
+            var roleTwo = await fixture.GrantPermissionsAsync(memberId, orgA, SpecPermissions.Beta);
             var orgB = await fixture.SeedOrganizationAsync();
             await fixture.SeedMembershipAsync(memberId, orgB);
-            var orgBRole = await fixture.GrantPermissionsAsync(memberId, orgB, Permissions.InvoiceRead);
+            var orgBRole = await fixture.GrantPermissionsAsync(memberId, orgB, SpecPermissions.Alpha);
 
             var response = await RemoveMemberAsync(fixture, uid, orgA, memberId);
 

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Policy;
 using Microsoft.Extensions.DependencyInjection;
 using ScrapGo.Core.Modules.Identity.Api.Authorization;
+using ScrapGo.Core.Modules.Identity.Application.Abstractions;
 using ScrapGo.Core.Shared.Kernel.Security;
 
 namespace ScrapGo.Core.Modules.Identity.Api;
@@ -21,6 +22,9 @@ public static class IdentityModuleServiceCollectionExtensions
 
         services.AddHttpContextAccessor();
         services.AddScoped<IUserContext, HttpUserContext>();
+
+        // Platform-scoped permissions need a Workspace sign-in on the current request.
+        services.AddScoped<ICallerSignIn, HttpCallerSignIn>();
 
         return services;
     }

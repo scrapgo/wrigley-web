@@ -23,6 +23,276 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Applications.CatalogApplication", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("key");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("Active")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_applications");
+
+                    b.HasIndex("Key")
+                        .IsUnique()
+                        .HasDatabaseName("ux_applications_key");
+
+                    b.ToTable("applications", "identity", t =>
+                        {
+                            t.HasCheckConstraint("ck_applications_status", "status IN ('Active', 'Retired')");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 5, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Key = "downstream",
+                            Name = "Downstream",
+                            Status = "Active",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 5, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        });
+                });
+
+            modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Applications.CatalogModule", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    b.Property<int>("ApplicationId")
+                        .HasColumnType("integer")
+                        .HasColumnName("application_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("key");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("Active")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_modules");
+
+                    b.HasAlternateKey("ApplicationId", "Id")
+                        .HasName("ak_modules_application_id_id");
+
+                    b.HasIndex("ApplicationId", "Key")
+                        .IsUnique()
+                        .HasDatabaseName("ux_modules_application_id_key");
+
+                    b.ToTable("modules", "identity", t =>
+                        {
+                            t.HasCheckConstraint("ck_modules_status", "status IN ('Active', 'Retired')");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 101,
+                            ApplicationId = 1,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 5, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Key = "pricing",
+                            Name = "Pricing",
+                            Status = "Active",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 5, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = 102,
+                            ApplicationId = 1,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 5, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Key = "opportunities",
+                            Name = "Opportunities",
+                            Status = "Active",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 5, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = 103,
+                            ApplicationId = 1,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 5, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Key = "loads",
+                            Name = "Loads & Freight",
+                            Status = "Active",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 5, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = 104,
+                            ApplicationId = 1,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 10, 5, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Key = "suppliers",
+                            Name = "Suppliers",
+                            Status = "Active",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 10, 5, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        });
+                });
+
+            modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Applications.OrganizationApplication", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ApplicationId")
+                        .HasColumnType("integer")
+                        .HasColumnName("application_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("EnabledAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("enabled_at");
+
+                    b.Property<int>("OrganizationId")
+                        .HasColumnType("integer")
+                        .HasColumnName("organization_id");
+
+                    b.Property<DateTimeOffset?>("RemovedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("removed_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("Active")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_organization_applications");
+
+                    b.HasAlternateKey("Id", "ApplicationId")
+                        .HasName("ak_organization_applications_id_application_id");
+
+                    b.HasIndex("ApplicationId")
+                        .HasDatabaseName("ix_organization_applications_application_id");
+
+                    b.HasIndex("OrganizationId", "ApplicationId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_organization_applications_organization_id_application_id");
+
+                    b.ToTable("organization_applications", "identity", t =>
+                        {
+                            t.HasCheckConstraint("ck_organization_applications_status", "status IN ('Active', 'Removed')");
+                        });
+                });
+
+            modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Applications.OrganizationApplicationModule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ApplicationId")
+                        .HasColumnType("integer")
+                        .HasColumnName("application_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DisabledAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("disabled_at");
+
+                    b.Property<DateTimeOffset>("EnabledAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("enabled_at");
+
+                    b.Property<int>("ModuleId")
+                        .HasColumnType("integer")
+                        .HasColumnName("module_id");
+
+                    b.Property<int>("OrganizationApplicationId")
+                        .HasColumnType("integer")
+                        .HasColumnName("organization_application_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("Enabled")
+                        .HasColumnName("status");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_organization_application_modules");
+
+                    b.HasIndex("ApplicationId", "ModuleId")
+                        .HasDatabaseName("ix_organization_application_modules_application_id_module_id");
+
+                    b.HasIndex("OrganizationApplicationId", "ApplicationId")
+                        .HasDatabaseName("ix_organization_application_modules_organization_application_i");
+
+                    b.HasIndex("OrganizationApplicationId", "ModuleId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_org_application_modules_org_application_id_module_id");
+
+                    b.ToTable("organization_application_modules", "identity", t =>
+                        {
+                            t.HasCheckConstraint("ck_organization_application_modules_status", "status IN ('Enabled', 'Disabled')");
+                        });
+                });
+
             modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Authorization.Permission", b =>
                 {
                     b.Property<int>("Id")
@@ -36,6 +306,10 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamptz")
                         .HasColumnName("created_at");
 
+                    b.Property<int?>("ModuleId")
+                        .HasColumnType("integer")
+                        .HasColumnName("module_id");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text")
@@ -47,6 +321,9 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_permissions");
+
+                    b.HasIndex("ModuleId")
+                        .HasDatabaseName("ix_permissions_module_id");
 
                     b.HasIndex("Name")
                         .IsUnique()
@@ -180,6 +457,112 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             Name = "Organization.Update",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = 19,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Name = "Organization.Create",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = 20,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Name = "Organization.Deactivate",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = 21,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Name = "Application.Assign",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = 22,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Name = "Module.Manage",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = 23,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Name = "Catalog.Manage",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = 24,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            Name = "Application.ManageAccess",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = 25,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            ModuleId = 101,
+                            Name = "Downstream.Pricing.Read",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = 26,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            ModuleId = 101,
+                            Name = "Downstream.Pricing.Write",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = 27,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            ModuleId = 102,
+                            Name = "Downstream.Opportunities.Read",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = 28,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            ModuleId = 102,
+                            Name = "Downstream.Opportunities.Write",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = 29,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            ModuleId = 103,
+                            Name = "Downstream.Loads.Read",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = 30,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            ModuleId = 103,
+                            Name = "Downstream.Loads.Write",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = 31,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            ModuleId = 104,
+                            Name = "Downstream.Suppliers.Read",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        },
+                        new
+                        {
+                            Id = 32,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            ModuleId = 104,
+                            Name = "Downstream.Suppliers.Write",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 9, 10, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
                         });
                 });
 
@@ -191,6 +574,10 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnName("id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ApplicationId")
+                        .HasColumnType("integer")
+                        .HasColumnName("application_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamptz")
@@ -223,6 +610,9 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_roles");
+
+                    b.HasIndex("ApplicationId")
+                        .HasDatabaseName("ix_roles_application_id");
 
                     b.HasIndex("Name")
                         .IsUnique()
@@ -281,9 +671,17 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("ApplicationId")
+                        .HasColumnType("integer")
+                        .HasColumnName("application_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamptz")
                         .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("expires_at");
 
                     b.Property<int?>("OrganizationId")
                         .HasColumnType("integer")
@@ -304,6 +702,9 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_user_roles");
 
+                    b.HasIndex("ApplicationId")
+                        .HasDatabaseName("ix_user_roles_application_id");
+
                     b.HasIndex("OrganizationId")
                         .HasDatabaseName("ix_user_roles_organization_id");
 
@@ -312,6 +713,9 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("UserId")
                         .HasDatabaseName("ix_user_roles_user_id");
+
+                    b.HasIndex("OrganizationId", "ApplicationId")
+                        .HasDatabaseName("ix_user_roles_organization_id_application_id");
 
                     b.HasIndex("UserId", "RoleId")
                         .IsUnique()
@@ -322,7 +726,124 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_user_roles_user_id_role_id_organization_id");
 
-                    b.ToTable("user_roles", "identity");
+                    b.ToTable("user_roles", "identity", t =>
+                        {
+                            t.HasCheckConstraint("ck_user_roles_application_scope", "application_id IS NULL OR organization_id IS NOT NULL");
+                        });
+                });
+
+            modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Organizations.Invitation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("accepted_at");
+
+                    b.Property<int?>("AcceptedByUserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("accepted_by_user_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("EmailNormalized")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("email_normalized");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("expires_at");
+
+                    b.Property<int?>("InvitedByUserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("invited_by_user_id");
+
+                    b.Property<int>("OrganizationId")
+                        .HasColumnType("integer")
+                        .HasColumnName("organization_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("Pending")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("token_hash");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_invitations");
+
+                    b.HasIndex("AcceptedByUserId")
+                        .HasDatabaseName("ix_invitations_accepted_by_user_id");
+
+                    b.HasIndex("InvitedByUserId")
+                        .HasDatabaseName("ix_invitations_invited_by_user_id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique()
+                        .HasDatabaseName("ux_invitations_token_hash");
+
+                    b.HasIndex("OrganizationId", "EmailNormalized")
+                        .IsUnique()
+                        .HasDatabaseName("ux_invitations_organization_id_email_pending")
+                        .HasFilter("status = 'Pending'");
+
+                    b.ToTable("invitations", "identity", t =>
+                        {
+                            t.HasCheckConstraint("ck_invitations_status", "status IN ('Pending', 'Accepted', 'Revoked')");
+                        });
+                });
+
+            modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Organizations.InvitationGrant", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ApplicationId")
+                        .HasColumnType("integer")
+                        .HasColumnName("application_id");
+
+                    b.Property<int>("InvitationId")
+                        .HasColumnType("integer")
+                        .HasColumnName("invitation_id");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("integer")
+                        .HasColumnName("role_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_invitation_grants");
+
+                    b.HasIndex("ApplicationId")
+                        .HasDatabaseName("ix_invitation_grants_application_id");
+
+                    b.HasIndex("InvitationId")
+                        .HasDatabaseName("ix_invitation_grants_invitation_id");
+
+                    b.HasIndex("RoleId")
+                        .HasDatabaseName("ix_invitation_grants_role_id");
+
+                    b.ToTable("invitation_grants", "identity");
                 });
 
             modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Organizations.Organization", b =>
@@ -619,8 +1140,69 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Applications.CatalogModule", b =>
+                {
+                    b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Applications.CatalogApplication", null)
+                        .WithMany()
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_modules_application_id");
+                });
+
+            modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Applications.OrganizationApplication", b =>
+                {
+                    b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Applications.CatalogApplication", null)
+                        .WithMany()
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_organization_applications_application_id");
+
+                    b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Organizations.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_organization_applications_organization_id");
+                });
+
+            modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Applications.OrganizationApplicationModule", b =>
+                {
+                    b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Applications.CatalogModule", null)
+                        .WithMany()
+                        .HasForeignKey("ApplicationId", "ModuleId")
+                        .HasPrincipalKey("ApplicationId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_organization_application_modules_module");
+
+                    b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Applications.OrganizationApplication", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationApplicationId", "ApplicationId")
+                        .HasPrincipalKey("Id", "ApplicationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_organization_application_modules_organization_application");
+                });
+
+            modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Authorization.Permission", b =>
+                {
+                    b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Applications.CatalogModule", null)
+                        .WithMany()
+                        .HasForeignKey("ModuleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_permissions_module_id");
+                });
+
             modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Authorization.Role", b =>
                 {
+                    b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Applications.CatalogApplication", null)
+                        .WithMany()
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_roles_application_id");
+
                     b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Organizations.Organization", null)
                         .WithMany()
                         .HasForeignKey("OrganizationId")
@@ -649,6 +1231,12 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Authorization.UserRole", b =>
                 {
+                    b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Applications.CatalogApplication", null)
+                        .WithMany()
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_user_roles_application_id");
+
                     b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Organizations.Organization", null)
                         .WithMany()
                         .HasForeignKey("OrganizationId")
@@ -670,6 +1258,51 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_user_roles_user_id");
 
                     b.Navigation("Role");
+                });
+
+            modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Organizations.Invitation", b =>
+                {
+                    b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Users.User", null)
+                        .WithMany()
+                        .HasForeignKey("AcceptedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_invitations_accepted_by_user_id");
+
+                    b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Users.User", null)
+                        .WithMany()
+                        .HasForeignKey("InvitedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_invitations_invited_by_user_id");
+
+                    b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Organizations.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_invitations_organization_id");
+                });
+
+            modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Organizations.InvitationGrant", b =>
+                {
+                    b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Applications.CatalogApplication", null)
+                        .WithMany()
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_invitation_grants_application_id");
+
+                    b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Organizations.Invitation", null)
+                        .WithMany("Grants")
+                        .HasForeignKey("InvitationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_invitation_grants_invitation_id");
+
+                    b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Authorization.Role", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_invitation_grants_role_id");
                 });
 
             modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Organizations.OrganizationMembership", b =>
@@ -704,6 +1337,11 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Authorization.Role", b =>
                 {
                     b.Navigation("RolePermissions");
+                });
+
+            modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Organizations.Invitation", b =>
+                {
+                    b.Navigation("Grants");
                 });
 #pragma warning restore 612, 618
         }

@@ -48,7 +48,7 @@ public class HdAllowListClassification
         }
     }
 
-    public class Given_no_allow_list_is_configured(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    public class Given_no_allow_list_is_configured(NoAllowlistIdentitySpecFixture fixture) : IClassFixture<NoAllowlistIdentitySpecFixture>
     {
         [Fact]
         public async Task A_uid_with_an_hd_claim_is_still_provisioned_as_external() =>

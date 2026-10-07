@@ -7,7 +7,11 @@ const TOKEN_KEY = 'authToken'
 interface AuthContextType {
     user: CurrentUser | null
     login: (email: string, password: string) => Promise<void>
+    /** Sign in with a Google ID token from Google Identity Services. */
+    loginWithGoogle: (googleIdToken: string) => Promise<void>
     logout: () => void
+    /** Re-reads GET /api/users/me, e.g. after joining an organization. */
+    refreshUser: () => Promise<void>
     isAuthenticated: boolean
     /** True while the stored token is being validated against the API. */
     isLoading: boolean
@@ -50,12 +54,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, [])
 
-    const login = useCallback(async (email: string, password: string) => {
-        // 1. Exchange credentials for a GCIP ID token.
-        const token = await apiClient.signInWithPassword(email, password)
+    // Prove a fresh GCIP ID token works against our API before persisting it.
+    const completeSignIn = useCallback(async (token: string) => {
         apiClient.setAuthToken(token)
-
-        // 2. Prove the token works against our API before persisting it.
         try {
             const me = await apiClient.getCurrentUser()
             localStorage.setItem(TOKEN_KEY, token)
@@ -64,6 +65,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             apiClient.clearAuthToken()
             throw error
         }
+    }, [])
+
+    const login = useCallback(
+        async (email: string, password: string) => {
+            await completeSignIn(await apiClient.signInWithPassword(email, password))
+        },
+        [completeSignIn]
+    )
+
+    const loginWithGoogle = useCallback(
+        async (googleIdToken: string) => {
+            await completeSignIn(await apiClient.signInWithGoogle(googleIdToken))
+        },
+        [completeSignIn]
+    )
+
+    const refreshUser = useCallback(async () => {
+        setUser(await apiClient.getCurrentUser())
     }, [])
 
     const logout = useCallback(() => {
@@ -75,7 +94,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const value: AuthContextType = {
         user,
         login,
+        loginWithGoogle,
         logout,
+        refreshUser,
         isAuthenticated: user !== null,
         isLoading,
     }

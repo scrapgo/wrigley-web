@@ -64,7 +64,7 @@ public sealed class UserRepository(IdentityDbContext dbContext) : IUserRepositor
         dbContext.Users
             .AsNoTracking()
             .Where(u => u.IdentityPlatformUid == identityPlatformUid)
-            .Select(u => new UserStatusSnapshot(u.Id, u.Status))
+            .Select(u => new UserStatusSnapshot(u.Id, u.Status, u.Classification))
             .SingleOrDefaultAsync(cancellationToken);
 
     public Task<int?> GetIdByUidAsync(string identityPlatformUid, CancellationToken cancellationToken) =>

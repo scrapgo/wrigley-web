@@ -1,0 +1,16 @@
+{
+  "name": "scrapgo-gcip-before-sign-in",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GCIP beforeSignIn blocking function: adds the Google Workspace hd session claim.",
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "gcip-cloud-functions": "^0.2.0"
+  }
+}

@@ -2,12 +2,16 @@ namespace ScrapGo.Core.Modules.Identity.Application.Users;
 
 /// <summary>One role a user holds, in one scope.</summary>
 /// <param name="OrganizationId">The organization the assignment is scoped to, or null for a platform-scoped assignment.</param>
-public sealed record AssignedRoleDto(int RoleId, string Name, int? OrganizationId);
+/// <param name="ApplicationId">Set for an application grant (inside <paramref name="OrganizationId"/>).</param>
+/// <param name="ExpiresAt">When the grant stops resolving; null never expires.</param>
+public sealed record AssignedRoleDto(
+    int RoleId, string Name, int? OrganizationId, int? ApplicationId = null, DateTimeOffset? ExpiresAt = null);
 
 /// <summary>A user's effective permissions in exactly one scope.</summary>
 /// <param name="OrganizationId">The organization, or null for platform scope.</param>
 /// <param name="Permissions">Permission names, ordered by name.</param>
-public sealed record ScopedPermissionsDto(int? OrganizationId, IReadOnlyList<string> Permissions);
+/// <param name="ApplicationId">Set for an application scope inside <paramref name="OrganizationId"/>.</param>
+public sealed record ScopedPermissionsDto(int? OrganizationId, IReadOnlyList<string> Permissions, int? ApplicationId = null);
 
 /// <summary>Filters for the admin user list. Every filter is optional; omitted means "any".</summary>
 /// <param name="Search">Case-insensitive substring of the email (the only name-like field stored today).</param>

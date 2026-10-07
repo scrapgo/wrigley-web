@@ -68,9 +68,31 @@ public partial class Organization
         UpdatedAt = now;
     }
 
+    /// <summary>
+    /// Renames and regenerates the slug from the new name: the platform admin's
+    /// correction of a mistaken name. Routes use the id, never the slug, so no
+    /// link breaks; uniqueness is enforced by the database on save.
+    /// </summary>
+    public void RenameWithSlug(string name, DateTimeOffset now)
+    {
+        Rename(name, now);
+        Slug = ToSlug(Name);
+    }
+
+    /// <summary>
+    /// Deactivates the organization: every organization- and application-scoped
+    /// check then denies its members. Nothing is deleted, so
+    /// <see cref="Reactivate"/> restores everything as it was.
+    /// </summary>
     public void Disable(DateTimeOffset now)
     {
         Status = OrganizationStatus.Disabled;
+        UpdatedAt = now;
+    }
+
+    public void Reactivate(DateTimeOffset now)
+    {
+        Status = OrganizationStatus.Active;
         UpdatedAt = now;
     }
 

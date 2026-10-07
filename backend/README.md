@@ -150,8 +150,9 @@ is in [`.env.example`](.env.example).
 | `Quickbase:UserToken`       | On first Quickbase call | user-secrets            | Quickbase user token (secret)                      |
 | `Quickbase:QueryCache:Ttl`  | No                      | `00:15:00`              | How long cached Quickbase results are served       |
 | `Cors:AllowedOrigins`       | No                      | `http://localhost:3000` | Browser origins allowed to call the API            |
-| `INTERNAL_HD_ALLOWLIST`     | No                      | —                       | Google Workspace domains treated as internal users |
+| `INTERNAL_HD_ALLOWLIST`     | **Yes for platform admin** | —                    | Google Workspace domains treated as internal users. Platform access also needs a sign-in whose token carries one of these as `hd` on every request: when blank, nobody has platform access. `hd` comes from the GCIP blocking function in [`infra/gcip-blocking-function/`](infra/gcip-blocking-function/README.md). Terraform default: `scrapgo.com` |
 | `Swagger:Enabled`           | No                      | `true`                  | Serves `/swagger` (off in Cloud Run unless set)    |
+| `Identity:RequireMfaForExternalUsers` | No            | `false`                 | When `true`, external users need a second factor (`mfa_required` otherwise). Keep off until MFA is enabled in GCIP |
 
 Add the Quickbase token the same way as the connection string:
 `dotnet user-secrets set "Quickbase:UserToken" "<token>" --project src/ScrapGo.Core.Api`.
@@ -208,13 +209,19 @@ Inside the container, the proxy on your machine is `host.docker.internal:5434`
 | `dotnet build` fails with "file is locked by testhost"                   | A test run is still going. Wait for it or stop it.                                                                                 |
 | `401` and the request shows `Authorization: Bearer "@token` (or similar) | A placeholder was pasted into Swagger's **Authorize** box. Paste the raw ID token (`eyJ…`) with no quotes and no `Bearer ` prefix. |
 
-## Admin API roadmap
+## Access model
 
-The admin portal needs endpoints this API does not expose yet (user listing,
-role listing and read-back, role assignment, user status, organization and
-membership management). `Admin.Access` is now reachable through the
-`PlatformAdministrator` bootstrap (above). The complete gap list and suggested implementation order are in
-[`ADMIN-API-GAPS.md`](ADMIN-API-GAPS.md).
+Access is scoped by organization, then application, then module:
+
+- Applications and modules are a code-defined catalog. It's empty until the first application is added.
+- Platform administrators create organizations, assign applications to them and enable licensed modules.
+- Application administrators grant application roles inside their organization.
+- A permission resolves only while its module is enabled for that organization's application.
+- Nobody gets anything automatically: not at sign-in, not by joining an organization, not when an application is assigned.
+
+The design and its decisions are in [`../ORG-APP-MODULE-MODEL.md`](../ORG-APP-MODULE-MODEL.md), the rules in [`AGENTS.md`](AGENTS.md) ("Authorization Model"), and the admin API history in [`ADMIN-API-GAPS-v2.md`](ADMIN-API-GAPS-v2.md).
+
+**After pulling these changes, apply the Identity migrations** (see [Database migrations](#database-migrations)): `RetireGenericPermissions`, `AddPlatformAdministrationPermissions`, `AddApplicationsAndModules`, `AddInvitations`. They are additive. The only data change is removing the retired `Invoice.*` / `Report.*` permissions from roles, which is audited.
 
 ## Deployment
 

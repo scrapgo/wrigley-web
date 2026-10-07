@@ -66,7 +66,7 @@ Carried over from `ADMIN-API-STATUS.md`, Decision 6. Nothing was changed for the
 | # | Decision | Today | Recommendation |
 | --- | --- | --- | --- |
 | D1 | Move `/api/roles…` writes and `/api/users/{id}/roles` under `/api/organizations/{organizationId}/…` | Secure (service-checked, swept), but not covered by the membership guard | **Yes, in a coordinated release.** Add the org-scoped routes, keep the old ones as deprecated aliases for one release, and switch the frontend. Uniform routes mean one rule for every reviewer. |
-| D2 | Should any signed-in user be able to create an organization and become its admin? | Yes, scoped to that org only | Decide by business model. If orgs are provisioned by ScrapGo staff, require a platform permission on `POST /api/organizations`. |
+| D2 | Should any signed-in user be able to create an organization and become its admin? | **Decided 2026-10-05: no.** Platform admins only (ORG-APP-MODULE-MODEL Decision 11) | Done: `POST /api/admin/organizations` names the first admin; self-service route removed. |
 | D3 | Disabling a user who is an org's last OrganizationAdministrator | Allowed (only the platform lock-out is blocked) | Block it with 409 `last_organization_administrator` for consistency, or allow a platform-admin override. |
 | D4 | `GET /api/organizations/{organizationId}` and `/members` use `User.Read` | No `Organization.Read` exists | Add `Organization.Read` (append id 19) if org detail should be visible without people access. |
 
@@ -75,6 +75,11 @@ Carried over from `ADMIN-API-STATUS.md`, Decision 6. Nothing was changed for the
 In priority order. Each one names the pieces that already exist.
 
 ### P1: needed for the admin portal to be complete
+
+> **Status 2026-10-05:** all three P1 items are **done** as part of the organization → application → module work ([`../ORG-APP-MODULE-MODEL.md`](../ORG-APP-MODULE-MODEL.md), "Implementation record"):
+> 1. `GET /api/admin/organizations`
+> 2. invitations by email (option b)
+> 3. `POST /api/admin/organizations/{organizationId}/deactivate` / `reactivate`, with the membership guard now checking organization status (403 `organization_deactivated`)
 
 1. **Platform-wide organization list.**
    - Platform admins can't see organizations they don't belong to.

@@ -89,16 +89,90 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 
 ## Authorization Model (Identity module)
 
-- **Organization context comes from the route, never the token.** Any route with an `{organizationId}` segment is covered by `OrganizationMembershipGuardMiddleware` (403 `no_active_membership` without an active membership). Name the segment exactly `organizationId`: a route using `{orgId}` silently gets no guard.
-- **Protect endpoints with permissions, not role names:** `[RequirePermission(Permissions.X)]` (organization-scoped, resolved against the route's `{organizationId}`), or `[RequirePermission(Permissions.X, PlatformScope = true)]` (only platform-scoped assignments, those with no organization, satisfy it). The only role-name literal allowed is in `DefaultRoleNames`.
-- **Role management** (`RoleService`) is permission-based, never by role name. The caller needs an active membership in the role's organization and, there: `Role.Create` to create, `Role.Update` to edit or attach/detach permissions, `Role.Delete` to delete. (`Role.Assign` is reserved for assigning roles to users.)
-- **Escalation guard:** a caller may only attach a permission they already hold in that organization (403 `cannot_grant_unheld_permission`), and may never edit, delete or recompose a role they hold themselves (403 `cannot_modify_own_role`). Keep both on any new role or assignment write path.
-- **Built-in roles** (`DefaultRoleNames`, platform-defined, not editable over HTTP). Their permissions are seeded by migration:
-  - `OrganizationAdministrator` (id 1): every catalog permission except `Admin.Access`. Granted only per organization, to whoever creates it.
-  - `PlatformAdministrator`: `User.*`, `Role.*`, `Admin.Access`. Assigned only at platform scope (`organization_id` NULL).
-- **No role is ever assigned at sign-in.** Deny-by-default: a freshly provisioned user holds nothing. The first `PlatformAdministrator` is granted only by the explicit, one-time, audited `bootstrap-platform-admin` host command (see README). It is never an HTTP endpoint.
-- **The permission catalog** (`Permissions.All`) is seeded by migration with positional ids, and is read-only over HTTP. Append new permissions; never reorder.
-- **Permission cache:** `IPermissionCache` is a pass-through until Redis is migrated. Every mutation that changes a user's effective permissions must invalidate the affected scopes.
+The full design, its decisions and the implementation record are in [`../ORG-APP-MODULE-MODEL.md`](../ORG-APP-MODULE-MODEL.md).
+
+### Scopes and route conventions
+
+- **Three scopes:**
+  - **platform:** no organization
+  - **organization:** `{organizationId}`
+  - **application:** `{organizationId}` and `{applicationId}`, within one organization
+
+  A grant in one scope never satisfies another: not across organizations, not across applications, and not between levels.
+- **Context comes from the route, never the token.**
+  - Any route with `{organizationId}` is covered by `OrganizationMembershipGuardMiddleware`:
+    - 403 `no_active_membership` without an active membership
+    - 403 `organization_deactivated` for a member of a deactivated organization
+  - Adding `{applicationId}` makes the route application-scoped: the guard answers 404 `application_not_found` unless the organization has that application, assigned and active in the catalog.
+  - Name the segments exactly `organizationId` / `applicationId`: `{orgId}` or `{appId}` silently get none of this.
+- **Platform administration** routes act on an organization from outside it. They live under `/api/admin/…`, carry `[PlatformAdministration]` (which skips the membership guard), and must have a platform-scoped `[RequirePermission]`. A route-table spec (`PlatformAdministrationRoutes`) fails if one doesn't.
+- **Protect endpoints with permissions, not role names:** `[RequirePermission(Permissions.X)]` resolves in the route's organization, or in its application when the route has `{applicationId}`. `[RequirePermission(Permissions.X, PlatformScope = true)]` is satisfied only by platform-scoped assignments. The only role-name literals allowed are in `DefaultRoleNames`.
+- **A FallbackPolicy** requires an authenticated caller on any endpoint without authorization metadata. Only `/healthz` and `/healthz/ready` are `AllowAnonymous`.
+
+### Catalog, entitlements and resolution
+
+- **Catalog (code, Decision 2):** applications and modules are defined in `Domain/Applications/ApplicationCatalog.cs`, and their permissions in `Permissions.All`. Both are seeded by migration. Permission names are global: `{App}.{Module}.{Action}`.
+  - The catalog is **empty today** (Decision 7, blank slate).
+  - To add an application, follow the steps in `ApplicationCatalog`'s remarks: definition, permissions appended, "{App} Administrator" template, migration.
+  - Runtime catalog changes are status-only: retire or reactivate, with `Catalog.Manage`.
+- **Entitlements (tenant data):**
+  - `organization_applications`: a platform admin assigns them (`Application.Assign`).
+  - `organization_application_modules`: a platform admin enables them (`Module.Manage`, licensed).
+  - Assigning or enabling grants nobody anything.
+- **Resolution** (`AuthorizationQueries.GetPermissionNamesAsync`): roles must be active and grants unexpired (`user_roles.expires_at`), and retired permissions never resolve. Application scope additionally requires:
+  - an active membership in an active organization
+  - the application assigned and active
+  - each module permission's module active and enabled for that organization's application
+
+  **A disabled module resolves to deny**, whatever the role grants.
+
+### Roles and who grants what
+
+- **Kinds**, by (`organization_id`, `application_id`):
+  - built-ins (null, null)
+  - organization custom roles (org, null)
+  - application templates (null, app)
+  - organization custom application roles (org, app)
+
+  An application role holds only its own application's module permissions and `Application.ManageAccess`. Organization-level roles hold no module permissions.
+- **Organization roles** (`RoleService`, `/api/roles…`, `/api/users/{id}/roles`) need an active membership plus `Role.Create` / `Role.Update` / `Role.Delete` / `Role.Assign` there. Application roles are refused on these paths (`role_scope_mismatch`).
+- **Application access** (`ApplicationAccessService`, `/api/organizations/{organizationId}/applications/{applicationId}/…`) is granted **only by application administrators** (`Application.ManageAccess` at application scope) **or platform admins** (`/api/admin/…`). This is Decision 3: organization admins can't grant application roles. Grants may carry `expiresAt`.
+- **Escalation guard:** a caller may only attach or grant permissions they hold in that scope (403 `cannot_grant_unheld_permission`). They may never edit, delete or recompose a role they hold (403 `cannot_modify_own_role`). A disabled module's permissions aren't held, so they can't be granted. Platform admins acting through `/api/admin/…` are exempt. Keep the guard on any new write path.
+- **Last-administrator protection** (409, under a row lock): the last active PlatformAdministrator; an organization's last active OrganizationAdministrator; an application's last active administrator in an organization. The last one applies to app admins, not platform admins.
+- **Built-in roles** (`DefaultRoleNames`, not editable over HTTP):
+  - `OrganizationAdministrator` (id 1): every live organization-level permission (identity administration, `Organization.Update`).
+  - `PlatformAdministrator`: `User.*`, `Role.*`, `Admin.Access`, plus the platform administration permissions `Organization.Create`, `Organization.Deactivate`, `Application.Assign`, `Module.Manage` and `Catalog.Manage`.
+  - Retired: `Invoice.*` / `Report.*` (ids 10–16) can't be attached and never resolve. Their rows stay because ids are positional.
+
+### Lifecycle rules
+
+- **Deny-by-default; no role is ever assigned at sign-in.**
+  - The first `PlatformAdministrator` comes only from the one-time, audited `bootstrap-platform-admin` host command.
+  - Organizations are created **only by platform admins** (`POST /api/admin/organizations`), naming the first OrganizationAdministrator: an existing user id, or an email invitation.
+  - Membership grants nothing.
+- **Platform access needs a Google Workspace sign-in on every request** (Decision 12).
+  - Platform-scoped permissions resolve only when the current token's `hd` claim is on `INTERNAL_HD_ALLOWLIST`. The check is `ICallerSignIn` in `PermissionResolver`, before the cache.
+  - Otherwise `[RequirePermission(..., PlatformScope = true)]` answers 403 `workspace_sign_in_required`, in-service platform checks refuse, and `/me` shows no platform roles or permissions.
+  - Organization and application access are unaffected.
+  - **`INTERNAL_HD_ALLOWLIST` must be set in every environment** (Terraform default `scrapgo.com`); when it's blank, nobody has platform access.
+  - GCIP tokens only carry `hd` because of the `beforeSignIn` blocking function in `infra/gcip-blocking-function/`, which copies it from Google's token for Google sign-ins. Without it deployed and registered, nobody has platform access.
+- **External users** (`users.classification`, the database being the only source; Decision 8):
+  - They may be organization or application administrators.
+  - They may never hold a platform role (`external_user_not_allowed`, also enforced by the bootstrap command).
+  - MFA for them is reserved behind `Identity:RequireMfaForExternalUsers`, off until MFA is enabled in GCIP. When it's on, a token without `firebase.sign_in_second_factor` gets 403 `mfa_required`.
+- **Invitations** (`InvitationService`):
+  - Pre-grants are validated at invite time like direct grants.
+  - Acceptance needs the token's `email_verified` and the same email.
+  - A pre-grant whose role or application is gone by then is skipped and audited.
+  - Only the token's SHA-256 is stored.
+- **Cascades:**
+  - Removing an application hard-revokes its grants in that organization, each audited `access_revoked` (Decision 5).
+  - Disabling a module keeps grants.
+  - Removing a member revokes all their grants in that organization.
+  - Deactivating an organization blocks everything and deletes nothing.
+  - **Deleting** is platform-admin only (`DELETE /api/admin/organizations/{id}`). It works only on a deactivated organization (otherwise 409 `organization_active`), hard-deletes everything in it, and keeps its audit history plus `organization_deleted`.
+  - Platform admins can also rename (`PUT /api/admin/organizations/{id}`) and set an administrator (`PUT …/administrators/{userId}`, which revokes pending invitations) without being members.
+- **Permission cache:** `IPermissionCache` is a pass-through until Redis is migrated. Every mutation must invalidate the affected scopes; organization- and application-wide changes call `InvalidateOrganizationAsync` / `InvalidateOrganizationApplicationAsync`, which a real cache should implement as generation keys.
 
 ## Rules
 
@@ -156,4 +230,4 @@ dotnet ef database update --project src/Modules/Identity/ScrapGo.Core.Modules.Id
 dotnet ef database update --project src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Infrastructure --context QuickbaseDbContext --connection "<conn>"
 ```
 
-Required configuration: `ConnectionStrings__Default`, `Gcip__ProjectId`. Required on first Quickbase call: `Quickbase__RealmHostname`, `Quickbase__UserToken`. Optional: `Quickbase__QueryCache__Ttl`, `Quickbase__QueryCache__ServeStaleOnError`, `INTERNAL_HD_ALLOWLIST`, `Cors__AllowedOrigins__0..n`, `Swagger__Enabled`, `PORT`.
+Required configuration: `ConnectionStrings__Default`, `Gcip__ProjectId`. Required on first Quickbase call: `Quickbase__RealmHostname`, `Quickbase__UserToken`. Optional: `Quickbase__QueryCache__Ttl`, `Quickbase__QueryCache__ServeStaleOnError`, `INTERNAL_HD_ALLOWLIST`, `Identity__RequireMfaForExternalUsers` (default `false`), `Cors__AllowedOrigins__0..n`, `Swagger__Enabled`, `PORT`.

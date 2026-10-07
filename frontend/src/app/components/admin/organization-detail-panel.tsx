@@ -2,11 +2,10 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Building2, Pencil, Save, Users } from "lucide-react"
+import { Building2, Pencil, Save } from "lucide-react"
 
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
-import { Label } from "../ui/label"
 import { Skeleton } from "../ui/skeleton"
 import { EmptyState } from "../ui/empty-state"
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card"
@@ -17,6 +16,7 @@ import {
 } from "../../hooks/useAdminQueries"
 import { adminErrorMessage } from "../../lib/admin-errors"
 import { OrganizationMembersPanel } from "./organization-members-panel"
+import { OrganizationApplicationsPanel } from "./organization-applications-panel"
 
 const renameSchema = z.object({
     name: z.string().min(1, "Name is required"),
@@ -168,6 +168,8 @@ export function OrganizationDetailPanel({ organizationId }: { organizationId: nu
             </Card>
 
             <OrganizationMembersPanel organizationId={organizationId} />
+
+            <OrganizationApplicationsPanel organizationId={organizationId} />
         </div>
     );
 }

@@ -14,6 +14,12 @@ public sealed class GetCurrentUserHandler(ProvisionCurrentUserHandler provisionC
         var user = await provisionCurrentUser.HandleAsync(command, cancellationToken);
         var access = await permissionResolver.GetEffectiveAccessAsync(user.Id, cancellationToken);
 
-        return user with { Roles = access.Roles, Permissions = access.Permissions };
+        return user with
+        {
+            Roles = access.Roles,
+            Permissions = access.Permissions,
+            Organizations = access.Organizations,
+            WorkspaceSignInRequired = access.WorkspaceSignInRequired,
+        };
     }
 }

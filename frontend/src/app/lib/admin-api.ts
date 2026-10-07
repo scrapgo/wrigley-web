@@ -24,6 +24,35 @@ export interface OrganizationSummary {
 
 export interface CreatedOrganization {
     id: number
+    /** Set when the first administrator was named by email: show the token once. */
+    invitation?: { invitationId: number; token: string; expiresAt: string } | null
+}
+
+export type CatalogStatus = 'Active' | 'Retired'
+
+export interface CatalogModule {
+    id: number
+    key: string
+    name: string
+    status: CatalogStatus
+    permissions: string[]
+}
+
+export interface CatalogApplication {
+    id: number
+    key: string
+    name: string
+    status: CatalogStatus
+    modules: CatalogModule[]
+}
+
+/** An application assigned to an organization, with its enabled modules only. */
+export interface OrganizationApplication {
+    applicationId: number
+    key: string
+    name: string
+    enabledAt: string
+    modules: { moduleId: number; key: string; name: string }[]
 }
 
 export interface Permission {
@@ -34,6 +63,8 @@ export interface Role {
     id: number
     name: string
     description: string
+    /** The owning organization, or null for a built-in platform-defined role (read-only). */
+    organizationId: number | null
 }
 
 export interface RoleDetail extends Role {
@@ -95,11 +126,219 @@ export function listOrganizations(): Promise<OrganizationSummary[]> {
     return apiClient.fetchWithAuth<OrganizationSummary[]>('/api/organizations')
 }
 
-export function createOrganization(name: string): Promise<CreatedOrganization> {
-    return apiClient.fetchWithAuth<CreatedOrganization>('/api/organizations', {
+/** Platform administrators only: every organization, paged, with search and status filters. */
+export function listAllOrganizations(
+    search?: string,
+    status?: string,
+    page: number = 1,
+    pageSize: number = 25
+): Promise<PagedResult<OrganizationSummary>> {
+    const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
+    if (search) params.set('search', search)
+    if (status) params.set('status', status)
+    return apiClient.fetchWithAuth<PagedResult<OrganizationSummary>>(`/api/admin/organizations?${params}`)
+}
+
+/**
+ * Platform administrators only: `POST /api/admin/organizations`. The first
+ * OrganizationAdministrator is an existing user (by id, who must have signed
+ * in once) or an email, which creates an invitation. The caller is not made a
+ * member. Self-service `POST /api/organizations` no longer exists.
+ */
+export function createOrganization(
+    input: { name: string; firstAdminUserId: number } | { name: string; firstAdminEmail: string }
+): Promise<CreatedOrganization> {
+    return apiClient.fetchWithAuth<CreatedOrganization>('/api/admin/organizations', {
         method: 'POST',
+        body: JSON.stringify(input),
+    })
+}
+
+/** Platform administrators: rename (display name only; the slug stays). */
+export function renameOrganizationAsAdmin(organizationId: number, name: string): Promise<void> {
+    return apiClient.fetchWithAuth<void>(`/api/admin/organizations/${organizationId}`, {
+        method: 'PUT',
         body: JSON.stringify({ name }),
     })
+}
+
+/** Platform administrators: make an existing user member + administrator; revokes pending invitations. */
+export function setOrganizationAdministrator(organizationId: number, userId: number): Promise<void> {
+    return apiClient.fetchWithAuth<void>(`/api/admin/organizations/${organizationId}/administrators/${userId}`, {
+        method: 'PUT',
+    })
+}
+
+/** Platform administrators: permanently delete a deactivated organization and everything in it. */
+export function deleteOrganization(organizationId: number): Promise<void> {
+    return apiClient.fetchWithAuth<void>(`/api/admin/organizations/${organizationId}`, { method: 'DELETE' })
+}
+
+export function deactivateOrganization(organizationId: number): Promise<void> {
+    return apiClient.fetchWithAuth<void>(`/api/admin/organizations/${organizationId}/deactivate`, { method: 'POST' })
+}
+
+export function reactivateOrganization(organizationId: number): Promise<void> {
+    return apiClient.fetchWithAuth<void>(`/api/admin/organizations/${organizationId}/reactivate`, { method: 'POST' })
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Applications and modules                                                  */
+/* -------------------------------------------------------------------------- */
+
+/** The application catalog: applications → modules → permissions. Any signed-in user. */
+export function listCatalog(): Promise<CatalogApplication[]> {
+    return apiClient.fetchWithAuth<CatalogApplication[]>('/api/catalog/applications')
+}
+
+/** Retire or reactivate an application platform-wide (`Catalog.Manage`). */
+export function setCatalogApplicationStatus(applicationId: number, status: CatalogStatus): Promise<void> {
+    return apiClient.fetchWithAuth<void>(`/api/catalog/applications/${applicationId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+    })
+}
+
+/** Retire or reactivate a module platform-wide (`Catalog.Manage`). */
+export function setCatalogModuleStatus(applicationId: number, moduleId: number, status: CatalogStatus): Promise<void> {
+    return apiClient.fetchWithAuth<void>(`/api/catalog/applications/${applicationId}/modules/${moduleId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+    })
+}
+
+/** Platform administrators: an organization's assigned applications and enabled modules. */
+export function listOrganizationApplicationsAsAdmin(organizationId: number): Promise<OrganizationApplication[]> {
+    return apiClient.fetchWithAuth<OrganizationApplication[]>(`/api/admin/organizations/${organizationId}/applications`)
+}
+
+/** Assigns an application to an organization (`Application.Assign`). Grants nobody anything. */
+export function assignApplication(organizationId: number, applicationId: number): Promise<void> {
+    return apiClient.fetchWithAuth<void>(`/api/admin/organizations/${organizationId}/applications/${applicationId}`, {
+        method: 'PUT',
+    })
+}
+
+/** Removes an application from an organization. Revokes every grant for it there. */
+export function removeApplication(organizationId: number, applicationId: number): Promise<void> {
+    return apiClient.fetchWithAuth<void>(`/api/admin/organizations/${organizationId}/applications/${applicationId}`, {
+        method: 'DELETE',
+    })
+}
+
+/** Enables a licensed module (`Module.Manage`). */
+export function enableModule(organizationId: number, applicationId: number, moduleId: number): Promise<void> {
+    return apiClient.fetchWithAuth<void>(
+        `/api/admin/organizations/${organizationId}/applications/${applicationId}/modules/${moduleId}`,
+        { method: 'PUT' }
+    )
+}
+
+/** Disables a module. Grants are kept but stop resolving. */
+export function disableModule(organizationId: number, applicationId: number, moduleId: number): Promise<void> {
+    return apiClient.fetchWithAuth<void>(
+        `/api/admin/organizations/${organizationId}/applications/${applicationId}/modules/${moduleId}`,
+        { method: 'DELETE' }
+    )
+}
+
+export interface ApplicationRole extends RoleDetail {
+    /** Set for application roles; organizationId null means a read-only template. */
+    applicationId: number | null
+}
+
+export interface ApplicationGrant {
+    roleId: number
+    name: string
+    organizationId: number | null
+    applicationId: number | null
+    expiresAt: string | null
+}
+
+/** One member's access to an application: their grants and what they resolve to now. */
+export interface AccessReviewEntry {
+    userId: number
+    email: string
+    roles: ApplicationGrant[]
+    permissions: string[]
+}
+
+const adminAppPath = (organizationId: number, applicationId: number) =>
+    `/api/admin/organizations/${organizationId}/applications/${applicationId}`
+const orgAppPath = (organizationId: number, applicationId: number) =>
+    `/api/organizations/${organizationId}/applications/${applicationId}`
+
+/** Platform administrators: the application's roles in an organization (templates first). */
+export function listApplicationRolesAsAdmin(organizationId: number, applicationId: number): Promise<ApplicationRole[]> {
+    return apiClient.fetchWithAuth<ApplicationRole[]>(`${adminAppPath(organizationId, applicationId)}/roles`)
+}
+
+/** Platform administrators: grant an application role to a member, e.g. the first application administrator. */
+export function grantApplicationRoleAsAdmin(
+    organizationId: number,
+    applicationId: number,
+    userId: number,
+    roleId: number
+): Promise<ApplicationGrant> {
+    return apiClient.fetchWithAuth<ApplicationGrant>(
+        `${adminAppPath(organizationId, applicationId)}/members/${userId}/roles/${roleId}`,
+        { method: 'PUT', body: JSON.stringify({}) }
+    )
+}
+
+/** Members with User.Read: the organization's applications and enabled modules. */
+export function listOrganizationApplications(organizationId: number): Promise<OrganizationApplication[]> {
+    return apiClient.fetchWithAuth<OrganizationApplication[]>(`/api/organizations/${organizationId}/applications`)
+}
+
+/** Application administrators: the application's roles here (templates first, then custom roles). */
+export function listApplicationRoles(organizationId: number, applicationId: number): Promise<ApplicationRole[]> {
+    return apiClient.fetchWithAuth<ApplicationRole[]>(`${orgAppPath(organizationId, applicationId)}/roles`)
+}
+
+/** Application administrators: who has access to the application and what it resolves to. */
+export function reviewApplicationAccess(organizationId: number, applicationId: number): Promise<AccessReviewEntry[]> {
+    return apiClient.fetchWithAuth<AccessReviewEntry[]>(`${orgAppPath(organizationId, applicationId)}/access`)
+}
+
+/** Application administrators: grant a role to a member, optionally expiring. Idempotent. */
+export function grantApplicationRole(
+    organizationId: number,
+    applicationId: number,
+    userId: number,
+    roleId: number,
+    expiresAt?: string
+): Promise<ApplicationGrant> {
+    return apiClient.fetchWithAuth<ApplicationGrant>(
+        `${orgAppPath(organizationId, applicationId)}/members/${userId}/roles/${roleId}`,
+        { method: 'PUT', body: JSON.stringify(expiresAt ? { expiresAt } : {}) }
+    )
+}
+
+/** Application administrators: revoke a member's application role. */
+export function revokeApplicationRole(
+    organizationId: number,
+    applicationId: number,
+    userId: number,
+    roleId: number
+): Promise<void> {
+    return apiClient.fetchWithAuth<void>(`${orgAppPath(organizationId, applicationId)}/members/${userId}/roles/${roleId}`, {
+        method: 'DELETE',
+    })
+}
+
+/** The invitee accepts with the token they were sent: becomes a member with the pre-granted roles. */
+export function acceptInvitation(token: string): Promise<{ organizationId: number; grantedCount: number; skippedGrants: number }> {
+    return apiClient.fetchWithAuth('/api/invitations/accept', {
+        method: 'POST',
+        body: JSON.stringify({ token }),
+    })
+}
+
+/** Platform administrators: the existing user with exactly this email, if any. */
+export async function findUserByEmail(email: string): Promise<UserSummary | undefined> {
+    const page = await listUsers(email, undefined, 1, 25)
+    return page.items.find((u) => u.email.toLowerCase() === email.toLowerCase())
 }
 
 // Organization detail endpoints

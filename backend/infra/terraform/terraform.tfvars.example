@@ -4,7 +4,7 @@ environment = "dev"
 
 gcip_project_id       = "wrigley-cloud-prod"
 cors_allowed_origins  = ["https://portal.example.com"]
-internal_hd_allowlist = ""
+internal_hd_allowlist = "scrapgo.com"
 
 quickbase_realm_hostname        = "scrapgo.quickbase.com"
 quickbase_user_token_configured = false # true once the secret has a version

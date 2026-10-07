@@ -30,6 +30,16 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
 
     public DbSet<UserRole> UserRoles => Set<UserRole>();
 
+    public DbSet<CatalogApplication> CatalogApplications => Set<CatalogApplication>();
+
+    public DbSet<CatalogModule> CatalogModules => Set<CatalogModule>();
+
+    public DbSet<OrganizationApplication> OrganizationApplications => Set<OrganizationApplication>();
+
+    public DbSet<OrganizationApplicationModule> OrganizationApplicationModules => Set<OrganizationApplicationModule>();
+
+    public DbSet<Invitation> Invitations => Set<Invitation>();
+
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

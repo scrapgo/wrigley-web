@@ -12,7 +12,7 @@ public class CurrentUserAccess
         public async Task Me_returns_both_roles_and_each_scopes_permissions_separately()
         {
             var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
-            var orgRoleId = await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.InvoiceRead, Permissions.ReportRead);
+            var orgRoleId = await fixture.GrantPermissionsAsync(userId, organizationId, SpecPermissions.Alpha, SpecPermissions.Beta);
             var platformRoleId = await fixture.GrantPermissionsAsync(userId, organizationId: null, Permissions.UserRead);
 
             var me = await GetMeAsync(fixture, uid);
@@ -21,7 +21,7 @@ public class CurrentUserAccess
                 [(platformRoleId, (int?)null), (orgRoleId, organizationId)],
                 me.GetProperty("roles").EnumerateArray().Select(r => (r.GetProperty("roleId").GetInt32(), OrganizationIdOf(r))));
             Assert.Equal(
-                [((int?)null, Permissions.UserRead), (organizationId, $"{Permissions.InvoiceRead},{Permissions.ReportRead}")],
+                [((int?)null, Permissions.UserRead), (organizationId, $"{SpecPermissions.Alpha},{SpecPermissions.Beta}")],
                 ScopesOf(me));
         }
     }
@@ -32,14 +32,14 @@ public class CurrentUserAccess
         public async Task Me_returns_the_union_of_their_permissions_in_that_scope()
         {
             var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
-            await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.InvoiceRead);
-            await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.InvoiceRead, Permissions.InvoiceApprove);
+            await fixture.GrantPermissionsAsync(userId, organizationId, SpecPermissions.Alpha);
+            await fixture.GrantPermissionsAsync(userId, organizationId, SpecPermissions.Alpha, SpecPermissions.Gamma);
 
             var me = await GetMeAsync(fixture, uid);
 
             Assert.Equal(2, me.GetProperty("roles").GetArrayLength());
             Assert.Equal(
-                [((int?)organizationId, $"{Permissions.InvoiceApprove},{Permissions.InvoiceRead}")],
+                [((int?)organizationId, $"{SpecPermissions.Alpha},{SpecPermissions.Gamma}")],
                 ScopesOf(me));
         }
     }
@@ -86,7 +86,7 @@ public class CurrentUserAccess
             var (uid, userId) = await fixture.SeedUserAsync();
             var organizationId = await fixture.SeedOrganizationAsync();
             await fixture.SeedMembershipAsync(userId, organizationId, disabled: true);
-            await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.InvoiceRead);
+            await fixture.GrantPermissionsAsync(userId, organizationId, SpecPermissions.Alpha);
 
             var me = await GetMeAsync(fixture, uid);
 

@@ -14,8 +14,8 @@ public class PermissionCatalogSeed
         [Fact]
         public async Task The_permissions_table_holds_exactly_the_catalog() =>
             Assert.Equal(
-                Permissions.All.Order(),
-                await fixture.DbContext.Permissions.Select(p => p.Name).OrderBy(n => n).ToListAsync());
+                SpecPermissions.CatalogRows.Order(StringComparer.Ordinal),
+                (await fixture.DbContext.Permissions.Select(p => p.Name).ToListAsync()).Order(StringComparer.Ordinal));
 
         [Fact]
         public async Task Get_permissions_returns_the_whole_catalog()
@@ -25,7 +25,9 @@ public class PermissionCatalogSeed
 
             var names = (await response.Content.ReadFromJsonAsync<List<NameOnly>>())!.Select(p => p.Name);
 
-            Assert.Equal(Permissions.All.Order(), names);
+            // Retired permissions stay in the table but are never listed.
+            Assert.Equal(SpecPermissions.Listed.Order(StringComparer.Ordinal), names.Order(StringComparer.Ordinal));
+            Assert.DoesNotContain(names, Permissions.IsRetired);
         }
 
         private sealed record NameOnly(string Name);

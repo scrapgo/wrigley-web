@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
     ArrowRight,
     ShieldCheck,
@@ -14,6 +14,7 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { BrandLogo } from '../components/brand-logo'
 import { useAuth } from '../hooks/useAuth'
+import { GOOGLE_CLIENT_ID, renderGoogleSignInButton } from '../lib/google-identity'
 
 export const Route = createFileRoute('/login')({
     component: LoginComponent,
@@ -47,8 +48,31 @@ function LoginComponent() {
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
-    const { login, isAuthenticated } = useAuth()
+    const { login, loginWithGoogle, isAuthenticated } = useAuth()
     const navigate = useNavigate()
+    const googleButtonRef = useRef<HTMLDivElement>(null)
+
+    // Google sign-in: required for platform administration (Workspace accounts).
+    useEffect(() => {
+        const container = googleButtonRef.current
+        if (!GOOGLE_CLIENT_ID || !container) {
+            return
+        }
+
+        renderGoogleSignInButton(container, async (googleIdToken) => {
+            setLoading(true)
+            setError('')
+            try {
+                await loginWithGoogle(googleIdToken)
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Unable to sign in. Please try again.')
+            } finally {
+                setLoading(false)
+            }
+        }).catch((err: unknown) => {
+            setError(err instanceof Error ? err.message : 'Google sign-in failed to load.')
+        })
+    }, [loginWithGoogle])
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -157,6 +181,21 @@ function LoginComponent() {
                         >
                             {error}
                         </div>
+                    )}
+
+                    {GOOGLE_CLIENT_ID && (
+                        <>
+                            <div
+                                ref={googleButtonRef}
+                                className="mt-6 flex min-h-11 justify-center"
+                                aria-busy={loading}
+                            />
+                            <div className="mt-6 flex items-center gap-3 text-xs text-muted-foreground">
+                                <span className="h-px flex-1 bg-border" />
+                                or sign in with email
+                                <span className="h-px flex-1 bg-border" />
+                            </div>
+                        </>
                     )}
 
                     <form onSubmit={handleSubmit} className="mt-6 space-y-5">

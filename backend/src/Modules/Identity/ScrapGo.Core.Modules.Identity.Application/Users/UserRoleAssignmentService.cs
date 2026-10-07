@@ -44,6 +44,9 @@ public enum AssignRoleOutcome
 
     /// <summary>Escalation guard: the role grants a permission the caller doesn't hold in that scope.</summary>
     CannotGrantUnheldPermission,
+
+    /// <summary>External users never hold platform-scoped roles (ORG-APP-MODULE-MODEL.md section 8.1).</summary>
+    ExternalUserNotAllowed,
 }
 
 public sealed record AssignRoleResult(AssignRoleOutcome Outcome, AssignedRoleDto? Role = null);
@@ -117,9 +120,16 @@ public sealed class UserRoleAssignmentService(
             return new(authorized.PlatformScope ? AssignRoleOutcome.PlatformAdminRequired : AssignRoleOutcome.Forbidden);
         }
 
-        if (await users.GetByIdAsync(command.UserId, cancellationToken) is null)
+        if (await users.GetByIdAsync(command.UserId, cancellationToken) is not { } target)
         {
             return new(AssignRoleOutcome.UserNotFound);
+        }
+
+        // Customer (external) users may administer their own organization
+        // (Decision 4a), never the platform.
+        if (organizationId is null && target.Classification == UserClassification.External)
+        {
+            return new(AssignRoleOutcome.ExternalUserNotAllowed);
         }
 
         if (await roles.FindActiveRoleAsync(roleId, cancellationToken) is not { } role)
@@ -260,6 +270,13 @@ public sealed class UserRoleAssignmentService(
         if (role.OrganizationId is { } roleOrganizationId && roleOrganizationId != organizationId)
         {
             return AssignRoleOutcome.RoleNotInOrganization;
+        }
+
+        // Application roles are granted only through the application routes,
+        // by application or platform administrators (Decision 3).
+        if (role.IsApplicationRole)
+        {
+            return AssignRoleOutcome.RoleScopeMismatch;
         }
 
         // Each built-in belongs to one kind of scope only.

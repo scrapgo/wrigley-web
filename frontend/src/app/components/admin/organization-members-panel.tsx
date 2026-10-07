@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Plus, Search, User, UserMinus, UserPlus } from "lucide-react"
+import { User, UserMinus, UserPlus } from "lucide-react"
 
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
@@ -25,16 +25,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from "../ui/dialog"
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "../ui/alert-dialog"
 import { useToast } from "../ui/toast"
 import {
     useAddOrganizationMember,

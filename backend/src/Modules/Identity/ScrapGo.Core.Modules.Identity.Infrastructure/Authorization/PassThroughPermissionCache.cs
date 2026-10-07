@@ -15,4 +15,9 @@ public sealed class PassThroughPermissionCache : IPermissionCache
         Task.CompletedTask;
 
     public Task InvalidateAsync(PermissionScope scope, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task InvalidateOrganizationAsync(int organizationId, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task InvalidateOrganizationApplicationAsync(int organizationId, int applicationId, CancellationToken cancellationToken) =>
+        Task.CompletedTask;
 }

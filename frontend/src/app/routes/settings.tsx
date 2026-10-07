@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { createFileRoute, redirect } from '@tanstack/react-router'
-import { Link2, LogOut, Mail, ShieldCheck, UserRound } from 'lucide-react'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
+import { Link2, LogOut, Mail, MailCheck, ShieldCheck, UserRound } from 'lucide-react'
 
 import { AppShell } from '../components/app-shell'
 import { Button } from '../components/ui/button'
@@ -90,6 +90,17 @@ function SettingsComponent() {
             subtitle="Your profile and account security."
         >
             <div className="grid gap-6 lg:grid-cols-2">
+                <Card className="lg:col-span-2">
+                    <CardContent className="flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:justify-between">
+                        <span className="flex items-center gap-2 text-sm">
+                            <MailCheck className="h-4 w-4 text-brand-600" />
+                            Invited to an organization? Accept it with the token you were sent.
+                        </span>
+                        <Button variant="outline" asChild>
+                            <Link to="/invitations" search={{}}>Accept an invitation</Link>
+                        </Button>
+                    </CardContent>
+                </Card>
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-lg">

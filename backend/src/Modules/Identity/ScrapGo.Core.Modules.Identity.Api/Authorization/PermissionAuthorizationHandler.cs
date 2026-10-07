@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using ScrapGo.Core.Modules.Identity.Application.Abstractions;
 using ScrapGo.Core.Modules.Identity.Application.Authorization;
 
 namespace ScrapGo.Core.Modules.Identity.Api.Authorization;
@@ -10,11 +11,17 @@ namespace ScrapGo.Core.Modules.Identity.Api.Authorization;
 /// token claims, so a token carrying a forged <c>organizationId</c> claim
 /// changes nothing.
 /// </summary>
-public sealed class PermissionAuthorizationHandler(PermissionResolver permissionResolver)
+public sealed class PermissionAuthorizationHandler(PermissionResolver permissionResolver, ICallerSignIn callerSignIn)
     : AuthorizationHandler<PermissionRequirement>
 {
     /// <summary>Failure reason (and 400 <c>reason</c>) for an organization-scoped check on a route with no organization.</summary>
     public const string OrganizationContextRequiredReason = "organization_context_required";
+
+    /// <summary>
+    /// Failure reason (and 403 <c>reason</c>) for a platform-scoped check when
+    /// the token isn't a Google Workspace sign-in on the internal allow-list.
+    /// </summary>
+    public const string WorkspaceSignInRequiredReason = "workspace_sign_in_required";
 
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, PermissionRequirement requirement)
     {
@@ -23,7 +30,16 @@ public sealed class PermissionAuthorizationHandler(PermissionResolver permission
             return;
         }
 
+        // Platform access needs a Workspace sign-in on every request, whatever
+        // the caller's stored roles say. Named, so the client can say why.
+        if (requirement.PlatformScope && !callerSignIn.IsInternalWorkspaceSignIn)
+        {
+            context.Fail(new AuthorizationFailureReason(this, WorkspaceSignInRequiredReason));
+            return;
+        }
+
         int? organizationId = null;
+        int? applicationId = null;
         if (!requirement.PlatformScope)
         {
             if (!OrganizationRouteValues.TryGetOrganizationId(httpContext, out var routeOrganizationId))
@@ -33,9 +49,17 @@ public sealed class PermissionAuthorizationHandler(PermissionResolver permission
             }
 
             organizationId = routeOrganizationId;
+
+            // An application in the route makes the check application-scoped:
+            // only that application's grants, and only its enabled modules.
+            if (OrganizationRouteValues.TryGetApplicationId(httpContext, out var routeApplicationId))
+            {
+                applicationId = routeApplicationId;
+            }
         }
 
-        if (await permissionResolver.HasPermissionAsync(uid, organizationId, requirement.PermissionName, httpContext.RequestAborted))
+        if (await permissionResolver.HasPermissionAsync(
+                uid, organizationId, applicationId, requirement.PermissionName, httpContext.RequestAborted))
         {
             context.Succeed(requirement);
         }

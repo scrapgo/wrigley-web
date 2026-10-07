@@ -115,6 +115,10 @@ public sealed class UsersController : ControllerBase
             { Outcome: AssignRoleOutcome.TargetNotMember } => ProblemResults.Create(
                 StatusCodes.Status400BadRequest, "User is not a member",
                 "The user has no active membership in this organization.", "user_not_a_member").ToActionResult(),
+            { Outcome: AssignRoleOutcome.ExternalUserNotAllowed } => ProblemResults.Create(
+                StatusCodes.Status400BadRequest, "External user not allowed",
+                "External users can't hold platform roles. They may administer their own organization and applications.",
+                "external_user_not_allowed").ToActionResult(),
             { Outcome: AssignRoleOutcome.CannotGrantUnheldPermission } => ProblemResults.Create(
                 StatusCodes.Status403Forbidden, "Cannot grant unheld permission",
                 "The role grants a permission you do not hold in this scope.", "cannot_grant_unheld_permission").ToActionResult(),

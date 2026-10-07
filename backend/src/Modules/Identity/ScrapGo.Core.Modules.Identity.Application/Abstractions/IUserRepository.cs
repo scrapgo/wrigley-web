@@ -30,4 +30,4 @@ public interface IUserRepository
 /// <param name="WasCreated">True only when this call inserted the row (first sighting of the UID).</param>
 public sealed record ProvisionedUser(User User, bool WasCreated);
 
-public sealed record UserStatusSnapshot(int UserId, UserStatus Status);
+public sealed record UserStatusSnapshot(int UserId, UserStatus Status, UserClassification Classification = UserClassification.External);

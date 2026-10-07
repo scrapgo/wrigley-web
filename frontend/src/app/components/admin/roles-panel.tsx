@@ -52,12 +52,14 @@ import {
     useDeleteRole,
     useDetachPermission,
     useOrganizations,
+    useOrganizationRoleDetail,
     useOrganizationRoles,
     usePermissions,
     useUpdateRole,
 } from "../../hooks/useAdminQueries"
 import { adminErrorMessage } from "../../lib/admin-errors"
 import { useAdminAccess } from "../../hooks/useAdminAccess"
+import type { Role, RoleDetail } from "../../lib/admin-api"
 
 const schema = z.object({
     organizationId: z.string().min(1, "Select an organization."),
@@ -71,7 +73,7 @@ export function RolesPanel() {
     const organizationsQuery = useOrganizations()
     const permissionsQuery = usePermissions()
     const { toast } = useToast()
-    const { user, holdsRole, can } = useAdminAccess()
+    const { user, holdsRole } = useAdminAccess()
 
     // For now, we'll use the first organization as default
     // In a real implementation, we'd want to let the user select an organization
@@ -86,9 +88,14 @@ export function RolesPanel() {
     const detachPermission = useDetachPermission()
 
     const [formOpen, setFormOpen] = useState(false)
-    const [editing, setEditing] = useState<any | null>(null)
-    const [deleting, setDeleting] = useState<any | null>(null)
-    const [managing, setManaging] = useState<any | null>(null)
+    const [editing, setEditing] = useState<Role | null>(null)
+    const [deleting, setDeleting] = useState<Role | null>(null)
+    // The role whose permissions are open. Its permissions are read from the
+    // server (role detail), which attach/detach invalidate, so the dialog
+    // always shows what the API holds.
+    const [managingId, setManagingId] = useState<number | null>(null)
+    const managingQuery = useOrganizationRoleDetail(firstOrganizationId || 0, managingId ?? 0)
+    const managing = managingId !== null ? managingQuery.data ?? null : null
 
     const organizations = organizationsQuery.data ?? []
     const roles = rolesQuery.data ?? []
@@ -243,7 +250,7 @@ export function RolesPanel() {
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant="neutral">
-                                            {(role as any).permissions?.length || 0}
+                                            {role.organizationId === null ? "Built-in" : "Custom"}
                                         </Badge>
                                     </TableCell>
                                     <TableCell>
@@ -251,9 +258,15 @@ export function RolesPanel() {
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
-                                                onClick={() => setManaging(role)}
-                                                disabled={holdsRole(role.id, role.organizationId)}
-                                                title={holdsRole(role.id, role.organizationId) ? "You cannot modify a role you hold yourself" : ""}
+                                                onClick={() => setManagingId(role.id)}
+                                                disabled={role.organizationId === null || holdsRole(role.id, role.organizationId)}
+                                                title={
+                                                    role.organizationId === null
+                                                        ? "Built-in roles are read-only"
+                                                        : holdsRole(role.id, role.organizationId)
+                                                            ? "You cannot modify a role you hold yourself"
+                                                            : ""
+                                                }
                                             >
                                                 <KeyRound className="h-4 w-4" />
                                                 Permissions
@@ -263,7 +276,7 @@ export function RolesPanel() {
                                                 size="icon"
                                                 aria-label="Edit role"
                                                 onClick={() => openEdit(role)}
-                                                disabled={holdsRole(role.id, role.organizationId)}
+                                                disabled={role.organizationId === null || holdsRole(role.id, role.organizationId)}
                                             >
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
@@ -272,7 +285,7 @@ export function RolesPanel() {
                                                 size="icon"
                                                 aria-label="Delete role"
                                                 onClick={() => setDeleting(role)}
-                                                disabled={holdsRole(role.id, role.organizationId)}
+                                                disabled={role.organizationId === null || holdsRole(role.id, role.organizationId)}
                                             >
                                                 <Trash2 className="h-4 w-4 text-red-600" />
                                             </Button>
@@ -399,24 +412,15 @@ export function RolesPanel() {
                 permissions={(permissionsQuery.data ?? []).map((p) => p.name)}
                 userPermissions={user?.permissions || []}
                 organizationId={firstOrganizationId || 0}
-                onClose={() => setManaging(null)}
+                onClose={() => setManagingId(null)}
                 onAttach={async (roleId, name) => {
                     try {
+                        // Invalidates the role detail, which refreshes the dialog.
                         await attachPermission.mutateAsync({
                             roleId,
                             permissionName: name,
                             organizationId: firstOrganizationId || 0
                         })
-                        setManaging((current) =>
-                            current && current.id === roleId
-                                ? {
-                                    ...current,
-                                    permissions: current.permissions.includes(name)
-                                        ? current.permissions
-                                        : [...current.permissions, name],
-                                }
-                                : current
-                        )
                     } catch (err) {
                         toast({
                             title: "Could not attach permission",
@@ -432,16 +436,6 @@ export function RolesPanel() {
                             permissionName: name,
                             organizationId: firstOrganizationId || 0
                         })
-                        setManaging((current) =>
-                            current && current.id === roleId
-                                ? {
-                                    ...current,
-                                    permissions: current.permissions.filter(
-                                        (p) => p !== name
-                                    ),
-                                }
-                                : current
-                        )
                     } catch (err) {
                         toast({
                             title: "Could not detach permission",
@@ -464,7 +458,7 @@ function PermissionDialog({
     onAttach,
     onDetach,
 }: {
-    role: any | null
+    role: RoleDetail | null
     permissions: string[]
     userPermissions: { organizationId: number | null; permissions: string[] }[]
     organizationId: number

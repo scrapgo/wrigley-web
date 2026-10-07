@@ -31,7 +31,7 @@ public class OrganizationRoleReads
             var roleId = await CustomRoleCrud.ReadIdAsync(
                 await CustomRoleCrud.PostRoleAsync(fixture, uid, organizationId, "Auditor", "Reads invoices"));
             (await fixture.SendAsync(HttpMethod.Post, $"/api/roles/{roleId}/permissions", fixture.CreateToken(uid),
-                new { permissionName = Permissions.InvoiceRead })).EnsureSuccessStatusCode();
+                new { permissionName = SpecPermissions.Alpha })).EnsureSuccessStatusCode();
 
             var response = await fixture.SendAsync(HttpMethod.Get, $"{RolesPath(organizationId)}/{roleId}", fixture.CreateToken(uid));
 
@@ -39,7 +39,7 @@ public class OrganizationRoleReads
             var body = await response.Content.ReadFromJsonAsync<JsonElement>();
             Assert.Equal("Auditor", body.GetProperty("name").GetString());
             Assert.Equal(organizationId, body.GetProperty("organizationId").GetInt32());
-            Assert.Equal([Permissions.InvoiceRead], body.GetProperty("permissions").EnumerateArray().Select(p => p.GetString()));
+            Assert.Equal([SpecPermissions.Alpha], body.GetProperty("permissions").EnumerateArray().Select(p => p.GetString()));
         }
 
         [Fact]
@@ -54,7 +54,7 @@ public class OrganizationRoleReads
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var names = (await response.Content.ReadFromJsonAsync<List<JsonElement>>())!
                 .Select(p => p.GetProperty("name").GetString()!);
-            Assert.Equal(Permissions.All.Where(p => p != Permissions.AdminAccess).Order(StringComparer.Ordinal), names.Order(StringComparer.Ordinal));
+            Assert.Equal(SpecPermissions.OrganizationAdministratorGrants.Order(StringComparer.Ordinal), names.Order(StringComparer.Ordinal));
         }
     }
 
@@ -85,7 +85,7 @@ public class OrganizationRoleReads
         public async Task Every_role_read_returns_four_hundred_three(string suffix)
         {
             var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
-            await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.InvoiceRead);
+            await fixture.GrantPermissionsAsync(userId, organizationId, SpecPermissions.Alpha);
 
             var response = await fixture.SendAsync(HttpMethod.Get, RolesPath(organizationId) + suffix, fixture.CreateToken(uid));
 

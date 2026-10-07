@@ -42,6 +42,41 @@ public static class IdentityAuditEventTypes
 
     public const string MembershipRemoved = "membership_removed";
 
+    public const string ApplicationAssigned = "application_assigned";
+
+    /// <summary>Metadata carries <c>revokedGrantCount</c>; each revoked grant has its own <c>access_revoked</c>.</summary>
+    public const string ApplicationRemoved = "application_removed";
+
+    public const string ModuleEnabled = "module_enabled";
+
+    public const string ModuleDisabled = "module_disabled";
+
+    /// <summary>An application role granted (or its expiry changed) at (organization, application) scope.</summary>
+    public const string AccessGranted = "access_granted";
+
+    /// <summary>An application grant revoked; metadata <c>reason</c> names a cascade (application_removed, membership_removed) when it wasn't direct.</summary>
+    public const string AccessRevoked = "access_revoked";
+
+    public const string CatalogApplicationChanged = "catalog_application_changed";
+
+    public const string CatalogModuleChanged = "catalog_module_changed";
+
+    /// <summary>A member asked for an application their organization doesn't have (or that is retired).</summary>
+    public const string DeniedApplicationAccess = "denied_application_access";
+
+    public const string InvitationCreated = "invitation_created";
+
+    public const string InvitationAccepted = "invitation_accepted";
+
+    public const string InvitationRevoked = "invitation_revoked";
+
+    public const string OrganizationDeactivated = "organization_deactivated";
+
+    public const string OrganizationReactivated = "organization_reactivated";
+
+    /// <summary>A platform admin permanently deleted a deactivated organization. Its earlier audit entries are kept.</summary>
+    public const string OrganizationDeleted = "organization_deleted";
+
     /// <summary>The <c>bootstrap-platform-admin</c> command granted the first PlatformAdministrator.</summary>
     public const string PlatformAdministratorBootstrapped = "platform_administrator_bootstrapped";
 }

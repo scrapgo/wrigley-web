@@ -26,6 +26,10 @@ public static class IdentityInfrastructureServiceCollectionExtensions
         var internalHostedDomains = InternalHdAllowlistOptions.Parse(configuration[InternalHdAllowlistOptions.ConfigurationKey]);
         services.Configure<InternalHdAllowlistOptions>(options => options.HostedDomains = internalHostedDomains);
 
+        // Off unless explicitly turned on (Decision 4b: MFA isn't enabled in GCIP yet).
+        var requireMfa = configuration.GetValue<bool>(ExternalUserMfaOptions.ConfigurationKey);
+        services.Configure<ExternalUserMfaOptions>(options => options.RequireForExternalUsers = requireMfa);
+
         return services;
     }
 
@@ -40,6 +44,8 @@ public static class IdentityInfrastructureServiceCollectionExtensions
         services.AddScoped<ILinkedCredentialRepository, LinkedCredentialRepository>();
         services.AddScoped<IOrganizationRepository, OrganizationRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
+        services.AddScoped<IApplicationRepository, ApplicationRepository>();
+        services.AddScoped<IInvitationRepository, InvitationRepository>();
         services.AddScoped<IAuthorizationQueries, AuthorizationQueries>();
         services.AddScoped<IUnitOfWork, IdentityUnitOfWork>();
         services.AddScoped<IAuditLog<IdentityModule>, AuditLogRecorder<IdentityModule, IdentityDbContext>>();

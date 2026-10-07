@@ -7,6 +7,8 @@ Quickbase. The frontend talks only to this API, never to Quickbase.
 
 - Architecture, rules and conventions: [`AGENTS.md`](AGENTS.md)
 - GCP infrastructure and deployment: [`infra/terraform/README.md`](infra/terraform/README.md)
+- Organizations, applications and modules, on the site and in code: [`../CATALOG-AND-ADMIN-GUIDE.md`](../CATALOG-AND-ADMIN-GUIDE.md)
+- Workspace sign-in hook for platform admins: [`infra/gcip-blocking-function/README.md`](infra/gcip-blocking-function/README.md)
 
 ---
 
@@ -93,7 +95,9 @@ npm install
 npm run dev
 ```
 
-The frontend will start on http://localhost:5174 and connect to this API at http://localhost:5141. CORS is already configured to allow requests from the frontend's development server.
+The frontend starts on http://localhost:5173 and its dev server proxies `/api` to this API at http://localhost:5141, so CORS isn't involved.
+
+**Start the API first** and wait for `Now listening on: http://localhost:5141`. If the portal loads before the API is up, Vite logs `http proxy error … ECONNREFUSED`; refresh once the API is listening.
 
 ### 6. Call authenticated endpoints
 
@@ -113,9 +117,13 @@ until someone holds the built-in `PlatformAdministrator` role. Nobody gets a
 role by signing in, so the first one is granted by an explicit host command:
 
 1. Apply the Identity migrations (see [Database migrations](#database-migrations)).
-2. Sign in as the person to promote and call `GET /api/users/me` once, which
-   provisions their user record. Their GCIP UID is the token's `sub` claim
-   (also `identityPlatformUid` in the `/api/users/me` response).
+2. Sign in as the person to promote, **with "Sign in with Google" using their
+   Workspace (`@scrapgo.com`) account**, and call `GET /api/users/me` once.
+   That provisions their user record as Internal. Platform roles are for
+   Internal users only, and platform access needs a Workspace sign-in on every
+   request (see [Platform administrators](#platform-administrators-google-workspace-sign-in)).
+   Their GCIP UID is the token's `sub` claim (also `identityPlatformUid` in the
+   `/api/users/me` response).
 3. With the Cloud SQL proxy running and user-secrets pointing at the target
    database, run:
 
@@ -131,9 +139,30 @@ role by signing in, so the first one is granted by an explicit host command:
    | `AlreadyGranted`             | 0         | They already held it. Nothing changed; it is safe to re-run.               |
    | `UserNotProvisioned`         | 1         | No user for that UID. Do step 2 first.                                     |
    | `AnotherAdministratorExists` | 1         | Someone else already holds it. Bootstrap is one-time; it never adds a second admin. |
+   | `ExternalUserNotAllowed`     | 1         | The user is External (their first sign-in wasn't a Workspace Google sign-in). Platform roles are for Internal users only. |
 
 Permissions are resolved per request, so the new admin's next request already
 carries `Admin.Access`. No new token is needed.
+
+Further platform admins are granted by an existing one, not by this command:
+`POST /api/users/{id}/roles` with the PlatformAdministrator role id and no
+`organizationId`.
+
+### 8. Platform administrators: Google Workspace sign-in
+
+Platform-scoped permissions resolve only when the request's token carries an
+`hd` claim on `INTERNAL_HD_ALLOWLIST` (`scrapgo.com`), on **every request**:
+
+- **Email/password sign-ins never carry `hd`.** A platform admin signed in that
+  way gets 403 `workspace_sign_in_required` on platform routes. `/api/users/me`
+  shows no platform roles but returns `workspaceSignInRequired: true`, and the
+  portal shows a "Sign in with Google" notice.
+- **GCIP doesn't put `hd` in its tokens by itself.** The `beforeSignIn` blocking
+  function in [`infra/gcip-blocking-function/`](infra/gcip-blocking-function/README.md)
+  copies it from Google's token for Google sign-ins.
+  - It's deployed as `beforeSignIn` (us-central1) and registered under Identity Platform → Settings → Triggers.
+  - Without it, nobody has platform access.
+- Organization and application access work with any sign-in method.
 
 ## Configuration
 
@@ -156,14 +185,17 @@ is in [`.env.example`](.env.example).
 
 Add the Quickbase token the same way as the connection string:
 `dotnet user-secrets set "Quickbase:UserToken" "<token>" --project src/ScrapGo.Core.Api`.
+Set the allowlist locally the same way:
+`dotnet user-secrets set INTERNAL_HD_ALLOWLIST scrapgo.com --project src/ScrapGo.Core.Api`.
 
 ## Database migrations
 
 Each module owns its own schema and migrations. With the proxy running, apply
-them in this order (the audit schema first):
+them in this order (the audit schema first). `$C` lasts only for the current
+terminal, so set it from your user-secrets each time:
 
 ```bash
-C="Host=127.0.0.1;Port=5434;Database=<database>;Username=<user>;Password=<password>;SSL Mode=Disable"
+C=$(dotnet user-secrets list --project src/ScrapGo.Core.Api | sed -n 's/^ConnectionStrings:Default = //p')
 dotnet ef database update --project src/Shared/ScrapGo.Core.Shared.Infrastructure --context AuditDbContext --connection "$C"
 dotnet ef database update --project src/Modules/Identity/ScrapGo.Core.Modules.Identity.Infrastructure --context IdentityDbContext --connection "$C"
 dotnet ef database update --project src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Infrastructure --context QuickbaseDbContext --connection "$C"
@@ -173,6 +205,20 @@ dotnet ef database update --project src/Modules/QuickbaseEngine/ScrapGo.Core.Mod
 migrations against a database meant for this API: they create the `audit`,
 `identity` and `quickbase` schemas.
 
+If the local API is running, its build output is locked. Add
+`--configuration Release` to `dotnet ef` commands (they then build into
+`bin/Release`), or stop the API first.
+
+Recent Identity migrations, in order:
+
+| Migration | What it does |
+| --- | --- |
+| `RetireGenericPermissions` | Removes the retired `Invoice.*` / `Report.*` permissions from roles (audited); the rows stay because ids are positional |
+| `AddPlatformAdministrationPermissions` | `Organization.Create`, `Organization.Deactivate`, `Application.Assign`, `Module.Manage`, `Catalog.Manage` for PlatformAdministrator, plus `Application.ManageAccess` |
+| `AddApplicationsAndModules` | Catalog and entitlement tables; application roles and grant expiry |
+| `AddInvitations` | Email invitations with pre-granted roles |
+| `AddDownstreamApplication` | The first catalog application, **Downstream**: modules Pricing, Opportunities, Loads & Freight and Suppliers; permissions `Downstream.<Module>.Read/Write` (ids 25–32); role templates "Downstream Administrator" and "Downstream Viewer" |
+
 ## Tests
 
 ```bash
@@ -181,8 +227,20 @@ dotnet test ScrapGo.Core.slnx
 
 The integration tests start their own throwaway Postgres containers
 (Testcontainers), so **Docker must be running**, and they never touch Cloud SQL.
-The full run takes about 12 minutes. While it runs, the test host locks the
-test projects' DLLs, so don't `dotnet build` at the same time.
+The full run takes about 20 minutes (Identity: ~400 tests; Quickbase: 30).
+While it runs, the test host locks the test projects' DLLs, so don't
+`dotnet build` at the same time.
+
+To run tests while the local API is running, build them into a separate folder
+so the API's locked DLLs aren't touched:
+
+```bash
+dotnet test tests/Modules/ScrapGo.Core.Modules.Identity.IntegrationTests -o "$TEMP/scrapgo-testout" --filter "FullyQualifiedName~DownstreamWalkthrough"
+```
+
+`Applications/DownstreamWalkthrough.cs` runs the guide's whole test scenario
+against the real Downstream catalog: create organizations, assign, enable,
+appoint, grant, disable, deactivate and remove.
 
 ## Running in Docker
 
@@ -208,23 +266,66 @@ Inside the container, the proxy on your machine is `host.docker.internal:5434`
 | `403` with `reason: user_disabled`                                       | Your user record is disabled.                                                                                                      |
 | `dotnet build` fails with "file is locked by testhost"                   | A test run is still going. Wait for it or stop it.                                                                                 |
 | `401` and the request shows `Authorization: Bearer "@token` (or similar) | A placeholder was pasted into Swagger's **Authorize** box. Paste the raw ID token (`eyJ…`) with no quotes and no `Bearer ` prefix. |
+| `403` with `reason: workspace_sign_in_required`                          | A platform route was called with a token that has no allowlisted `hd`. Sign in with Google using a `@scrapgo.com` account; check `INTERNAL_HD_ALLOWLIST` and the blocking function. |
+| `dotnet build` / `dotnet ef` fails: file locked by `ScrapGo.Core.Api`     | The local API is running. Stop it, or use `--configuration Release` (ef) or `-o <folder>` (test).                                   |
+| `ConnectionString property has not been initialized` from `dotnet ef`     | `$C` is empty in this terminal. Set it from user-secrets (see [Database migrations](#database-migrations)).                         |
+| `28P01: password authentication failed for user "<user>"`                | The connection string still has placeholders. Use the real values from user-secrets or Secret Manager.                             |
 
 ## Access model
 
 Access is scoped by organization, then application, then module:
 
-- Applications and modules are a code-defined catalog. It's empty until the first application is added.
-- Platform administrators create organizations, assign applications to them and enable licensed modules.
-- Application administrators grant application roles inside their organization.
-- A permission resolves only while its module is enabled for that organization's application.
-- Nobody gets anything automatically: not at sign-in, not by joining an organization, not when an application is assigned.
+- **Catalog (code):** applications and modules are defined in code and seeded by migration.
+  - The first one is **Downstream** (`Domain/Applications/DownstreamApplication.cs`).
+  - Adding one is described in [`../CATALOG-AND-ADMIN-GUIDE.md`](../CATALOG-AND-ADMIN-GUIDE.md), Part 2.
+- **Platform administrators** (Google Workspace sign-in):
+  - create organizations, naming the first administrator by user id or email (an unknown email gets an invitation)
+  - rename them (the slug follows the name)
+  - set an administrator (which revokes pending invitations)
+  - deactivate and reactivate them
+  - **delete** a deactivated one permanently; its audit history is kept
+  - assign applications, enable licensed modules, and appoint each application's first administrator
+- **Application administrators** grant and revoke application roles in their organization, optionally with expiry. Organization administrators can't.
+- **Effective permissions:** a permission resolves only while its module is enabled for that organization's application.
+- **Nothing is automatic:** nobody gets anything at sign-in, by joining an organization, or when an application is assigned.
 
 The design and its decisions are in [`../ORG-APP-MODULE-MODEL.md`](../ORG-APP-MODULE-MODEL.md), the rules in [`AGENTS.md`](AGENTS.md) ("Authorization Model"), and the admin API history in [`ADMIN-API-GAPS-v2.md`](ADMIN-API-GAPS-v2.md).
 
-**After pulling these changes, apply the Identity migrations** (see [Database migrations](#database-migrations)): `RetireGenericPermissions`, `AddPlatformAdministrationPermissions`, `AddApplicationsAndModules`, `AddInvitations`. They are additive. The only data change is removing the retired `Invoice.*` / `Report.*` permissions from roles, which is audited.
+Platform admin endpoints (all `[PlatformAdministration]`, no membership needed):
+
+| Route | Purpose |
+| --- | --- |
+| `GET/POST /api/admin/organizations` | List (search, status, paging) / create |
+| `PUT /api/admin/organizations/{id}` | Rename (regenerates the slug; 409 `duplicate_slug`) |
+| `PUT /api/admin/organizations/{id}/administrators/{userId}` | Make member + OrganizationAdministrator; revokes pending invitations |
+| `POST /api/admin/organizations/{id}/deactivate` · `/reactivate` | Block / restore all access |
+| `DELETE /api/admin/organizations/{id}` | Permanently delete a **deactivated** organization (409 `organization_active` otherwise) |
+| `GET /api/admin/organizations/{id}/applications` | Its applications and enabled modules |
+| `PUT/DELETE /api/admin/organizations/{id}/applications/{appId}` | Assign / remove (removal revokes every grant for it) |
+| `PUT/DELETE …/applications/{appId}/modules/{moduleId}` | Enable / disable a module |
+| `GET …/applications/{appId}/roles` | The application's roles (templates first) |
+| `PUT/DELETE …/applications/{appId}/members/{userId}/roles/{roleId}` | Grant / revoke an application role, e.g. the first application administrator |
+
+Invitations are accepted with `POST /api/invitations/accept` `{ token }`. It needs a verified email matching the invitation's; a Google sign-in counts as verified.
 
 ## Deployment
 
 Pushes to `main` that touch `backend/` run [`cloudbuild.yaml`](cloudbuild.yaml):
 build, test, container image, push to Artifact Registry, deploy to Cloud Run.
 The infrastructure is defined in [`infra/terraform`](infra/terraform/README.md).
+
+**The currently deployed service is `wrigley-api`** (project `wrigley-cloud-prod`,
+us-central1), deployed by hand. To ship the working copy:
+
+```bash
+cd backend
+gcloud builds submit . --project=wrigley-cloud-prod \
+  --tag=us-central1-docker.pkg.dev/wrigley-cloud-prod/wrigley-api/wrigley-api:<new tag>
+gcloud run deploy wrigley-api --project=wrigley-cloud-prod --region=us-central1 \
+  --image=us-central1-docker.pkg.dev/wrigley-cloud-prod/wrigley-api/wrigley-api:<new tag> \
+  --update-env-vars=INTERNAL_HD_ALLOWLIST=scrapgo.com
+curl -s https://wrigley-api-7iv6rka6zq-uc.a.run.app/healthz/ready
+```
+
+- **Image tags:** the repository already has tags up to `v12`, so use a new one each time (`v13`, `v14`, …). Never reuse a tag.
+- **Migrations first:** apply them to the cloud database before deploying code that needs them.

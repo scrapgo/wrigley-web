@@ -4,6 +4,10 @@
 
 This is the frontend for the ScrapGo Downstream Portal, a mobile-first Progressive Web App (PWA) built with React, TanStack Start, and Tailwind CSS. It serves as the user interface for internal staff, suppliers, and carriers to access ScrapGo's operational workflows.
 
+## Current Status
+
+For detailed implementation status, see [Frontend Implementation Status](FRONTEND-IMPLEMENTATION-STATUS.md).
+
 ## Architecture
 
 The frontend communicates exclusively with the `ScrapGo.Core.Api` backend and never interacts directly with Quickbase. All data flows through the secure .NET API layer.

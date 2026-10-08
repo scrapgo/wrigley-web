@@ -5,6 +5,10 @@ is the portal's **identity hub** (Google Cloud Identity Platform sign-in,
 organizations, roles and permissions) and its **governed, cached proxy** to
 Quickbase. The frontend talks only to this API, never to Quickbase.
 
+## Current Status
+
+For detailed implementation status, see [Backend Implementation Status](BACKEND-IMPLEMENTATION-STATUS.md).
+
 - Architecture, rules and conventions: [`AGENTS.md`](AGENTS.md)
 - GCP infrastructure and deployment: [`infra/terraform/README.md`](infra/terraform/README.md)
 - Organizations, applications and modules, on the site and in code: [`../CATALOG-AND-ADMIN-GUIDE.md`](../CATALOG-AND-ADMIN-GUIDE.md)

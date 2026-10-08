@@ -27,4 +27,14 @@ public interface IUserContext
     /// Always false for an unauthenticated or inactive caller.
     /// </summary>
     Task<bool> HasPermissionAsync(string permissionName, int? organizationId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether the caller holds <paramref name="permissionName"/> for
+    /// <paramref name="applicationId"/> within <paramref name="organizationId"/>
+    /// (application scope). That needs an active membership, the application
+    /// assigned to the organization, and, for a module permission, the module
+    /// enabled there. Always false for an unauthenticated or inactive caller.
+    /// </summary>
+    Task<bool> HasApplicationPermissionAsync(
+        string permissionName, int organizationId, int applicationId, CancellationToken cancellationToken);
 }

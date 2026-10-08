@@ -82,6 +82,14 @@ public class IdentitySpecFixture : IAsyncLifetime
     /// <summary><c>Identity:RequireMfaForExternalUsers</c> for this fixture. Null (the default) leaves it unset, i.e. off.</summary>
     protected virtual string? RequireMfaForExternalUsers => null;
 
+    /// <summary>
+    /// Last-registered test services, e.g. another module's spec fixture
+    /// replacing <c>IQuickbaseQueryService</c> with a fake. Nothing by default.
+    /// </summary>
+    protected virtual void ConfigureTestServices(IServiceCollection services)
+    {
+    }
+
     public HttpClient Client { get; private set; } = null!;
 
     /// <summary>
@@ -127,6 +135,8 @@ public class IdentitySpecFixture : IAsyncLifetime
                 // Test-only probe routes (Fixtures/ProbeController.cs),
                 // registered here so they never exist in the production host.
                 services.AddControllers().AddApplicationPart(typeof(IdentitySpecFixture).Assembly);
+
+                ConfigureTestServices(services);
             }));
 
         _scope = _factory.Services.CreateScope();

@@ -1,4 +1,4 @@
-namespace ScrapGo.Core.Modules.QuickbaseEngine.Application.Queries;
+namespace ScrapGo.Core.Shared.Kernel.Quickbase;
 
 /// <summary>
 /// A Quickbase "query for data" request (<c>POST /v1/records/query</c>),

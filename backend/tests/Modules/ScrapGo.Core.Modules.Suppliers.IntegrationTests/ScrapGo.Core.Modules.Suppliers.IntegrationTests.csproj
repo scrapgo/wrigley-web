@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>ScrapGo.Core.Modules.Suppliers.IntegrationTests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <!--
+    The whole host, plus the Identity spec fixture (tokens, seeding) so the
+    real permission engine decides access. Quickbase is replaced by a fake.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\ScrapGo.Core.Api\ScrapGo.Core.Api.csproj" />
+    <ProjectReference Include="..\ScrapGo.Core.Modules.Identity.IntegrationTests\ScrapGo.Core.Modules.Identity.IntegrationTests.csproj" />
+  </ItemGroup>
+
+</Project>

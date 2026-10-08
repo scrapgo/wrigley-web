@@ -10,6 +10,19 @@ Quickbase. The frontend talks only to this API, never to Quickbase.
 - Organizations, applications and modules, on the site and in code: [`../CATALOG-AND-ADMIN-GUIDE.md`](../CATALOG-AND-ADMIN-GUIDE.md)
 - Workspace sign-in hook for platform admins: [`infra/gcip-blocking-function/README.md`](infra/gcip-blocking-function/README.md)
 
+Modules (`src/Modules/`):
+
+| Module | What it does |
+| --- | --- |
+| **Identity** | Sign-in, users, organizations, roles and permissions, applications and modules, invitations |
+| **QuickbaseEngine** | The only path to Quickbase: `IQuickbaseQueryService`, cached in Postgres (`quickbase.query_caches`) and resilient (retries, timeouts, circuit breaker) |
+| **Suppliers** | Read endpoints over the Quickbase Suppliers table (`bqrcgnatz`) |
+
+Proxy modules like Suppliers reach Quickbase and the caller only through
+contracts in `Shared.Kernel`: `IQuickbaseQueryService` (`Shared.Kernel.Quickbase`)
+and `IUserContext` (`Shared.Kernel.Security`). They never reference another
+module's projects.
+
 ---
 
 ## Prerequisites
@@ -164,6 +177,47 @@ Platform-scoped permissions resolve only when the request's token carries an
   - Without it, nobody has platform access.
 - Organization and application access work with any sign-in method.
 
+### 9. Connect to Quickbase
+
+Only needed for Quickbase-backed endpoints such as `/api/suppliers`; everything
+else runs without it. From `backend/`:
+
+```bash
+# The realm isn't a secret, but user-secrets keeps it out of committed files.
+dotnet user-secrets set "Quickbase:RealmHostname" "scrapgo.quickbase.com" --project src/ScrapGo.Core.Api
+
+# A Quickbase *user token*, assigned to the app that holds the tables you query.
+dotnet user-secrets set "Quickbase:UserToken" "<user token>" --project src/ScrapGo.Core.Api
+```
+
+Get the token in Quickbase: your name → **My preferences** → **Manage my user
+tokens** → **+ New user token**, assigned to the app that contains the
+Suppliers table. Paste it without any `QB-USER-TOKEN` prefix.
+
+**Check the token before starting the API.** This sends the same query
+straight to Quickbase:
+
+```bash
+T=$(dotnet user-secrets list --project src/ScrapGo.Core.Api | sed -n 's/^Quickbase:UserToken = //p')
+curl -s -X POST https://api.quickbase.com/v1/records/query \
+  -H "QB-Realm-Hostname: scrapgo.quickbase.com" -H "Authorization: QB-USER-TOKEN $T" \
+  -H "Content-Type: application/json" -d '{"from":"bqrcgnatz","select":[3,8],"options":{"top":1}}'
+```
+
+| Result | Meaning |
+| --- | --- |
+| JSON with `data` | The token works. Restart the API (settings are read at startup) |
+| `401` `"User token is invalid"` | Quickbase doesn't know this token (deleted, regenerated or mistyped). Create a new one |
+| `401`/`403` about the app or table | The token isn't assigned to the app that holds the table |
+
+Then, signed in to the portal as a platform admin with Google, take
+`localStorage.authToken` and call:
+
+```bash
+curl -s "http://localhost:5141/api/suppliers?search=Auto&top=5" -H "Authorization: Bearer <token>"
+curl -s http://localhost:5141/api/suppliers/17511 -H "Authorization: Bearer <token>"
+```
+
 ## Configuration
 
 Non-secret development values live in `src/ScrapGo.Core.Api/appsettings.Development.json`.
@@ -175,16 +229,16 @@ is in [`.env.example`](.env.example).
 | --------------------------- | ----------------------- | ----------------------- | -------------------------------------------------- |
 | `ConnectionStrings:Default` | Yes                     | user-secrets            | Postgres (Npgsql) connection string                |
 | `Gcip:ProjectId`            | Yes                     | `wrigley-cloud-prod`    | GCIP project whose ID tokens are accepted          |
-| `Quickbase:RealmHostname`   | On first Quickbase call | —                       | e.g. `scrapgo.quickbase.com`                       |
-| `Quickbase:UserToken`       | On first Quickbase call | user-secrets            | Quickbase user token (secret)                      |
+| `Quickbase:RealmHostname`   | On first Quickbase call | user-secrets            | `scrapgo.quickbase.com`. Empty in `appsettings.json`, so set it (see step 9) |
+| `Quickbase:UserToken`       | On first Quickbase call | user-secrets            | Quickbase user token (secret), assigned to the app that holds the tables |
 | `Quickbase:QueryCache:Ttl`  | No                      | `00:15:00`              | How long cached Quickbase results are served       |
 | `Cors:AllowedOrigins`       | No                      | `http://localhost:3000` | Browser origins allowed to call the API            |
 | `INTERNAL_HD_ALLOWLIST`     | **Yes for platform admin** | —                    | Google Workspace domains treated as internal users. Platform access also needs a sign-in whose token carries one of these as `hd` on every request: when blank, nobody has platform access. `hd` comes from the GCIP blocking function in [`infra/gcip-blocking-function/`](infra/gcip-blocking-function/README.md). Terraform default: `scrapgo.com` |
 | `Swagger:Enabled`           | No                      | `true`                  | Serves `/swagger` (off in Cloud Run unless set)    |
 | `Identity:RequireMfaForExternalUsers` | No            | `false`                 | When `true`, external users need a second factor (`mfa_required` otherwise). Keep off until MFA is enabled in GCIP |
 
-Add the Quickbase token the same way as the connection string:
-`dotnet user-secrets set "Quickbase:UserToken" "<token>" --project src/ScrapGo.Core.Api`.
+Quickbase settings are validated on the first Quickbase call, not at startup,
+so the API runs without them; see [step 9](#9-connect-to-quickbase).
 Set the allowlist locally the same way:
 `dotnet user-secrets set INTERNAL_HD_ALLOWLIST scrapgo.com --project src/ScrapGo.Core.Api`.
 
@@ -227,7 +281,10 @@ dotnet test ScrapGo.Core.slnx
 
 The integration tests start their own throwaway Postgres containers
 (Testcontainers), so **Docker must be running**, and they never touch Cloud SQL.
-The full run takes about 20 minutes (Identity: ~400 tests; Quickbase: 30).
+The full run takes about 20 minutes (Identity: ~400 tests; QuickbaseEngine: 30; Suppliers: 20).
+The Suppliers tests run the whole host with the real permission engine and a
+fake `IQuickbaseQueryService` fed real Quickbase responses, so they never call
+Quickbase.
 While it runs, the test host locks the test projects' DLLs, so don't
 `dotnet build` at the same time.
 
@@ -270,6 +327,9 @@ Inside the container, the proxy on your machine is `host.docker.internal:5434`
 | `dotnet build` / `dotnet ef` fails: file locked by `ScrapGo.Core.Api`     | The local API is running. Stop it, or use `--configuration Release` (ef) or `-o <folder>` (test).                                   |
 | `ConnectionString property has not been initialized` from `dotnet ef`     | `$C` is empty in this terminal. Set it from user-secrets (see [Database migrations](#database-migrations)).                         |
 | `28P01: password authentication failed for user "<user>"`                | The connection string still has placeholders. Use the real values from user-secrets or Secret Manager.                             |
+| `502` with `reason: quickbase_unavailable`                               | Quickbase failed and nothing was cached. The API log shows the cause after `Quickbase query on table '…' returned`.                 |
+| Log: `returned 401: {"message":"Access denied","description":"User token is invalid"}` | The Quickbase user token is dead. Create a new one and check it with the curl in [step 9](#9-connect-to-quickbase). Restarting doesn't help. |
+| Quickbase calls fail on `RealmHostname` / `UserToken` validation          | The Quickbase settings aren't set: see [step 9](#9-connect-to-quickbase).                                                          |
 
 ## Access model
 
@@ -306,6 +366,20 @@ Platform admin endpoints (all `[PlatformAdministration]`, no membership needed):
 | `GET …/applications/{appId}/roles` | The application's roles (templates first) |
 | `PUT/DELETE …/applications/{appId}/members/{userId}/roles/{roleId}` | Grant / revoke an application role, e.g. the first application administrator |
 
+Quickbase-backed endpoints check the caller before any Quickbase data is read:
+- **Application-scoped routes** (`/api/organizations/{id}/applications/{appId}/…`): the organization must have the application, and the caller needs the module's permission there.
+- **Platform routes** (`/api/suppliers…`): platform administrators only.
+
+The first module is **Suppliers** (Quickbase table `bqrcgnatz`):
+
+| Route | Purpose |
+| --- | --- |
+| `GET /api/organizations/{id}/applications/1/suppliers?search=&skip=&top=` | Supplier names, sorted by name, paged (`top` 1–1000, default 100); `totalRecords` is the full count |
+| `GET /api/organizations/{id}/applications/1/suppliers/{recordId}` | One supplier's details (address, main contact, payment terms, lead owner, delivery counts, target price) |
+| `GET /api/suppliers?search=&skip=&top=` · `GET /api/suppliers/{recordId}` | The same, platform-wide: **platform administrators only** (`Admin.Access` at platform scope, Google Workspace sign-in) |
+
+Responses include `freshness` (`Cache`, `Quickbase` or `StaleCache`, plus `fetchedAt`), because results are cached for `Quickbase:QueryCache:Ttl`. Quickbase must be configured first: `Quickbase:RealmHostname` and the `Quickbase:UserToken` secret.
+
 Invitations are accepted with `POST /api/invitations/accept` `{ token }`. It needs a verified email matching the invitation's; a Google sign-in counts as verified.
 
 ## Deployment
@@ -313,6 +387,9 @@ Invitations are accepted with `POST /api/invitations/accept` `{ token }`. It nee
 Pushes to `main` that touch `backend/` run [`cloudbuild.yaml`](cloudbuild.yaml):
 build, test, container image, push to Artifact Registry, deploy to Cloud Run.
 The infrastructure is defined in [`infra/terraform`](infra/terraform/README.md).
+
+The Quickbase endpoints need `Quickbase__RealmHostname` and `Quickbase__UserToken`
+on the service; keep the token in Secret Manager, not a plain env var.
 
 **The currently deployed service is `wrigley-api`** (project `wrigley-cloud-prod`,
 us-central1), deployed by hand. To ship the working copy:

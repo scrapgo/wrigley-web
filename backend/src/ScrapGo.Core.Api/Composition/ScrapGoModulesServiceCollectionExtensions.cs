@@ -38,6 +38,7 @@ public static class ScrapGoModulesServiceCollectionExtensions
 
         services.AddIdentityModule(config);
         services.AddQuickbaseEngineModule(config);
+        services.AddSuppliersModule();
 
         // Deny-by-default: an endpoint that declares no authorization at all
         // still requires an authenticated caller. Every controller also carries
@@ -51,7 +52,8 @@ public static class ScrapGoModulesServiceCollectionExtensions
         services
             .AddControllers()
             .AddApplicationPart(typeof(IdentityModuleServiceCollectionExtensions).Assembly)
-            .AddApplicationPart(typeof(QuickbaseEngineModuleServiceCollectionExtensions).Assembly);
+            .AddApplicationPart(typeof(QuickbaseEngineModuleServiceCollectionExtensions).Assembly)
+            .AddApplicationPart(typeof(SuppliersModuleServiceCollectionExtensions).Assembly);
 
         return services;
     }
@@ -75,4 +77,15 @@ public static class ScrapGoModulesServiceCollectionExtensions
             .AddQuickbaseEngineApplication()
             .AddQuickbaseEngineInfrastructure(config)
             .AddQuickbaseEngineApi();
+
+    /// <summary>
+    /// Suppliers: read endpoints over the Quickbase Suppliers table, through
+    /// the shared <c>IQuickbaseQueryService</c> and checked against
+    /// <c>IUserContext</c>. No database of its own.
+    /// </summary>
+    private static IServiceCollection AddSuppliersModule(this IServiceCollection services) =>
+        services
+            .AddSuppliersApplication()
+            .AddSuppliersInfrastructure()
+            .AddSuppliersApi();
 }

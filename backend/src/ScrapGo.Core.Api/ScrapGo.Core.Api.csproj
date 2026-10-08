@@ -20,6 +20,8 @@
     <ProjectReference Include="..\Modules\Identity\ScrapGo.Core.Modules.Identity.Infrastructure\ScrapGo.Core.Modules.Identity.Infrastructure.csproj" />
     <ProjectReference Include="..\Modules\QuickbaseEngine\ScrapGo.Core.Modules.QuickbaseEngine.Api\ScrapGo.Core.Modules.QuickbaseEngine.Api.csproj" />
     <ProjectReference Include="..\Modules\QuickbaseEngine\ScrapGo.Core.Modules.QuickbaseEngine.Infrastructure\ScrapGo.Core.Modules.QuickbaseEngine.Infrastructure.csproj" />
+    <ProjectReference Include="..\Modules\Suppliers\ScrapGo.Core.Modules.Suppliers.Api\ScrapGo.Core.Modules.Suppliers.Api.csproj" />
+    <ProjectReference Include="..\Modules\Suppliers\ScrapGo.Core.Modules.Suppliers.Infrastructure\ScrapGo.Core.Modules.Suppliers.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

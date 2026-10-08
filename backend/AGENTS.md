@@ -76,11 +76,24 @@ Composition: `Program.cs` only calls `AddScrapGoModules(config)`, `AddScrapGoHos
 
 Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user gate, account linking, organizations and memberships, custom roles and the permission catalog, the `[RequirePermission]` engine, and the cross-tenant membership guard.
 
-**QuickbaseEngine**: `IQuickbaseQueryService`, cache-aside over the Quickbase REST API, backed by `quickbase.query_caches`. Its Api project has no controllers yet.
+**QuickbaseEngine**: implements `IQuickbaseQueryService`, cache-aside over the Quickbase REST API, backed by `quickbase.query_caches`. Its Api project has no controllers.
+
+**Suppliers** (Application, Infrastructure, Api; no Domain or database, since Quickbase owns the data): read endpoints over the Quickbase Suppliers table `bqrcgnatz`.
+- `GET /api/organizations/{organizationId}/applications/{applicationId}/suppliers` returns names sorted by name, with `search`, `skip` and `top` (1–1000, default 100).
+- `GET …/suppliers/{recordId}` returns one supplier's details.
+- `GET /api/suppliers` and `GET /api/suppliers/{recordId}` do the same without an organization or application, for **platform administrators only** (`Admin.Access` at platform scope, which needs a Workspace sign-in). The Suppliers table is ScrapGo-wide.
+- Both require `Downstream.Suppliers.Read` at application scope, which also needs the Suppliers module enabled.
+- `ISupplierSource` (Application) is implemented by `QuickbaseSupplierSource` (Infrastructure), which holds the field ids (`SuppliersTable`) and the JSON mapping.
+- Errors: 403 `missing_permission`, 404 `supplier_not_found`, 502 `quickbase_unavailable`.
+
+**Proxy modules** (Suppliers, and later Freight and others) follow the Suppliers shape:
+- They reach Quickbase only through `IQuickbaseQueryService` and check the caller through `IUserContext`. Both contracts live in **Shared.Kernel** (`Shared.Kernel.Quickbase`, `Shared.Kernel.Security`), so no module references QuickbaseEngine's or Identity's projects.
+- They check application-scope permissions with `IUserContext.HasApplicationPermissionAsync`.
+- They name catalog permissions by string, with a spec pinning that string to Identity's catalog.
 
 ## Quickbase Query Cache (QuickbaseEngine module)
 
-- **Always go through `IQuickbaseQueryService`**, never `IQuickbaseClient` or `HttpClient` directly from a controller. The service hashes the query (`QueryKey`: SHA-256 of the realm plus the canonical query JSON), serves a cache row younger than `Quickbase:QueryCache:Ttl` (default 15 minutes), and otherwise calls Quickbase and upserts the row (`INSERT ... ON CONFLICT`, where the newest response wins).
+- **Always go through `IQuickbaseQueryService`** (the contract is in `Shared.Kernel.Quickbase`, with `QuickbaseQuery` and `QuickbaseApiException`), never `IQuickbaseClient` or `HttpClient` directly from a controller. The service hashes the query (`QueryKey`: SHA-256 of the realm plus the canonical query JSON), serves a cache row younger than `Quickbase:QueryCache:Ttl` (default 15 minutes), and otherwise calls Quickbase and upserts the row (`INSERT ... ON CONFLICT`, where the newest response wins).
 - **Failures are never cached.** With `Quickbase:QueryCache:ServeStaleOnError` (on by default), a failed refresh serves the expired row instead, flagged `StaleCache`.
 - **UserContext gate.** `QuickbaseQueryService` checks `IUserContext` (defined in Shared.Kernel, implemented by Identity) before reading the cache or calling Quickbase. An unauthenticated or non-active caller gets `UnauthorizedAccessException`, which the host returns as 403 `access_denied`. That check is the floor. One Quickbase credential serves all users and cache rows are shared, so table-level access (`IUserContext.HasPermissionAsync`) must still be checked by the caller until the Quickbase table-access model exists.
 - **Configuration:** `Quickbase__RealmHostname` and `Quickbase__UserToken` (a secret, from Secret Manager) are validated on first use, not at startup. Never read `QuickbaseOptions` from anything that runs at startup, or every host will need the credentials to boot.

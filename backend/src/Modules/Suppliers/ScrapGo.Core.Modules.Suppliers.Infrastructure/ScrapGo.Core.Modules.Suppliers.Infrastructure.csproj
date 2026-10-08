@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>ScrapGo.Core.Modules.Suppliers.Infrastructure</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ScrapGo.Core.Modules.Suppliers.Application\ScrapGo.Core.Modules.Suppliers.Application.csproj" />
+  </ItemGroup>
+
+</Project>

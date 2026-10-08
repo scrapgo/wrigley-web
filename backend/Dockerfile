@@ -18,6 +18,9 @@ COPY src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Domain/*.c
 COPY src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Application/*.csproj src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Application/
 COPY src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Infrastructure/*.csproj src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Infrastructure/
 COPY src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Api/*.csproj src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Api/
+COPY src/Modules/Suppliers/ScrapGo.Core.Modules.Suppliers.Application/*.csproj src/Modules/Suppliers/ScrapGo.Core.Modules.Suppliers.Application/
+COPY src/Modules/Suppliers/ScrapGo.Core.Modules.Suppliers.Infrastructure/*.csproj src/Modules/Suppliers/ScrapGo.Core.Modules.Suppliers.Infrastructure/
+COPY src/Modules/Suppliers/ScrapGo.Core.Modules.Suppliers.Api/*.csproj src/Modules/Suppliers/ScrapGo.Core.Modules.Suppliers.Api/
 COPY src/ScrapGo.Core.Api/*.csproj src/ScrapGo.Core.Api/
 RUN dotnet restore src/ScrapGo.Core.Api/ScrapGo.Core.Api.csproj
 

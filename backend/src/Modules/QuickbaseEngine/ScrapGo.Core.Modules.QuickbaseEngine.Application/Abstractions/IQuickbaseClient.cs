@@ -1,5 +1,3 @@
-using ScrapGo.Core.Modules.QuickbaseEngine.Application.Queries;
-
 namespace ScrapGo.Core.Modules.QuickbaseEngine.Application.Abstractions;
 
 /// <summary>
@@ -18,11 +16,4 @@ public interface IQuickbaseClient
     /// <summary>Runs <c>POST /v1/records/query</c> and returns the response body verbatim.</summary>
     /// <exception cref="QuickbaseApiException">Non-success status, timeout, or transport failure.</exception>
     Task<string> QueryRecordsAsync(QuickbaseQuery query, CancellationToken cancellationToken);
-}
-
-/// <summary>A failed Quickbase call. <see cref="StatusCode"/> is null when no response arrived (timeout, network failure).</summary>
-public sealed class QuickbaseApiException(string message, int? statusCode = null, Exception? innerException = null)
-    : Exception(message, innerException)
-{
-    public int? StatusCode { get; } = statusCode;
 }

@@ -1,9 +1,12 @@
-namespace ScrapGo.Core.Modules.QuickbaseEngine.Application.Queries;
+namespace ScrapGo.Core.Shared.Kernel.Quickbase;
 
 /// <summary>
 /// Runs Quickbase queries through the Postgres query cache (cache-aside).
 /// </summary>
 /// <remarks>
+/// A contract in Shared.Kernel, implemented by the QuickbaseEngine module, so
+/// proxy modules (Suppliers, Freight, ...) query Quickbase through it without
+/// referencing QuickbaseEngine's projects, like <c>IUserContext</c>.
 /// This service is authorization-agnostic: it runs every query with the
 /// platform's single Quickbase credential, and cache entries are shared by
 /// all callers. Callers must enforce the requesting user's
@@ -37,7 +40,7 @@ public enum QuickbaseResultSource
 
     /// <summary>
     /// Quickbase failed, so an expired cache entry was served instead
-    /// (stale-if-error). Only when <see cref="QuickbaseQueryCacheOptions.ServeStaleOnError"/> is on.
+    /// (stale-if-error). Only when <c>Quickbase:QueryCache:ServeStaleOnError</c> is on.
     /// </summary>
     StaleCache,
 }

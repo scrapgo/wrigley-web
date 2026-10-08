@@ -15,6 +15,11 @@
     <Project Path="src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Domain/ScrapGo.Core.Modules.QuickbaseEngine.Domain.csproj" />
     <Project Path="src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Infrastructure/ScrapGo.Core.Modules.QuickbaseEngine.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/src/Modules/Suppliers/">
+    <Project Path="src/Modules/Suppliers/ScrapGo.Core.Modules.Suppliers.Api/ScrapGo.Core.Modules.Suppliers.Api.csproj" />
+    <Project Path="src/Modules/Suppliers/ScrapGo.Core.Modules.Suppliers.Application/ScrapGo.Core.Modules.Suppliers.Application.csproj" />
+    <Project Path="src/Modules/Suppliers/ScrapGo.Core.Modules.Suppliers.Infrastructure/ScrapGo.Core.Modules.Suppliers.Infrastructure.csproj" />
+  </Folder>
   <Folder Name="/src/Shared/">
     <Project Path="src/Shared/ScrapGo.Core.Shared.Infrastructure/ScrapGo.Core.Shared.Infrastructure.csproj" />
     <Project Path="src/Shared/ScrapGo.Core.Shared.Kernel/ScrapGo.Core.Shared.Kernel.csproj" />
@@ -23,5 +28,6 @@
   <Folder Name="/tests/Modules/">
     <Project Path="tests/Modules/ScrapGo.Core.Modules.Identity.IntegrationTests/ScrapGo.Core.Modules.Identity.IntegrationTests.csproj" />
     <Project Path="tests/Modules/ScrapGo.Core.Modules.QuickbaseEngine.IntegrationTests/ScrapGo.Core.Modules.QuickbaseEngine.IntegrationTests.csproj" />
+    <Project Path="tests/Modules/ScrapGo.Core.Modules.Suppliers.IntegrationTests/ScrapGo.Core.Modules.Suppliers.IntegrationTests.csproj" />
   </Folder>
 </Solution>

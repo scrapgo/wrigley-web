@@ -23,6 +23,9 @@ public static class SuppliersTable
     public const int DeliveredBefore90Days = 214;
     public const int MainEmail = 301;
     public const int PaymentTerms = 320;
+
+    /// <summary>Dead Freight (checkbox). The legacy integration calls it <c>DeadFreightExempt</c>.</summary>
+    public const int DeadFreight = 321;
     public const int TargetConsumerPrice = 346;
     public const int MainContactPhone = 355;
 
@@ -31,7 +34,7 @@ public static class SuppliersTable
     [
         RecordId, Account, StreetAddress, City, State, Country, ZipCode, MainContactPhone, MainContactNames,
         PaymentTerms, MainEmail, LeadAssignedTo, RelevantConsumerDistances, InStockItemRecords, TotalActivities,
-        TargetConsumerPrice, DeliveredLast90Days, DeliveredBefore90Days,
+        TargetConsumerPrice, DeliveredLast90Days, DeliveredBefore90Days, DeadFreight,
     ];
 
     /// <summary>The list view's fields.</summary>

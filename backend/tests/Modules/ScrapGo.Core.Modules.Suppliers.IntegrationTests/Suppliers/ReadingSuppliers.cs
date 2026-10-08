@@ -27,7 +27,7 @@ public class ReadingSuppliers
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var query = fixture.Quickbase.Queries.Last();
             Assert.Equal("bqrcgnatz", query.TableId);
-            Assert.Equal([3, 8, 9, 10, 11, 64, 12, 355, 123, 320, 301, 74, 28, 133, 116, 346, 129, 214], query.Select);
+            Assert.Equal([3, 8, 9, 10, 11, 64, 12, 355, 123, 320, 301, 74, 28, 133, 116, 346, 129, 214, 321], query.Select);
             Assert.Equal("{3.EX.'17511'}", query.Where);
 
             var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -49,7 +49,21 @@ public class ReadingSuppliers
             Assert.Equal(257m, supplier.GetProperty("targetConsumerPrice").GetDecimal());
             Assert.Equal(2, supplier.GetProperty("deliveredLast90Days").GetInt32());
             Assert.Equal(2, supplier.GetProperty("deliveredBefore90Days").GetInt32());
+            Assert.True(supplier.GetProperty("deadFreight").GetBoolean());
             Assert.Equal("Quickbase", body.GetProperty("freshness").GetProperty("source").GetString());
+        }
+
+        [Fact]
+        public async Task An_unchecked_dead_freight_box_is_false()
+        {
+            var (token, organizationId) = await fixture.SeedSupplierReaderAsync(AllDownstreamModules);
+            fixture.Quickbase.RespondWith(SupplierResponses.NotDeadFreight);
+
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId, "/9583"), token);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var supplier = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("supplier");
+            Assert.False(supplier.GetProperty("deadFreight").GetBoolean());
         }
 
         [Fact]

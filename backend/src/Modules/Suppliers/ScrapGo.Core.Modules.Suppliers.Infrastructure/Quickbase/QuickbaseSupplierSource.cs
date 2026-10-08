@@ -86,7 +86,8 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase) : 
                 record.Int(SuppliersTable.TotalActivities),
                 record.Decimal(SuppliersTable.TargetConsumerPrice),
                 record.Int(SuppliersTable.DeliveredLast90Days),
-                record.Int(SuppliersTable.DeliveredBefore90Days))
+                record.Int(SuppliersTable.DeliveredBefore90Days),
+                record.Bool(SuppliersTable.DeadFreight))
             : null;
 
     private static DataFreshness Freshness(QuickbaseQueryResult result) => new(result.Source.ToString(), result.FetchedAt);

@@ -30,6 +30,18 @@ internal readonly struct QuickbaseRecord(JsonElement row)
 
     public int? Int(int fieldId) => Decimal(fieldId) is { } number ? (int)decimal.Truncate(number) : null;
 
+    /// <summary>A checkbox field: true or false; null only when the field is missing or empty.</summary>
+    public bool? Bool(int fieldId) => Value(fieldId) is { } value
+        ? value.ValueKind switch
+        {
+            JsonValueKind.True => true,
+            JsonValueKind.False => false,
+            JsonValueKind.String when bool.TryParse(value.GetString(), out var parsed) => parsed,
+            JsonValueKind.Number when value.TryGetInt32(out var number) => number != 0,
+            _ => null,
+        }
+        : null;
+
     /// <summary>A multi-select text field (array of strings); a single string becomes one item.</summary>
     public IReadOnlyList<string> TextList(int fieldId) => Value(fieldId) is { } value
         ? value.ValueKind switch

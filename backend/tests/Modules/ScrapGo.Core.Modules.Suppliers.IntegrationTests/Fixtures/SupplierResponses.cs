@@ -24,12 +24,22 @@ public static class SupplierResponses
               "214": { "value": 2 },
               "301": { "value": "pipoe720@hotmail.com" },
               "320": { "value": "Net 5" },
+              "321": { "value": true },
               "346": { "value": 257 },
               "355": { "value": "(321) 356-4622" }
             }
           ],
           "fields": [],
           "metadata": { "numFields": 18, "numRecords": 1, "skip": 0, "totalRecords": 1 }
+        }
+        """;
+
+    /// <summary>A record with Dead Freight (321) unchecked.</summary>
+    public const string NotDeadFreight = """
+        {
+          "data": [ { "3": { "value": 9583 }, "8": { "value": "1st Class Auto Salvage" }, "321": { "value": false } } ],
+          "fields": [],
+          "metadata": { "numRecords": 1, "skip": 0, "totalRecords": 1 }
         }
         """;
 

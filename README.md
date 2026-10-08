@@ -6,6 +6,14 @@ Downstream is the centralized operational portal for ScrapGo. It acts as an inte
 
 This platform consolidates identity management, pricing transparency, and operational workflow into a mobile-first, PWA-based portal.
 
+## Current Status
+
+For detailed implementation status, see:
+
+- [Backend Implementation Status](backend/BACKEND-IMPLEMENTATION-STATUS.md)
+- [Frontend Implementation Status](frontend/FRONTEND-IMPLEMENTATION-STATUS.md)
+- [Overall Project Status](PROJECT-STATUS.md)
+
 ## Architecture
 
 - **Backend:** .NET 10 / PostgreSQL (Modular Monolith): `ScrapGo.Core.Api`

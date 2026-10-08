@@ -4,6 +4,10 @@
 
 This is the frontend for the ScrapGo Downstream Portal, a mobile-first Progressive Web App (PWA) built with React, TanStack Start, and Tailwind CSS. It serves as the user interface for internal staff, suppliers, and carriers to access ScrapGo's operational workflows.
 
+## Current Status
+
+For detailed implementation status, see [Frontend Implementation Status](FRONTEND-IMPLEMENTATION-STATUS.md).
+
 ## Architecture
 
 The frontend communicates exclusively with the `ScrapGo.Core.Api` backend and never interacts directly with Quickbase. All data flows through the secure .NET API layer.
@@ -96,10 +100,10 @@ src/
 Two sign-in methods, both through **Google Cloud Identity Platform (GCIP)** REST
 calls (no Firebase SDK):
 
-| Method | How | Notes |
-| --- | --- | --- |
+| Method                  | How                                                                                                                                                  | Notes                                                                                                                                                                                                             |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Sign in with Google** | Google Identity Services (`lib/google-identity.ts`) returns a Google ID token. `apiClient.signInWithGoogle` exchanges it at `accounts:signInWithIdp` | **Required for platform administrators.** The GCIP `beforeSignIn` blocking function adds the Workspace `hd` claim, which the API checks on every platform request. Shown only when `VITE_GOOGLE_CLIENT_ID` is set |
-| **Email and password** | `accounts:signInWithPassword` | Fine for organization and application work; never gives platform access |
+| **Email and password**  | `accounts:signInWithPassword`                                                                                                                        | Fine for organization and application work; never gives platform access                                                                                                                                           |
 
 Either way, the token is checked against **`GET /api/users/me`** before it's
 stored. That call also creates the user's record on their first sign-in. A
@@ -134,6 +138,7 @@ VITE_GOOGLE_HOSTED_DOMAIN=scrapgo.com
 
 Vite reads these only at startup: restart `npm run dev` after changing them.
 For Google sign-in to work, the portal's origin must also be:
+
 - an **authorized JavaScript origin** of that OAuth client
 - an **authorized domain** in Identity Platform (`localhost` is there by default)
 
@@ -154,14 +159,14 @@ admin permissions in an organization. Gating is in `hooks/useAdminAccess.ts`:
 `can`, `canIn`, `isPlatformAdmin`, `isAppAdmin` and `workspaceSignInRequired`.
 The API re-checks everything.
 
-| Screen | Who | What |
-| --- | --- | --- |
-| **Organizations** tab | Platform admins see every organization (search, status filter); others see theirs | New organization (first admin by user id or email; an email of someone who has signed in is used as their id); **Edit** (rename, which regenerates the slug; set administrator); **Applications**; **Deactivate / Reactivate**; **Delete** (deactivated only, confirmed by typing the name); **Manage** (organizations you belong to) |
-| Organization **Applications** dialog | Platform admins | Assign or remove applications, enable or disable modules, appoint an application administrator |
-| **Applications** tab | Platform admins | The catalog of applications and modules; Retire / Reactivate with `Catalog.Manage` |
-| **Roles**, **Permissions**, **Users** tabs | Admins | Organization roles and permission composition; the permission catalog; user administration and role assignment |
-| Organization page (`/admin/organizations/$id`, via **Manage**) | Members with admin rights | Rename, members; **Applications** card where application administrators see who has access and grant or revoke roles, optionally until a date |
-| **Settings → Accept an invitation** (`/invitations?token=…`) | Anyone invited | Paste the token to join; needs the invited email, verified (Google counts) |
+| Screen                                                         | Who                                                                               | What                                                                                                                                                                                                                                                                                                                                  |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Organizations** tab                                          | Platform admins see every organization (search, status filter); others see theirs | New organization (first admin by user id or email; an email of someone who has signed in is used as their id); **Edit** (rename, which regenerates the slug; set administrator); **Applications**; **Deactivate / Reactivate**; **Delete** (deactivated only, confirmed by typing the name); **Manage** (organizations you belong to) |
+| Organization **Applications** dialog                           | Platform admins                                                                   | Assign or remove applications, enable or disable modules, appoint an application administrator                                                                                                                                                                                                                                        |
+| **Applications** tab                                           | Platform admins                                                                   | The catalog of applications and modules; Retire / Reactivate with `Catalog.Manage`                                                                                                                                                                                                                                                    |
+| **Roles**, **Permissions**, **Users** tabs                     | Admins                                                                            | Organization roles and permission composition; the permission catalog; user administration and role assignment                                                                                                                                                                                                                        |
+| Organization page (`/admin/organizations/$id`, via **Manage**) | Members with admin rights                                                         | Rename, members; **Applications** card where application administrators see who has access and grant or revoke roles, optionally until a date                                                                                                                                                                                         |
+| **Settings → Accept an invitation** (`/invitations?token=…`)   | Anyone invited                                                                    | Paste the token to join; needs the invited email, verified (Google counts)                                                                                                                                                                                                                                                            |
 
 Step-by-step instructions with test data are in
 [`../CATALOG-AND-ADMIN-GUIDE.md`](../CATALOG-AND-ADMIN-GUIDE.md). Status and

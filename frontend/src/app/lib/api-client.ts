@@ -15,8 +15,6 @@ const GCIP_API_KEY = import.meta.env.VITE_GCIP_API_KEY ?? ''
 
 const GCIP_SIGN_IN_URL =
     'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword'
-const GCIP_SIGN_IN_WITH_IDP_URL =
-    'https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp'
 
 /** The caller's own user record, as returned by GET /api/users/me. */
 export interface CurrentUser {
@@ -25,18 +23,22 @@ export interface CurrentUser {
     email: string
     status: string
     classification: string
-    roles: { roleId: number; name: string; organizationId: number | null }[]
+    workspaceSignInRequired: boolean
+    roles: { roleId: number; name: string; organizationId: number | null; applicationId: number | null; expiresAt: string | null }[]
     // One entry per scope the caller holds anything in. organizationId null = platform scope.
-    // Application scopes also carry applicationId; organization and platform scopes have it null.
-    permissions: { organizationId: number | null; applicationId?: number | null; permissions: string[] }[]
-    /**
-     * True when the caller holds a platform role that this sign-in can't use:
-     * platform administration needs "Sign in with Google" with a Workspace
-     * account. Grants nothing; it only explains the missing platform access.
-     */
-    workspaceSignInRequired?: boolean
-    /** Active organizations the caller is a member of (application tree omitted here). */
-    organizations?: { organizationId: number; name: string }[]
+    permissions: { organizationId: number | null; applicationId: number | null; permissions: string[] }[]
+    organizations: {
+        organizationId: number;
+        name: string;
+        permissions: string[];
+        applications: {
+            applicationId: number;
+            key: string;
+            name: string;
+            modules: { moduleId: number; key: string; name: string }[];
+            permissions: string[];
+        }[];
+    }[];
 }
 
 /** GCIP sign-in response (subset we care about). */
@@ -46,12 +48,6 @@ interface GcipSignInResponse {
     expiresIn: string
     localId: string
     registered: boolean
-}
-
-/** GCIP signInWithIdp response (subset). No idToken when needConfirmation is set. */
-interface GcipSignInWithIdpResponse {
-    idToken?: string
-    needConfirmation?: boolean
 }
 
 /** RFC 7807 ProblemDetails with the API's `reason` extension. */
@@ -88,13 +84,6 @@ function gcipErrorMessage(code: string | undefined): string {
             return 'Too many attempts. Please try again later.'
         case 'INVALID_EMAIL':
             return 'Please enter a valid email address.'
-        case 'OPERATION_NOT_ALLOWED':
-            return 'Google sign-in is not enabled for this portal.'
-        case 'INVALID_IDP_RESPONSE':
-            return 'Google sign-in failed. Please try again.'
-        case 'FEDERATED_USER_ID_ALREADY_LINKED':
-        case 'NEED_CONFIRMATION':
-            return 'An account with this email already uses a different sign-in method. Sign in with that method, or ask an administrator to link Google to your account.'
         default:
             return 'Unable to sign in. Please try again.'
     }
@@ -148,9 +137,8 @@ class ApiClient {
     }
 
     /**
-     * Exchange a Google ID token (from Google Identity Services) for a GCIP ID
-     * token. The GCIP beforeSignIn blocking function adds the Workspace `hd`
-     * claim, which platform administration requires.
+     * Authenticate with Google Identity Services and exchange the ID token
+     * for a GCIP ID token via accounts:signInWithIdp.
      */
     async signInWithGoogle(googleIdToken: string): Promise<string> {
         if (!GCIP_API_KEY) {
@@ -161,28 +149,28 @@ class ApiClient {
             )
         }
 
-        const response = await fetch(`${GCIP_SIGN_IN_WITH_IDP_URL}?key=${GCIP_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                postBody: new URLSearchParams({
-                    id_token: googleIdToken,
-                    providerId: 'google.com',
-                }).toString(),
-                requestUri: window.location.origin,
-                returnSecureToken: true,
-                returnIdpCredential: true,
-            }),
-        })
+        // Exchange the Google ID token for a GCIP ID token via signInWithIdp
+        const response = await fetch(
+            `https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${GCIP_API_KEY}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    postBody: `id_token=${googleIdToken}&provider_id=google.com`,
+                    requestUri: window.location.origin,
+                    returnIdpCredential: true,
+                    returnSecureToken: true,
+                }),
+            }
+        )
 
-        const body = (await response.json()) as GcipSignInWithIdpResponse & {
-            error?: { message?: string }
-        }
+        const body = (await response.json()) as
+            | { idToken: string }
+            | { error?: { message?: string } }
 
-        if (!response.ok || !body.idToken) {
-            const code = body.error?.message ?? (body.needConfirmation ? 'NEED_CONFIRMATION' : undefined)
-            // Blocking-function rejections arrive as "BLOCKING_FUNCTION_ERROR_RESPONSE : ...".
-            throw new ApiError(gcipErrorMessage(code?.split(' ')[0]), response.status, code)
+        if (!response.ok || !('idToken' in body)) {
+            const code = 'error' in body ? body.error?.message : undefined
+            throw new ApiError(gcipErrorMessage(code), response.status, code)
         }
 
         return body.idToken

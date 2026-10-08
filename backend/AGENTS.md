@@ -85,6 +85,14 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 - Both require `Downstream.Suppliers.Read` at application scope, which also needs the Suppliers module enabled.
 - `ISupplierSource` (Application) is implemented by `QuickbaseSupplierSource` (Infrastructure), which holds the field ids (`SuppliersTable`) and the JSON mapping.
 - Errors: 403 `missing_permission`, 404 `supplier_not_found`, 502 `quickbase_unavailable`.
+- **Payment terms** are the `PaymentTerms` enum (Application), serialized by name.
+  - `PaymentTermsCatalog` holds the labels, which are also the exact Quickbase text in field 320. `QuickbasePaymentTerms` (Infrastructure) converts them.
+  - Unknown Quickbase text is returned as `null` and logged.
+  - To add a value: append it and its label. Never rename one.
+  - `GET /api/suppliers/payment-terms` lists the dropdown options.
+- **Dead freight** is the `DeadFreight` enum (`Exempt`, `NotExempt`), serialized by name.
+  - Quickbase field 321 is a checkbox: **checked is `NotExempt`**, unchecked `Exempt` (despite the legacy name `DeadFreightExempt`). `QuickbaseDeadFreight` (Infrastructure) converts it.
+  - `GET /api/suppliers/dead-freight` lists the dropdown options.
 
 **Proxy modules** (Suppliers, and later Freight and others) follow the Suppliers shape:
 - They reach Quickbase only through `IQuickbaseQueryService` and check the caller through `IUserContext`. Both contracts live in **Shared.Kernel** (`Shared.Kernel.Quickbase`, `Shared.Kernel.Security`), so no module references QuickbaseEngine's or Identity's projects.

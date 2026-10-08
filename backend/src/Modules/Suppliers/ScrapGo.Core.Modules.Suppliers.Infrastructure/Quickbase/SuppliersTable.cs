@@ -24,7 +24,10 @@ public static class SuppliersTable
     public const int MainEmail = 301;
     public const int PaymentTerms = 320;
 
-    /// <summary>Dead Freight (checkbox). The legacy integration calls it <c>DeadFreightExempt</c>.</summary>
+    /// <summary>
+    /// Dead Freight (checkbox): checked is Not Exempt, unchecked Exempt. The
+    /// legacy integration calls it <c>DeadFreightExempt</c>, but checked does not mean exempt.
+    /// </summary>
     public const int DeadFreight = 321;
     public const int TargetConsumerPrice = 346;
     public const int MainContactPhone = 355;

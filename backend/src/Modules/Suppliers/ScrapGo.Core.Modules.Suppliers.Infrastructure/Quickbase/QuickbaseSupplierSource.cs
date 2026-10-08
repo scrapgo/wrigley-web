@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 namespace ScrapGo.Core.Modules.Suppliers.Infrastructure.Quickbase;
 
 /// <summary>
@@ -5,7 +7,7 @@ namespace ScrapGo.Core.Modules.Suppliers.Infrastructure.Quickbase;
 /// <see cref="IQuickbaseQueryService"/> (cached, resilient). Never calls
 /// Quickbase directly.
 /// </summary>
-public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase) : ISupplierSource
+public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, ILogger<QuickbaseSupplierSource> logger) : ISupplierSource
 {
     public async Task<Sourced<SupplierDto?>> FindByRecordIdAsync(int recordId, CancellationToken cancellationToken)
     {
@@ -66,7 +68,7 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase) : 
             ? data.EnumerateArray()
             : [];
 
-    private static SupplierDto? ToSupplier(QuickbaseRecord record) =>
+    private SupplierDto? ToSupplier(QuickbaseRecord record) =>
         record.Int(SuppliersTable.RecordId) is { } recordId
             ? new SupplierDto(
                 recordId,
@@ -78,7 +80,7 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase) : 
                 record.Text(SuppliersTable.ZipCode),
                 record.Text(SuppliersTable.MainContactPhone),
                 record.TextList(SuppliersTable.MainContactNames),
-                record.Text(SuppliersTable.PaymentTerms),
+                PaymentTermsOf(recordId, record.Text(SuppliersTable.PaymentTerms)),
                 record.Text(SuppliersTable.MainEmail),
                 record.User(SuppliersTable.LeadAssignedTo),
                 record.Int(SuppliersTable.RelevantConsumerDistances),
@@ -87,8 +89,28 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase) : 
                 record.Decimal(SuppliersTable.TargetConsumerPrice),
                 record.Int(SuppliersTable.DeliveredLast90Days),
                 record.Int(SuppliersTable.DeliveredBefore90Days),
-                record.Bool(SuppliersTable.DeadFreight))
+                QuickbaseDeadFreight.FromQuickbase(record.Bool(SuppliersTable.DeadFreight)))
             : null;
+
+    /// <summary>
+    /// Field 320 as <see cref="PaymentTerms"/>. Text that isn't a known value is
+    /// returned as null and logged, so the dropdown shows "not set" rather than
+    /// a value Quickbase doesn't hold.
+    /// </summary>
+    private PaymentTerms? PaymentTermsOf(int recordId, string? text)
+    {
+        if (QuickbasePaymentTerms.TryFromQuickbase(text, out var terms))
+        {
+            return terms;
+        }
+
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            logger.LogWarning("Supplier {RecordId} has payment terms {PaymentTerms} that aren't a known value; returned as empty.", recordId, text);
+        }
+
+        return null;
+    }
 
     private static DataFreshness Freshness(QuickbaseQueryResult result) => new(result.Source.ToString(), result.FetchedAt);
 }

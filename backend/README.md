@@ -382,6 +382,18 @@ The first module is **Suppliers** (Quickbase table `bqrcgnatz`):
 | `GET /api/organizations/{id}/applications/1/suppliers?search=&skip=&top=` | Supplier names, sorted by name, paged (`top` 1–1000, default 100); `totalRecords` is the full count                    |
 | `GET /api/organizations/{id}/applications/1/suppliers/{recordId}`         | One supplier's details (address, main contact, payment terms, lead owner, delivery counts, target price)               |
 | `GET /api/suppliers?search=&skip=&top=` · `GET /api/suppliers/{recordId}` | The same, platform-wide: **platform administrators only** (`Admin.Access` at platform scope, Google Workspace sign-in) |
+| `GET /api/suppliers/payment-terms` | The payment terms dropdown options, `[{ "value": "Net5", "label": "Net 5" }, …]`; any signed-in user |
+| `GET /api/suppliers/dead-freight` | The dead freight dropdown options, `[{ "value": "Exempt", "label": "Exempt" }, { "value": "NotExempt", "label": "Not Exempt" }]`; any signed-in user |
+
+**Payment terms** are an enum (`PaymentTerms`: `Net5`, `Net10`, `Net30`, `TuesdayThursday`, `MlNorwood`).
+- Supplier details carry the enum name.
+- Each value's label is the dropdown text and also the exact Quickbase text in field 320. `QuickbasePaymentTerms` converts in both directions.
+- Quickbase text that isn't a known value comes back as `null`, and a warning is logged.
+
+
+**Dead freight** is an enum too (`DeadFreight`: `Exempt`, `NotExempt`; labels "Exempt" and "Not Exempt").
+- In Quickbase it's a checkbox (field 321): **checked is `NotExempt`**, unchecked is `Exempt`.
+- `QuickbaseDeadFreight` converts in both directions.
 
 Responses include `freshness` (`Cache`, `Quickbase` or `StaleCache`, plus `fetchedAt`), because results are cached for `Quickbase:QueryCache:Ttl`. Quickbase must be configured first: `Quickbase:RealmHostname` and the `Quickbase:UserToken` secret.
 

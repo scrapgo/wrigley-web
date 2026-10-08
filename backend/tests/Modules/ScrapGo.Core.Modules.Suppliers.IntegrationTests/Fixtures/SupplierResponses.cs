@@ -34,10 +34,19 @@ public static class SupplierResponses
         }
         """;
 
-    /// <summary>A record with Dead Freight (321) unchecked.</summary>
-    public const string NotDeadFreight = """
+    /// <summary>A record with Dead Freight (321) unchecked, i.e. Exempt.</summary>
+    public const string DeadFreightUnchecked = """
         {
           "data": [ { "3": { "value": 9583 }, "8": { "value": "1st Class Auto Salvage" }, "321": { "value": false } } ],
+          "fields": [],
+          "metadata": { "numRecords": 1, "skip": 0, "totalRecords": 1 }
+        }
+        """;
+
+    /// <summary>A record whose payment terms aren't one of the known values.</summary>
+    public const string UnknownPaymentTerms = """
+        {
+          "data": [ { "3": { "value": 9583 }, "8": { "value": "1st Class Auto Salvage" }, "320": { "value": "Net 15" } } ],
           "fields": [],
           "metadata": { "numRecords": 1, "skip": 0, "totalRecords": 1 }
         }

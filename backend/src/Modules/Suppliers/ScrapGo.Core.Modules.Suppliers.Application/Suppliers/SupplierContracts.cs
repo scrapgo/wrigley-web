@@ -9,7 +9,8 @@ public sealed record SupplierSummaryDto(int RecordId, string Account);
 public sealed record SupplierUserDto(string? Id, string? Email, string? Name);
 
 /// <summary>One supplier's details from the Quickbase Suppliers table. Null means empty in Quickbase.</summary>
-/// <param name="DeadFreight">Quickbase field 321, a checkbox.</param>
+/// <param name="PaymentTerms">Quickbase field 320, one of <see cref="Suppliers.PaymentTerms"/>; null when empty or not a known value.</param>
+/// <param name="DeadFreight">Quickbase field 321 (checkbox): checked is <see cref="Suppliers.DeadFreight.NotExempt"/>, unchecked <see cref="Suppliers.DeadFreight.Exempt"/>; null only if Quickbase sent no value.</param>
 public sealed record SupplierDto(
     int RecordId,
     string? Account,
@@ -20,7 +21,7 @@ public sealed record SupplierDto(
     string? ZipCode,
     string? MainContactPhone,
     IReadOnlyList<string> MainContactNames,
-    string? PaymentTerms,
+    PaymentTerms? PaymentTerms,
     string? MainEmail,
     SupplierUserDto? LeadAssignedTo,
     int? RelevantConsumerDistances,
@@ -29,7 +30,7 @@ public sealed record SupplierDto(
     decimal? TargetConsumerPrice,
     int? DeliveredLast90Days,
     int? DeliveredBefore90Days,
-    bool? DeadFreight);
+    DeadFreight? DeadFreight);
 
 /// <param name="Source"><c>Cache</c>, <c>Quickbase</c> (fetched just now) or <c>StaleCache</c> (Quickbase failed; an older copy was served).</param>
 /// <param name="FetchedAt">When the data was fetched from Quickbase.</param>

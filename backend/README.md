@@ -16,11 +16,11 @@ For detailed implementation status, see [Backend Implementation Status](BACKEND-
 
 Modules (`src/Modules/`):
 
-| Module | What it does |
-| --- | --- |
-| **Identity** | Sign-in, users, organizations, roles and permissions, applications and modules, invitations |
+| Module              | What it does                                                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Identity**        | Sign-in, users, organizations, roles and permissions, applications and modules, invitations                                                            |
 | **QuickbaseEngine** | The only path to Quickbase: `IQuickbaseQueryService`, cached in Postgres (`quickbase.query_caches`) and resilient (retries, timeouts, circuit breaker) |
-| **Suppliers** | Read endpoints over the Quickbase Suppliers table (`bqrcgnatz`) |
+| **Suppliers**       | Read endpoints over the Quickbase Suppliers table (`bqrcgnatz`)                                                                                        |
 
 Proxy modules like Suppliers reach Quickbase and the caller only through
 contracts in `Shared.Kernel`: `IQuickbaseQueryService` (`Shared.Kernel.Quickbase`)
@@ -150,12 +150,12 @@ role by signing in, so the first one is granted by an explicit host command:
 
    The command does not start the web server. It prints one of:
 
-   | Output                       | Exit code | Meaning                                                                    |
-   | ---------------------------- | --------- | -------------------------------------------------------------------------- |
-   | `Granted`                    | 0         | The user now holds `PlatformAdministrator`. An audit row was written.      |
-   | `AlreadyGranted`             | 0         | They already held it. Nothing changed; it is safe to re-run.               |
-   | `UserNotProvisioned`         | 1         | No user for that UID. Do step 2 first.                                     |
-   | `AnotherAdministratorExists` | 1         | Someone else already holds it. Bootstrap is one-time; it never adds a second admin. |
+   | Output                       | Exit code | Meaning                                                                                                                   |
+   | ---------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------- |
+   | `Granted`                    | 0         | The user now holds `PlatformAdministrator`. An audit row was written.                                                     |
+   | `AlreadyGranted`             | 0         | They already held it. Nothing changed; it is safe to re-run.                                                              |
+   | `UserNotProvisioned`         | 1         | No user for that UID. Do step 2 first.                                                                                    |
+   | `AnotherAdministratorExists` | 1         | Someone else already holds it. Bootstrap is one-time; it never adds a second admin.                                       |
    | `ExternalUserNotAllowed`     | 1         | The user is External (their first sign-in wasn't a Workspace Google sign-in). Platform roles are for Internal users only. |
 
 Permissions are resolved per request, so the new admin's next request already
@@ -208,11 +208,11 @@ curl -s -X POST https://api.quickbase.com/v1/records/query \
   -H "Content-Type: application/json" -d '{"from":"bqrcgnatz","select":[3,8],"options":{"top":1}}'
 ```
 
-| Result | Meaning |
-| --- | --- |
-| JSON with `data` | The token works. Restart the API (settings are read at startup) |
-| `401` `"User token is invalid"` | Quickbase doesn't know this token (deleted, regenerated or mistyped). Create a new one |
-| `401`/`403` about the app or table | The token isn't assigned to the app that holds the table |
+| Result                             | Meaning                                                                                |
+| ---------------------------------- | -------------------------------------------------------------------------------------- |
+| JSON with `data`                   | The token works. Restart the API (settings are read at startup)                        |
+| `401` `"User token is invalid"`    | Quickbase doesn't know this token (deleted, regenerated or mistyped). Create a new one |
+| `401`/`403` about the app or table | The token isn't assigned to the app that holds the table                               |
 
 Then, signed in to the portal as a platform admin with Google, take
 `localStorage.authToken` and call:
@@ -229,17 +229,17 @@ Secrets live in `dotnet user-secrets` locally and Secret Manager in GCP;
 **they never go in a committed file**. The full list, as environment variables,
 is in [`.env.example`](.env.example).
 
-| Setting                     | Required                | Local default           | Purpose                                            |
-| --------------------------- | ----------------------- | ----------------------- | -------------------------------------------------- |
-| `ConnectionStrings:Default` | Yes                     | user-secrets            | Postgres (Npgsql) connection string                |
-| `Gcip:ProjectId`            | Yes                     | `wrigley-cloud-prod`    | GCIP project whose ID tokens are accepted          |
-| `Quickbase:RealmHostname`   | On first Quickbase call | user-secrets            | `scrapgo.quickbase.com`. Empty in `appsettings.json`, so set it (see step 9) |
-| `Quickbase:UserToken`       | On first Quickbase call | user-secrets            | Quickbase user token (secret), assigned to the app that holds the tables |
-| `Quickbase:QueryCache:Ttl`  | No                      | `00:15:00`              | How long cached Quickbase results are served       |
-| `Cors:AllowedOrigins`       | No                      | `http://localhost:3000` | Browser origins allowed to call the API            |
-| `INTERNAL_HD_ALLOWLIST`     | **Yes for platform admin** | —                    | Google Workspace domains treated as internal users. Platform access also needs a sign-in whose token carries one of these as `hd` on every request: when blank, nobody has platform access. `hd` comes from the GCIP blocking function in [`infra/gcip-blocking-function/`](infra/gcip-blocking-function/README.md). Terraform default: `scrapgo.com` |
-| `Swagger:Enabled`           | No                      | `true`                  | Serves `/swagger` (off in Cloud Run unless set)    |
-| `Identity:RequireMfaForExternalUsers` | No            | `false`                 | When `true`, external users need a second factor (`mfa_required` otherwise). Keep off until MFA is enabled in GCIP |
+| Setting                               | Required                   | Local default           | Purpose                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------- | -------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ConnectionStrings:Default`           | Yes                        | user-secrets            | Postgres (Npgsql) connection string                                                                                                                                                                                                                                                                                                                   |
+| `Gcip:ProjectId`                      | Yes                        | `wrigley-cloud-prod`    | GCIP project whose ID tokens are accepted                                                                                                                                                                                                                                                                                                             |
+| `Quickbase:RealmHostname`             | On first Quickbase call    | user-secrets            | `scrapgo.quickbase.com`. Empty in `appsettings.json`, so set it (see step 9)                                                                                                                                                                                                                                                                          |
+| `Quickbase:UserToken`                 | On first Quickbase call    | user-secrets            | Quickbase user token (secret), assigned to the app that holds the tables                                                                                                                                                                                                                                                                              |
+| `Quickbase:QueryCache:Ttl`            | No                         | `00:15:00`              | How long cached Quickbase results are served                                                                                                                                                                                                                                                                                                          |
+| `Cors:AllowedOrigins`                 | No                         | `http://localhost:3000` | Browser origins allowed to call the API                                                                                                                                                                                                                                                                                                               |
+| `INTERNAL_HD_ALLOWLIST`               | **Yes for platform admin** | —                       | Google Workspace domains treated as internal users. Platform access also needs a sign-in whose token carries one of these as `hd` on every request: when blank, nobody has platform access. `hd` comes from the GCIP blocking function in [`infra/gcip-blocking-function/`](infra/gcip-blocking-function/README.md). Terraform default: `scrapgo.com` |
+| `Swagger:Enabled`                     | No                         | `true`                  | Serves `/swagger` (off in Cloud Run unless set)                                                                                                                                                                                                                                                                                                       |
+| `Identity:RequireMfaForExternalUsers` | No                         | `false`                 | When `true`, external users need a second factor (`mfa_required` otherwise). Keep off until MFA is enabled in GCIP                                                                                                                                                                                                                                    |
 
 Quickbase settings are validated on the first Quickbase call, not at startup,
 so the API runs without them; see [step 9](#9-connect-to-quickbase).
@@ -269,13 +269,13 @@ If the local API is running, its build output is locked. Add
 
 Recent Identity migrations, in order:
 
-| Migration | What it does |
-| --- | --- |
-| `RetireGenericPermissions` | Removes the retired `Invoice.*` / `Report.*` permissions from roles (audited); the rows stay because ids are positional |
-| `AddPlatformAdministrationPermissions` | `Organization.Create`, `Organization.Deactivate`, `Application.Assign`, `Module.Manage`, `Catalog.Manage` for PlatformAdministrator, plus `Application.ManageAccess` |
-| `AddApplicationsAndModules` | Catalog and entitlement tables; application roles and grant expiry |
-| `AddInvitations` | Email invitations with pre-granted roles |
-| `AddDownstreamApplication` | The first catalog application, **Downstream**: modules Pricing, Opportunities, Loads & Freight and Suppliers; permissions `Downstream.<Module>.Read/Write` (ids 25–32); role templates "Downstream Administrator" and "Downstream Viewer" |
+| Migration                              | What it does                                                                                                                                                                                                                              |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RetireGenericPermissions`             | Removes the retired `Invoice.*` / `Report.*` permissions from roles (audited); the rows stay because ids are positional                                                                                                                   |
+| `AddPlatformAdministrationPermissions` | `Organization.Create`, `Organization.Deactivate`, `Application.Assign`, `Module.Manage`, `Catalog.Manage` for PlatformAdministrator, plus `Application.ManageAccess`                                                                      |
+| `AddApplicationsAndModules`            | Catalog and entitlement tables; application roles and grant expiry                                                                                                                                                                        |
+| `AddInvitations`                       | Email invitations with pre-granted roles                                                                                                                                                                                                  |
+| `AddDownstreamApplication`             | The first catalog application, **Downstream**: modules Pricing, Opportunities, Loads & Freight and Suppliers; permissions `Downstream.<Module>.Read/Write` (ids 25–32); role templates "Downstream Administrator" and "Downstream Viewer" |
 
 ## Tests
 
@@ -316,24 +316,24 @@ Inside the container, the proxy on your machine is `host.docker.internal:5434`
 
 ## Troubleshooting
 
-| Symptom                                                                  | Cause / fix                                                                                                                        |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `ConnectionStrings:Default is not configured` at startup                 | user-secrets not set: see step 1. Run from `backend/` with `--project src/ScrapGo.Core.Api`.                                       |
-| `Gcip:ProjectId is not configured`                                       | Running with an environment other than Development and no `Gcip__ProjectId` set.                                                   |
-| `/healthz/ready` returns `503`                                           | The proxy isn't running, is on another port, or the credentials are wrong.                                                         |
-| Proxy: `could not find default credentials`                              | Run `gcloud auth application-default login`.                                                                                       |
-| Proxy can't connect to the instance                                      | The instance has no proxy-reachable IP (private-IP only). See the infra README.                                                    |
-| Every `/api/**` call returns `401`                                       | Missing or expired token (tokens last at most 1 hour), or it was issued for another GCIP project.                                  |
-| `403` with `reason: user_disabled`                                       | Your user record is disabled.                                                                                                      |
-| `dotnet build` fails with "file is locked by testhost"                   | A test run is still going. Wait for it or stop it.                                                                                 |
-| `401` and the request shows `Authorization: Bearer "@token` (or similar) | A placeholder was pasted into Swagger's **Authorize** box. Paste the raw ID token (`eyJ…`) with no quotes and no `Bearer ` prefix. |
-| `403` with `reason: workspace_sign_in_required`                          | A platform route was called with a token that has no allowlisted `hd`. Sign in with Google using a `@scrapgo.com` account; check `INTERNAL_HD_ALLOWLIST` and the blocking function. |
-| `dotnet build` / `dotnet ef` fails: file locked by `ScrapGo.Core.Api`     | The local API is running. Stop it, or use `--configuration Release` (ef) or `-o <folder>` (test).                                   |
-| `ConnectionString property has not been initialized` from `dotnet ef`     | `$C` is empty in this terminal. Set it from user-secrets (see [Database migrations](#database-migrations)).                         |
-| `28P01: password authentication failed for user "<user>"`                | The connection string still has placeholders. Use the real values from user-secrets or Secret Manager.                             |
-| `502` with `reason: quickbase_unavailable`                               | Quickbase failed and nothing was cached. The API log shows the cause after `Quickbase query on table '…' returned`.                 |
-| Log: `returned 401: {"message":"Access denied","description":"User token is invalid"}` | The Quickbase user token is dead. Create a new one and check it with the curl in [step 9](#9-connect-to-quickbase). Restarting doesn't help. |
-| Quickbase calls fail on `RealmHostname` / `UserToken` validation          | The Quickbase settings aren't set: see [step 9](#9-connect-to-quickbase).                                                          |
+| Symptom                                                                                | Cause / fix                                                                                                                                                                         |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ConnectionStrings:Default is not configured` at startup                               | user-secrets not set: see step 1. Run from `backend/` with `--project src/ScrapGo.Core.Api`.                                                                                        |
+| `Gcip:ProjectId is not configured`                                                     | Running with an environment other than Development and no `Gcip__ProjectId` set.                                                                                                    |
+| `/healthz/ready` returns `503`                                                         | The proxy isn't running, is on another port, or the credentials are wrong.                                                                                                          |
+| Proxy: `could not find default credentials`                                            | Run `gcloud auth application-default login`.                                                                                                                                        |
+| Proxy can't connect to the instance                                                    | The instance has no proxy-reachable IP (private-IP only). See the infra README.                                                                                                     |
+| Every `/api/**` call returns `401`                                                     | Missing or expired token (tokens last at most 1 hour), or it was issued for another GCIP project.                                                                                   |
+| `403` with `reason: user_disabled`                                                     | Your user record is disabled.                                                                                                                                                       |
+| `dotnet build` fails with "file is locked by testhost"                                 | A test run is still going. Wait for it or stop it.                                                                                                                                  |
+| `401` and the request shows `Authorization: Bearer "@token` (or similar)               | A placeholder was pasted into Swagger's **Authorize** box. Paste the raw ID token (`eyJ…`) with no quotes and no `Bearer ` prefix.                                                  |
+| `403` with `reason: workspace_sign_in_required`                                        | A platform route was called with a token that has no allowlisted `hd`. Sign in with Google using a `@scrapgo.com` account; check `INTERNAL_HD_ALLOWLIST` and the blocking function. |
+| `dotnet build` / `dotnet ef` fails: file locked by `ScrapGo.Core.Api`                  | The local API is running. Stop it, or use `--configuration Release` (ef) or `-o <folder>` (test).                                                                                   |
+| `ConnectionString property has not been initialized` from `dotnet ef`                  | `$C` is empty in this terminal. Set it from user-secrets (see [Database migrations](#database-migrations)).                                                                         |
+| `28P01: password authentication failed for user "<user>"`                              | The connection string still has placeholders. Use the real values from user-secrets or Secret Manager.                                                                              |
+| `502` with `reason: quickbase_unavailable`                                             | Quickbase failed and nothing was cached. The API log shows the cause after `Quickbase query on table '…' returned`.                                                                 |
+| Log: `returned 401: {"message":"Access denied","description":"User token is invalid"}` | The Quickbase user token is dead. Create a new one and check it with the curl in [step 9](#9-connect-to-quickbase). Restarting doesn't help.                                        |
+| Quickbase calls fail on `RealmHostname` / `UserToken` validation                       | The Quickbase settings aren't set: see [step 9](#9-connect-to-quickbase).                                                                                                           |
 
 ## Access model
 
@@ -357,29 +357,30 @@ The design and its decisions are in [`../ORG-APP-MODULE-MODEL.md`](../ORG-APP-MO
 
 Platform admin endpoints (all `[PlatformAdministration]`, no membership needed):
 
-| Route | Purpose |
-| --- | --- |
-| `GET/POST /api/admin/organizations` | List (search, status, paging) / create |
-| `PUT /api/admin/organizations/{id}` | Rename (regenerates the slug; 409 `duplicate_slug`) |
-| `PUT /api/admin/organizations/{id}/administrators/{userId}` | Make member + OrganizationAdministrator; revokes pending invitations |
-| `POST /api/admin/organizations/{id}/deactivate` · `/reactivate` | Block / restore all access |
-| `DELETE /api/admin/organizations/{id}` | Permanently delete a **deactivated** organization (409 `organization_active` otherwise) |
-| `GET /api/admin/organizations/{id}/applications` | Its applications and enabled modules |
-| `PUT/DELETE /api/admin/organizations/{id}/applications/{appId}` | Assign / remove (removal revokes every grant for it) |
-| `PUT/DELETE …/applications/{appId}/modules/{moduleId}` | Enable / disable a module |
-| `GET …/applications/{appId}/roles` | The application's roles (templates first) |
-| `PUT/DELETE …/applications/{appId}/members/{userId}/roles/{roleId}` | Grant / revoke an application role, e.g. the first application administrator |
+| Route                                                               | Purpose                                                                                 |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `GET/POST /api/admin/organizations`                                 | List (search, status, paging) / create                                                  |
+| `PUT /api/admin/organizations/{id}`                                 | Rename (regenerates the slug; 409 `duplicate_slug`)                                     |
+| `PUT /api/admin/organizations/{id}/administrators/{userId}`         | Make member + OrganizationAdministrator; revokes pending invitations                    |
+| `POST /api/admin/organizations/{id}/deactivate` · `/reactivate`     | Block / restore all access                                                              |
+| `DELETE /api/admin/organizations/{id}`                              | Permanently delete a **deactivated** organization (409 `organization_active` otherwise) |
+| `GET /api/admin/organizations/{id}/applications`                    | Its applications and enabled modules                                                    |
+| `PUT/DELETE /api/admin/organizations/{id}/applications/{appId}`     | Assign / remove (removal revokes every grant for it)                                    |
+| `PUT/DELETE …/applications/{appId}/modules/{moduleId}`              | Enable / disable a module                                                               |
+| `GET …/applications/{appId}/roles`                                  | The application's roles (templates first)                                               |
+| `PUT/DELETE …/applications/{appId}/members/{userId}/roles/{roleId}` | Grant / revoke an application role, e.g. the first application administrator            |
 
 Quickbase-backed endpoints check the caller before any Quickbase data is read:
+
 - **Application-scoped routes** (`/api/organizations/{id}/applications/{appId}/…`): the organization must have the application, and the caller needs the module's permission there.
 - **Platform routes** (`/api/suppliers…`): platform administrators only.
 
 The first module is **Suppliers** (Quickbase table `bqrcgnatz`):
 
-| Route | Purpose |
-| --- | --- |
-| `GET /api/organizations/{id}/applications/1/suppliers?search=&skip=&top=` | Supplier names, sorted by name, paged (`top` 1–1000, default 100); `totalRecords` is the full count |
-| `GET /api/organizations/{id}/applications/1/suppliers/{recordId}` | One supplier's details (address, main contact, payment terms, lead owner, delivery counts, target price) |
+| Route                                                                     | Purpose                                                                                                                |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/organizations/{id}/applications/1/suppliers?search=&skip=&top=` | Supplier names, sorted by name, paged (`top` 1–1000, default 100); `totalRecords` is the full count                    |
+| `GET /api/organizations/{id}/applications/1/suppliers/{recordId}`         | One supplier's details (address, main contact, payment terms, lead owner, delivery counts, target price)               |
 | `GET /api/suppliers?search=&skip=&top=` · `GET /api/suppliers/{recordId}` | The same, platform-wide: **platform administrators only** (`Admin.Access` at platform scope, Google Workspace sign-in) |
 
 Responses include `freshness` (`Cache`, `Quickbase` or `StaleCache`, plus `fetchedAt`), because results are cached for `Quickbase:QueryCache:Ttl`. Quickbase must be configured first: `Quickbase:RealmHostname` and the `Quickbase:UserToken` secret.

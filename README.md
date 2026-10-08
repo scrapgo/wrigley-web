@@ -9,6 +9,7 @@ This platform consolidates identity management, pricing transparency, and operat
 ## Current Status
 
 For detailed implementation status, see:
+
 - [Backend Implementation Status](backend/BACKEND-IMPLEMENTATION-STATUS.md)
 - [Frontend Implementation Status](frontend/FRONTEND-IMPLEMENTATION-STATUS.md)
 - [Overall Project Status](PROJECT-STATUS.md)

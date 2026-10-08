@@ -15,6 +15,8 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as InvitationsRouteImport } from './routes/invitations'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SuppliersRouteImport } from './routes/suppliers'
+import { Route as SuppliersRecordIdRouteImport } from './routes/suppliers_.$recordId'
 import { Route as AdminOrganizationsOrganizationIdRouteImport } from './routes/admin_.organizations.$organizationId'
 import { Route as AdminUsersUserIdRouteImport } from './routes/admin_.users.$userId'
 
@@ -48,6 +50,16 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SuppliersRoute = SuppliersRouteImport.update({
+  id: '/suppliers',
+  path: '/suppliers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SuppliersRecordIdRoute = SuppliersRecordIdRouteImport.update({
+  id: '/suppliers_/$recordId',
+  path: '/suppliers/$recordId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminOrganizationsOrganizationIdRoute =
   AdminOrganizationsOrganizationIdRouteImport.update({
     id: '/admin_/organizations/$organizationId',
@@ -67,6 +79,8 @@ export interface FileRoutesByFullPath {
   '/invitations': typeof InvitationsRoute
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/suppliers': typeof SuppliersRoute
+  '/suppliers/$recordId': typeof SuppliersRecordIdRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
 }
@@ -77,6 +91,8 @@ export interface FileRoutesByTo {
   '/invitations': typeof InvitationsRoute
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/suppliers': typeof SuppliersRoute
+  '/suppliers/$recordId': typeof SuppliersRecordIdRoute
   '/admin/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
 }
@@ -88,6 +104,8 @@ export interface FileRoutesById {
   '/invitations': typeof InvitationsRoute
   '/login': typeof LoginRoute
   '/settings': typeof SettingsRoute
+  '/suppliers': typeof SuppliersRoute
+  '/suppliers_/$recordId': typeof SuppliersRecordIdRoute
   '/admin_/organizations/$organizationId': typeof AdminOrganizationsOrganizationIdRoute
   '/admin_/users/$userId': typeof AdminUsersUserIdRoute
 }
@@ -100,6 +118,8 @@ export interface FileRouteTypes {
     | '/invitations'
     | '/login'
     | '/settings'
+    | '/suppliers'
+    | '/suppliers/$recordId'
     | '/admin/organizations/$organizationId'
     | '/admin/users/$userId'
   fileRoutesByTo: FileRoutesByTo
@@ -110,6 +130,8 @@ export interface FileRouteTypes {
     | '/invitations'
     | '/login'
     | '/settings'
+    | '/suppliers'
+    | '/suppliers/$recordId'
     | '/admin/organizations/$organizationId'
     | '/admin/users/$userId'
   id:
@@ -120,6 +142,8 @@ export interface FileRouteTypes {
     | '/invitations'
     | '/login'
     | '/settings'
+    | '/suppliers'
+    | '/suppliers_/$recordId'
     | '/admin_/organizations/$organizationId'
     | '/admin_/users/$userId'
   fileRoutesById: FileRoutesById
@@ -131,6 +155,8 @@ export interface RootRouteChildren {
   InvitationsRoute: typeof InvitationsRoute
   LoginRoute: typeof LoginRoute
   SettingsRoute: typeof SettingsRoute
+  SuppliersRoute: typeof SuppliersRoute
+  SuppliersRecordIdRoute: typeof SuppliersRecordIdRoute
   AdminOrganizationsOrganizationIdRoute: typeof AdminOrganizationsOrganizationIdRoute
   AdminUsersUserIdRoute: typeof AdminUsersUserIdRoute
 }
@@ -179,6 +205,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/suppliers': {
+      id: '/suppliers'
+      path: '/suppliers'
+      fullPath: '/suppliers'
+      preLoaderRoute: typeof SuppliersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/suppliers_/$recordId': {
+      id: '/suppliers_/$recordId'
+      path: '/suppliers/$recordId'
+      fullPath: '/suppliers/$recordId'
+      preLoaderRoute: typeof SuppliersRecordIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin_/organizations/$organizationId': {
       id: '/admin_/organizations/$organizationId'
       path: '/admin/organizations/$organizationId'
@@ -203,6 +243,8 @@ const rootRouteChildren: RootRouteChildren = {
   InvitationsRoute: InvitationsRoute,
   LoginRoute: LoginRoute,
   SettingsRoute: SettingsRoute,
+  SuppliersRoute: SuppliersRoute,
+  SuppliersRecordIdRoute: SuppliersRecordIdRoute,
   AdminOrganizationsOrganizationIdRoute: AdminOrganizationsOrganizationIdRoute,
   AdminUsersUserIdRoute: AdminUsersUserIdRoute,
 }

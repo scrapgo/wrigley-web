@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from "react"
-import { Link } from "@tanstack/react-router"
+import { useState, type FormEvent, type ReactNode } from "react"
+import { Link, useNavigate } from "@tanstack/react-router"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
 import {
     LayoutDashboard,
@@ -87,6 +87,7 @@ interface Workspace {
 /** Route path for each nav key. Keys without a route yet are omitted. */
 const NAV_PATHS: Partial<Record<NavKey, string>> = {
     home: "/dashboard",
+    suppliers: "/suppliers",
     admin: "/admin",
     settings: "/settings",
 }
@@ -108,8 +109,10 @@ interface AppShellProps {
 export function AppShell({ active, title, subtitle, actions, children }: AppShellProps) {
     const [mobileOpen, setMobileOpen] = useState(false)
     const [workspace, setWorkspace] = useState<Workspace>(WORKSPACES[0])
+    const [globalSearch, setGlobalSearch] = useState("")
     const { user, logout } = useAuth()
     const { isAdmin } = useAdminAccess()
+    const navigate = useNavigate()
 
     const initials = (user?.email || "SG")
         .split(/[\s@.]+/)
@@ -117,6 +120,12 @@ export function AppShell({ active, title, subtitle, actions, children }: AppShel
         .slice(0, 2)
         .map((s) => s[0]?.toUpperCase())
         .join("")
+
+    const onGlobalSearch = (e: FormEvent) => {
+        e.preventDefault()
+        const term = globalSearch.trim()
+        navigate({ to: "/suppliers", search: term ? { search: term } : {} })
+    }
 
     return (
         <div className="min-h-screen bg-steel-50">
@@ -176,11 +185,15 @@ export function AppShell({ active, title, subtitle, actions, children }: AppShel
 
                         <div className="relative hidden max-w-md flex-1 md:block">
                             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <input
-                                type="search"
-                                placeholder="Search loads, suppliers, opportunities…"
-                                className="h-10 w-full rounded-lg border border-border bg-background/70 pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-brand-500 focus:ring-2 focus:ring-ring/25"
-                            />
+                            <form onSubmit={onGlobalSearch}>
+                                <input
+                                    type="search"
+                                    value={globalSearch}
+                                    onChange={(e) => setGlobalSearch(e.target.value)}
+                                    placeholder="Search suppliers…"
+                                    className="h-10 w-full rounded-lg border border-border bg-background/70 pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-brand-500 focus:ring-2 focus:ring-ring/25"
+                                />
+                            </form>
                         </div>
 
                         <div className="ml-auto flex items-center gap-2">

@@ -84,8 +84,18 @@ function gcipErrorMessage(code: string | undefined): string {
             return 'Too many attempts. Please try again later.'
         case 'INVALID_EMAIL':
             return 'Please enter a valid email address.'
+        case 'OPERATION_NOT_ALLOWED':
+            return 'Google sign-in is not enabled for this portal.'
+        case 'INVALID_IDP_RESPONSE':
+            return 'Google sign-in failed. Please try again.'
+        case 'FEDERATED_USER_ID_ALREADY_LINKED':
+        case 'NEED_CONFIRMATION':
+            return 'An account with this email already uses a different sign-in method. Sign in with that method, or ask an administrator to link Google to your account.'
+        case 'BLOCKING_FUNCTION_ERROR_RESPONSE':
+            return 'Sign-in was blocked by the sign-in check. Please try again, or contact an administrator.'
         default:
-            return 'Unable to sign in. Please try again.'
+            // Show unexpected codes (e.g. BLOCKING_FUNCTION_ERROR_RESPONSE) so failures are diagnosable.
+            return code ? `Unable to sign in (${code}).` : 'Unable to sign in. Please try again.'
     }
 }
 
@@ -156,7 +166,11 @@ class ApiClient {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    postBody: `id_token=${googleIdToken}&provider_id=google.com`,
+                    // GCIP expects the provider as `providerId` (not provider_id) in postBody.
+                    postBody: new URLSearchParams({
+                        id_token: googleIdToken,
+                        providerId: 'google.com',
+                    }).toString(),
                     requestUri: window.location.origin,
                     returnIdpCredential: true,
                     returnSecureToken: true,
@@ -164,13 +178,18 @@ class ApiClient {
             }
         )
 
-        const body = (await response.json()) as
-            | { idToken: string }
-            | { error?: { message?: string } }
+        const body = (await response.json()) as {
+            idToken?: string
+            needConfirmation?: boolean
+            error?: { message?: string }
+        }
 
-        if (!response.ok || !('idToken' in body)) {
-            const code = 'error' in body ? body.error?.message : undefined
-            throw new ApiError(gcipErrorMessage(code), response.status, code)
+        if (!response.ok || !body.idToken) {
+            // An existing account with this email and another sign-in method comes back
+            // as 200 with needConfirmation and no idToken.
+            const code = body.error?.message ?? (body.needConfirmation ? 'NEED_CONFIRMATION' : undefined)
+            // Blocking-function rejections arrive as "BLOCKING_FUNCTION_ERROR_RESPONSE : ...".
+            throw new ApiError(gcipErrorMessage(code?.split(' ')[0]), response.status, code)
         }
 
         return body.idToken

@@ -21,6 +21,30 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
         return new(supplier, Freshness(result));
     }
 
+    public async Task<Sourced<SupplierCallProspectStatusDto?>> FindCallProspectStatusAsync(int recordId, CancellationToken cancellationToken)
+    {
+        var result = await QueryAsync(
+            new QuickbaseQuery(SuppliersTable.TableId, SuppliersTable.CallProspectStatusFields, SuppliersTable.ByRecordId(recordId)),
+            cancellationToken);
+
+        using var document = JsonDocument.Parse(result.ResponseJson);
+        var status = Rows(document).Select(row => ToCallProspectStatus(new QuickbaseRecord(row))).FirstOrDefault();
+
+        return new(status, Freshness(result));
+    }
+
+    public async Task<Sourced<SupplierYardCapabilitiesDto?>> FindYardCapabilitiesAsync(int recordId, CancellationToken cancellationToken)
+    {
+        var result = await QueryAsync(
+            new QuickbaseQuery(SuppliersTable.TableId, SuppliersTable.YardCapabilitiesFields, SuppliersTable.ByRecordId(recordId)),
+            cancellationToken);
+
+        using var document = JsonDocument.Parse(result.ResponseJson);
+        var capabilities = Rows(document).Select(row => ToYardCapabilities(new QuickbaseRecord(row))).FirstOrDefault();
+
+        return new(capabilities, Freshness(result));
+    }
+
     public async Task<Sourced<SupplierPage>> ListAsync(string? search, int skip, int top, CancellationToken cancellationToken)
     {
         var result = await QueryAsync(
@@ -91,6 +115,55 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
                 record.Int(SuppliersTable.DeliveredBefore90Days),
                 QuickbaseDeadFreight.FromQuickbase(record.Bool(SuppliersTable.DeadFreight)))
             : null;
+
+    private static SupplierYardCapabilitiesDto? ToYardCapabilities(QuickbaseRecord record) =>
+        record.Int(SuppliersTable.RecordId) is { } recordId
+            ? new SupplierYardCapabilitiesDto(
+                recordId,
+                record.Bool(SuppliersTable.CrusherOnSite),
+                record.Bool(SuppliersTable.LoggerOnSite),
+                record.Bool(SuppliersTable.LoadFlatbeds),
+                record.Bool(SuppliersTable.LoadDumps),
+                record.Bool(SuppliersTable.MobileCrusher),
+                record.Bool(SuppliersTable.CanExport),
+                record.Bool(SuppliersTable.HasGaylordBoxes),
+                record.Bool(SuppliersTable.BalerOnSite),
+                record.Bool(SuppliersTable.HasScale),
+                record.Bool(SuppliersTable.LoadVanTrailers),
+                record.Bool(SuppliersTable.HasLoadWrap),
+                record.Bool(SuppliersTable.UsesOwnTrucks),
+                record.Bool(SuppliersTable.RailAccess))
+            : null;
+
+    private SupplierCallProspectStatusDto? ToCallProspectStatus(QuickbaseRecord record) =>
+        record.Int(SuppliersTable.RecordId) is { } recordId
+            ? new SupplierCallProspectStatusDto(
+                recordId,
+                record.Text(SuppliersTable.ContactWithDecisionMakerMade),
+                record.Text(SuppliersTable.ProspectStatus),
+                ChoiceOf(recordId, "last call result", LastCallResults.Catalog, record.Choice(SuppliersTable.LastCallResult)),
+                ChoiceOf(recordId, "supplier objection", SupplierObjections.Catalog, record.Choice(SuppliersTable.SupplierObjections)),
+                record.DateTime(SuppliersTable.CallBackDate),
+                record.Text(SuppliersTable.ObjectionExplained),
+                record.Text(SuppliersTable.CallNotes))
+            : null;
+
+    /// <summary>A dropdown field as its enum; unknown text is returned as null and logged.</summary>
+    private TEnum? ChoiceOf<TEnum>(int recordId, string fieldName, DropdownCatalog<TEnum> catalog, string? text)
+        where TEnum : struct, Enum
+    {
+        if (QuickbaseDropdowns.TryFromQuickbase(catalog, text, out var value))
+        {
+            return value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            logger.LogWarning("Supplier {RecordId} has {Field} {Value} that isn't a known value; returned as empty.", recordId, fieldName, text);
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// Field 320 as <see cref="PaymentTerms"/>. Text that isn't a known value is

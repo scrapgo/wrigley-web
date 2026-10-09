@@ -60,6 +60,38 @@ public sealed class SuppliersController(SupplierService suppliers) : ControllerB
             ? Ok(supplier)
             : SupplierProblems.For(result.Outcome, SupplierPermissions.Read);
     }
+
+    /// <summary>One supplier's yard capabilities: crusher, baler, scale, loading options and so on (all yes/no).</summary>
+    [HttpGet("{recordId:int}/yard-capabilities")]
+    [ProducesResponseType<SupplierYardCapabilitiesResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> GetYardCapabilities(int organizationId, int applicationId, int recordId, CancellationToken cancellationToken)
+    {
+        var result = await suppliers.GetYardCapabilitiesAsync(SupplierScope.ForApplication(organizationId, applicationId), recordId, cancellationToken);
+
+        return result is { Outcome: SupplierOutcome.Success, YardCapabilities: { } capabilities }
+            ? Ok(capabilities)
+            : SupplierProblems.For(result.Outcome, SupplierPermissions.Read);
+    }
+
+    /// <summary>One supplier's call and prospect status: last call result, objection, call back date, notes.</summary>
+    [HttpGet("{recordId:int}/call-prospect-status")]
+    [ProducesResponseType<SupplierCallProspectStatusResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> GetCallProspectStatus(
+        int organizationId, int applicationId, int recordId, CancellationToken cancellationToken)
+    {
+        var result = await suppliers.GetCallProspectStatusAsync(
+            SupplierScope.ForApplication(organizationId, applicationId), recordId, cancellationToken);
+
+        return result is { Outcome: SupplierOutcome.Success, CallProspectStatus: { } status }
+            ? Ok(status)
+            : SupplierProblems.For(result.Outcome, SupplierPermissions.Read);
+    }
 }
 
 /// <summary>ProblemDetails for supplier outcomes, shared by both supplier controllers.</summary>

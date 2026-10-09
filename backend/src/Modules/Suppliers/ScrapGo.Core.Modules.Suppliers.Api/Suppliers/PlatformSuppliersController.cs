@@ -51,4 +51,34 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
             ? Ok(supplier)
             : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
     }
+
+    /// <summary>One supplier's yard capabilities: crusher, baler, scale, loading options and so on (all yes/no).</summary>
+    [HttpGet("{recordId:int}/yard-capabilities")]
+    [ProducesResponseType<SupplierYardCapabilitiesResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> GetYardCapabilities(int recordId, CancellationToken cancellationToken)
+    {
+        var result = await suppliers.GetYardCapabilitiesAsync(SupplierScope.Platform, recordId, cancellationToken);
+
+        return result is { Outcome: SupplierOutcome.Success, YardCapabilities: { } capabilities }
+            ? Ok(capabilities)
+            : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
+    }
+
+    /// <summary>One supplier's call and prospect status: last call result, objection, call back date, notes.</summary>
+    [HttpGet("{recordId:int}/call-prospect-status")]
+    [ProducesResponseType<SupplierCallProspectStatusResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> GetCallProspectStatus(int recordId, CancellationToken cancellationToken)
+    {
+        var result = await suppliers.GetCallProspectStatusAsync(SupplierScope.Platform, recordId, cancellationToken);
+
+        return result is { Outcome: SupplierOutcome.Success, CallProspectStatus: { } status }
+            ? Ok(status)
+            : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
+    }
 }

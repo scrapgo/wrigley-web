@@ -30,6 +30,19 @@ internal readonly struct QuickbaseRecord(JsonElement row)
 
     public int? Int(int fieldId) => Decimal(fieldId) is { } number ? (int)decimal.Truncate(number) : null;
 
+    /// <summary>
+    /// A date or date/time field: ISO 8601 text (<c>"2026-10-15"</c> or
+    /// <c>"2026-10-15T14:00:00Z"</c>), read as UTC.
+    /// </summary>
+    public DateTimeOffset? DateTime(int fieldId) =>
+        Text(fieldId) is { Length: > 0 } text
+        && DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed)
+            ? parsed
+            : null;
+
+    /// <summary>A dropdown's text: a single value, or the first of a multi-select.</summary>
+    public string? Choice(int fieldId) => Text(fieldId) ?? TextList(fieldId).FirstOrDefault();
+
     /// <summary>A checkbox field: true or false; null only when the field is missing or empty.</summary>
     public bool? Bool(int fieldId) => Value(fieldId) is { } value
         ? value.ValueKind switch

@@ -81,7 +81,10 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 **Suppliers** (Application, Infrastructure, Api; no Domain or database, since Quickbase owns the data): read endpoints over the Quickbase Suppliers table `bqrcgnatz`.
 - `GET /api/organizations/{organizationId}/applications/{applicationId}/suppliers` returns names sorted by name, with `search`, `skip` and `top` (1–1000, default 100).
 - `GET …/suppliers/{recordId}` returns one supplier's details.
-- `GET /api/suppliers` and `GET /api/suppliers/{recordId}` do the same without an organization or application, for **platform administrators only** (`Admin.Access` at platform scope, which needs a Workspace sign-in). The Suppliers table is ScrapGo-wide.
+- `GET …/suppliers/{recordId}/call-prospect-status` returns call & prospect status (fields 197, 192, 193, 236, 181, 238, 97).
+- `GET …/suppliers/{recordId}/yard-capabilities` returns yard capabilities (13 checkboxes).
+- All three share `SupplierService.ReadRecordAsync`: the access check, then 404 / 502.
+- `GET /api/suppliers…` (every endpoint above) does the same without an organization or application, for **platform administrators only** (`Admin.Access` at platform scope, which needs a Workspace sign-in). The Suppliers table is ScrapGo-wide.
 - Both require `Downstream.Suppliers.Read` at application scope, which also needs the Suppliers module enabled.
 - `ISupplierSource` (Application) is implemented by `QuickbaseSupplierSource` (Infrastructure), which holds the field ids (`SuppliersTable`) and the JSON mapping.
 - Errors: 403 `missing_permission`, 404 `supplier_not_found`, 502 `quickbase_unavailable`.
@@ -90,6 +93,11 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
   - Unknown Quickbase text is returned as `null` and logged.
   - To add a value: append it and its label. Never rename one.
   - `GET /api/suppliers/payment-terms` lists the dropdown options.
+- **Dropdown fields** (last call result 193, supplier objection 236) are enums with a `DropdownCatalog<TEnum>` of labels.
+  - Each label is the exact Quickbase text. `QuickbaseDropdowns` converts in both directions.
+  - Unknown Quickbase text is returned as `null` and logged.
+  - Options are served at `GET /api/suppliers/last-call-results` and `GET /api/suppliers/supplier-objections`.
+  - New dropdowns follow this pattern.
 - **Dead freight** is the `DeadFreight` enum (`Exempt`, `NotExempt`), serialized by name.
   - Quickbase field 321 is a checkbox: **checked is `NotExempt`**, unchecked `Exempt` (despite the legacy name `DeadFreightExempt`). `QuickbaseDeadFreight` (Infrastructure) converts it.
   - `GET /api/suppliers/dead-freight` lists the dropdown options.

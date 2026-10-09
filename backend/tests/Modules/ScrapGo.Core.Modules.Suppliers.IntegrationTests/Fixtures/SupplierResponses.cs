@@ -52,6 +52,61 @@ public static class SupplierResponses
         }
         """;
 
+    /// <summary>The call and prospect status query for record 17511 (sample values).</summary>
+    public const string CallProspectStatus = """
+        {
+          "data": [
+            {
+              "3": { "value": 17511 },
+              "97": { "value": "Spoke to David; call back next week." },
+              "181": { "value": "2026-10-15" },
+              "192": { "value": "Prospect" },
+              "193": { "value": "No Answer - Voice Mail" },
+              "197": { "value": "Yes" },
+              "236": { "value": "Payment Terms" },
+              "238": { "value": "Wants Net 5 instead of Net 10." }
+            }
+          ],
+          "fields": [],
+          "metadata": { "numRecords": 1, "skip": 0, "totalRecords": 1 }
+        }
+        """;
+
+    /// <summary>A call and prospect status with dropdown text that isn't a known value, and empty fields.</summary>
+    public const string CallProspectStatusUnknownChoices = """
+        {
+          "data": [ { "3": { "value": 9583 }, "181": { "value": "" }, "193": { "value": "Left a message" }, "236": { "value": "Too expensive" } } ],
+          "fields": [],
+          "metadata": { "numRecords": 1, "skip": 0, "totalRecords": 1 }
+        }
+        """;
+
+    /// <summary>The yard capabilities query for record 17511 (sample values; every field a checkbox).</summary>
+    public const string YardCapabilities = """
+        {
+          "data": [
+            {
+              "3": { "value": 17511 },
+              "65": { "value": true },
+              "78": { "value": true },
+              "182": { "value": false },
+              "183": { "value": false },
+              "184": { "value": true },
+              "185": { "value": false },
+              "186": { "value": true },
+              "187": { "value": false },
+              "204": { "value": false },
+              "205": { "value": true },
+              "225": { "value": false },
+              "230": { "value": false },
+              "359": { "value": true }
+            }
+          ],
+          "fields": [],
+          "metadata": { "numRecords": 1, "skip": 0, "totalRecords": 1 }
+        }
+        """;
+
     /// <summary>The name list query, first records.</summary>
     public const string NameList = """
         {

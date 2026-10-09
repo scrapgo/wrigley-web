@@ -20,7 +20,7 @@ Modules (`src/Modules/`):
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Identity**        | Sign-in, users, organizations, roles and permissions, applications and modules, invitations                                                            |
 | **QuickbaseEngine** | The only path to Quickbase: `IQuickbaseQueryService`, cached in Postgres (`quickbase.query_caches`) and resilient (retries, timeouts, circuit breaker) |
-| **Suppliers**       | Read endpoints over the Quickbase Suppliers table (`bqrcgnatz`)                                                                                        |
+| **Suppliers**       | Read endpoints over the Quickbase Suppliers table (`bqrcgnatz`): list, details, call & prospect status, yard capabilities, and dropdown options. See [Suppliers](#suppliers) |
 
 Proxy modules like Suppliers reach Quickbase and the caller only through
 contracts in `Shared.Kernel`: `IQuickbaseQueryService` (`Shared.Kernel.Quickbase`)
@@ -220,6 +220,8 @@ Then, signed in to the portal as a platform admin with Google, take
 ```bash
 curl -s "http://localhost:5141/api/suppliers?search=Auto&top=5" -H "Authorization: Bearer <token>"
 curl -s http://localhost:5141/api/suppliers/17511 -H "Authorization: Bearer <token>"
+curl -s http://localhost:5141/api/suppliers/17511/call-prospect-status -H "Authorization: Bearer <token>"
+curl -s http://localhost:5141/api/suppliers/17511/yard-capabilities -H "Authorization: Bearer <token>"
 ```
 
 ## Configuration
@@ -285,7 +287,7 @@ dotnet test ScrapGo.Core.slnx
 
 The integration tests start their own throwaway Postgres containers
 (Testcontainers), so **Docker must be running**, and they never touch Cloud SQL.
-The full run takes about 20 minutes (Identity: ~400 tests; QuickbaseEngine: 30; Suppliers: 20).
+The full run takes about 20 minutes (Identity: ~400 tests; QuickbaseEngine: 30; Suppliers: ~100).
 The Suppliers tests run the whole host with the real permission engine and a
 fake `IQuickbaseQueryService` fed real Quickbase responses, so they never call
 Quickbase.
@@ -370,34 +372,126 @@ Platform admin endpoints (all `[PlatformAdministration]`, no membership needed):
 | `GET …/applications/{appId}/roles`                                  | The application's roles (templates first)                                               |
 | `PUT/DELETE …/applications/{appId}/members/{userId}/roles/{roleId}` | Grant / revoke an application role, e.g. the first application administrator            |
 
-Quickbase-backed endpoints check the caller before any Quickbase data is read:
-
-- **Application-scoped routes** (`/api/organizations/{id}/applications/{appId}/…`): the organization must have the application, and the caller needs the module's permission there.
-- **Platform routes** (`/api/suppliers…`): platform administrators only.
-
-The first module is **Suppliers** (Quickbase table `bqrcgnatz`):
-
-| Route                                                                     | Purpose                                                                                                                |
-| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/organizations/{id}/applications/1/suppliers?search=&skip=&top=` | Supplier names, sorted by name, paged (`top` 1–1000, default 100); `totalRecords` is the full count                    |
-| `GET /api/organizations/{id}/applications/1/suppliers/{recordId}`         | One supplier's details (address, main contact, payment terms, lead owner, delivery counts, target price)               |
-| `GET /api/suppliers?search=&skip=&top=` · `GET /api/suppliers/{recordId}` | The same, platform-wide: **platform administrators only** (`Admin.Access` at platform scope, Google Workspace sign-in) |
-| `GET /api/suppliers/payment-terms` | The payment terms dropdown options, `[{ "value": "Net5", "label": "Net 5" }, …]`; any signed-in user |
-| `GET /api/suppliers/dead-freight` | The dead freight dropdown options, `[{ "value": "Exempt", "label": "Exempt" }, { "value": "NotExempt", "label": "Not Exempt" }]`; any signed-in user |
-
-**Payment terms** are an enum (`PaymentTerms`: `Net5`, `Net10`, `Net30`, `TuesdayThursday`, `MlNorwood`).
-- Supplier details carry the enum name.
-- Each value's label is the dropdown text and also the exact Quickbase text in field 320. `QuickbasePaymentTerms` converts in both directions.
-- Quickbase text that isn't a known value comes back as `null`, and a warning is logged.
-
-
-**Dead freight** is an enum too (`DeadFreight`: `Exempt`, `NotExempt`; labels "Exempt" and "Not Exempt").
-- In Quickbase it's a checkbox (field 321): **checked is `NotExempt`**, unchecked is `Exempt`.
-- `QuickbaseDeadFreight` converts in both directions.
-
-Responses include `freshness` (`Cache`, `Quickbase` or `StaleCache`, plus `fetchedAt`), because results are cached for `Quickbase:QueryCache:Ttl`. Quickbase must be configured first: `Quickbase:RealmHostname` and the `Quickbase:UserToken` secret.
-
 Invitations are accepted with `POST /api/invitations/accept` `{ token }`. It needs a verified email matching the invitation's; a Google sign-in counts as verified.
+
+## Suppliers
+
+Read-only endpoints over the Quickbase Suppliers table (`bqrcgnatz`), in the
+Suppliers module. They need Quickbase configured ([step 9](#9-connect-to-quickbase)).
+
+### Who can call them
+
+Every endpoint checks the caller before any Quickbase data is read. A caller without access gets 403, and no query runs.
+
+| Route form | Who |
+| --- | --- |
+| `/api/organizations/{organizationId}/applications/{applicationId}/suppliers…` | Holders of `Downstream.Suppliers.Read` in that organization's application (Downstream is application `1`), with its Suppliers module enabled |
+| `/api/suppliers…` | **Platform administrators only** (`Admin.Access` at platform scope, Google Workspace sign-in). The Suppliers table is ScrapGo-wide |
+| `/api/suppliers/<dropdown>` options | Any signed-in user (fixed lists, not Quickbase data) |
+
+### Endpoints
+
+Each record endpoint exists in both route forms. For example,
+`GET /api/organizations/{id}/applications/1/suppliers/{recordId}/yard-capabilities` and
+`GET /api/suppliers/{recordId}/yard-capabilities`.
+
+| Endpoint (after `…/suppliers`) | Returns |
+| --- | --- |
+| `?search=&skip=&top=` | Supplier names sorted by name, paged (`top` 1–1000, default 100). `search` is a name substring; `totalRecords` is the full count |
+| `/{recordId}` | Details (below) |
+| `/{recordId}/call-prospect-status` | Call & prospect status (below) |
+| `/{recordId}/yard-capabilities` | Yard capabilities (below) |
+| `/payment-terms` · `/dead-freight` · `/last-call-results` · `/supplier-objections` | Dropdown options: `[{ "value": "Net5", "label": "Net 5" }, …]` |
+
+Every record response carries `freshness`:
+- `source` is `Cache`, `Quickbase` or `StaleCache`.
+- `fetchedAt` says when the data came from Quickbase.
+
+Results are cached for `Quickbase:QueryCache:Ttl` (15 minutes by default).
+
+Errors:
+- 403 `missing_permission`
+- 404 `supplier_not_found`
+- 400 `invalid_request` (out-of-range paging)
+- 502 `quickbase_unavailable`: Quickbase failed and nothing was cached. The API log has Quickbase's own message.
+
+### Fields
+
+All three views look up one record with `{3.EX.'<recordId>'}`. Fields are listed in query order, and `null` means empty in Quickbase.
+
+**Details** (`supplier`):
+
+| Field | Id | API name | Type |
+| --- | --- | --- | --- |
+| Record ID# | 3 | `recordId` | number |
+| Account | 8 | `account` | text |
+| Street Address · City · State · Country · Zip Code | 9 · 10 · 11 · 64 · 12 | `streetAddress` · `city` · `state` · `country` · `zipCode` | text |
+| Main Contact Phone to Text | 355 | `mainContactPhone` | text |
+| Main Contact Full Name | 123 | `mainContactNames` | list of text |
+| Payment Terms | 320 | `paymentTerms` | enum `PaymentTerms` |
+| Main email to text | 301 | `mainEmail` | text |
+| Lead Assigned To | 74 | `leadAssignedTo` | `{ id, email, name }` |
+| # of Relevant Consumer Distances | 28 | `relevantConsumerDistances` | number |
+| In Stock Item records | 133 | `inStockItemRecords` | text |
+| Total # of Activities | 116 | `totalActivities` | number |
+| Target Consumer Price | 346 | `targetConsumerPrice` | number |
+| # of Delivered in Last 90 Days · before 90 Days | 129 · 214 | `deliveredLast90Days` · `deliveredBefore90Days` | number |
+| Dead Freight | 321 | `deadFreight` | enum `DeadFreight` |
+
+**Call & prospect status** (`callProspectStatus`):
+
+| Field | Id | API name | Type |
+| --- | --- | --- | --- |
+| Contact with Decision Maker Has Been Made | 197 | `contactWithDecisionMakerMade` | text |
+| Prospect Status | 192 | `prospectStatus` | text |
+| Last Call Result | 193 | `lastCallResult` | enum `LastCallResult` |
+| Supplier Objections | 236 | `supplierObjection` | enum `SupplierObjection` (single choice) |
+| Call Back Date | 181 | `callBackDate` | date/time (UTC) |
+| Objection Explained | 238 | `objectionExplained` | text |
+| Call Notes | 97 | `callNotes` | text |
+
+**Yard capabilities** (`yardCapabilities`): every field is a Quickbase checkbox, returned as `true`/`false`.
+
+| Field | Id | API name |
+| --- | --- | --- |
+| Crusher on Site? | 65 | `crusherOnSite` |
+| Logger on Site? | 186 | `loggerOnSite` |
+| Load Flatbeds? | 78 | `loadFlatbeds` |
+| Load Dumps? | 182 | `loadDumps` |
+| Mobile Crusher | 225 | `mobileCrusher` |
+| Can Export? | 204 | `canExport` |
+| Has Gaylord Boxes? | 205 | `hasGaylordBoxes` |
+| Baler on Site? | 185 | `balerOnSite` |
+| Has Scale? | 359 | `hasScale` |
+| Load Van Trailers? | 183 | `loadVanTrailers` |
+| Has Load Wrap? | 187 | `hasLoadWrap` |
+| Use Own Trucks? | 184 | `usesOwnTrucks` |
+| Rail Access | 230 | `railAccess` |
+
+### Dropdowns (enums)
+
+Dropdown fields are enums, sent and accepted by **name** (e.g. `"Net5"`).
+
+| Enum | Quickbase field | Values (label) |
+| --- | --- | --- |
+| `PaymentTerms` | 320 (text) | `Net5` (Net 5), `Net10` (Net 10), `Net30` (Net 30), `TuesdayThursday` (Tuesday/Thursday), `MlNorwood` (ML Norwood) |
+| `DeadFreight` | 321 (checkbox) | `Exempt` (Exempt) = **unchecked**, `NotExempt` (Not Exempt) = **checked** |
+| `LastCallResult` | 193 (dropdown) | 14 values, e.g. `NoAnswerVoiceMail` (No Answer - Voice Mail), `PoPending` (PO Pending) |
+| `SupplierObjection` | 236 (dropdown) | 22 values, e.g. `PaymentTerms` (Payment Terms), `PastScrapGoIssues` (Past ScrapGo Issues), `SellsToOurConsumer` (Sells to Our Consumer) |
+
+- **Labels:** each label is what the dropdown shows and the **exact text Quickbase stores**. Matching ignores case, extra spaces and curly apostrophes.
+- **Unknown values:** Quickbase text that isn't a known value comes back as `null`, with a warning in the log (`… isn't a known value`).
+- **Where they're defined:** Application `Suppliers/*.cs` (`PaymentTermsCatalog`, `DropdownCatalog<TEnum>`).
+- **Conversion:** Infrastructure `Quickbase/Quickbase*.cs` converts to and from Quickbase, ready for future writes.
+- **Changing a dropdown:** add the value at the end, with its label exactly as Quickbase spells it. Never rename a value: its name is the API contract.
+
+### Adding a supplier view
+
+1. In `Infrastructure/Quickbase/SuppliersTable.cs`, add the field ids and a `…Fields` list in query order.
+2. In `Application/Suppliers/SupplierContracts.cs`, add a DTO and a response record. Add a `Find…Async` method to `ISupplierSource`, then implement it in `QuickbaseSupplierSource`.
+3. Add a `Get…Async` method to `SupplierService`. Its shared `ReadRecordAsync` does the access check, 404 and 502.
+4. Add the action to both `SuppliersController` and `PlatformSuppliersController`.
+5. Add a test with a real Quickbase response in `Fixtures/SupplierResponses.cs`, like `YardCapabilitiesSpecs`.
 
 ## Deployment
 

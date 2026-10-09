@@ -21,6 +21,31 @@ public static class SuppliersTable
     public const int DeliveredLast90Days = 129;
     public const int InStockItemRecords = 133;
     public const int DeliveredBefore90Days = 214;
+    public const int CallBackDate = 181;
+    public const int ProspectStatus = 192;
+    public const int LastCallResult = 193;
+    public const int ContactWithDecisionMakerMade = 197;
+    public const int SupplierObjections = 236;
+    public const int ObjectionExplained = 238;
+
+    /// <summary>Call Notes. (The legacy integration's field map uses 136, which is wrong.)</summary>
+    public const int CallNotes = 97;
+
+    // Yard capabilities (checkboxes).
+    public const int CrusherOnSite = 65;
+    public const int LoadFlatbeds = 78;
+    public const int LoadDumps = 182;
+    public const int LoadVanTrailers = 183;
+    public const int UsesOwnTrucks = 184;
+    public const int BalerOnSite = 185;
+    public const int LoggerOnSite = 186;
+    public const int HasLoadWrap = 187;
+    public const int CanExport = 204;
+    public const int HasGaylordBoxes = 205;
+    public const int MobileCrusher = 225;
+    public const int RailAccess = 230;
+    public const int HasScale = 359;
+
     public const int MainEmail = 301;
     public const int PaymentTerms = 320;
 
@@ -38,6 +63,20 @@ public static class SuppliersTable
         RecordId, Account, StreetAddress, City, State, Country, ZipCode, MainContactPhone, MainContactNames,
         PaymentTerms, MainEmail, LeadAssignedTo, RelevantConsumerDistances, InStockItemRecords, TotalActivities,
         TargetConsumerPrice, DeliveredLast90Days, DeliveredBefore90Days, DeadFreight,
+    ];
+
+    /// <summary>The call and prospect status view's fields.</summary>
+    public static readonly IReadOnlyList<int> CallProspectStatusFields =
+    [
+        RecordId, ContactWithDecisionMakerMade, ProspectStatus, LastCallResult, SupplierObjections, CallBackDate,
+        ObjectionExplained, CallNotes,
+    ];
+
+    /// <summary>The yard capabilities view's fields, in the order the portal's query asks for them.</summary>
+    public static readonly IReadOnlyList<int> YardCapabilitiesFields =
+    [
+        RecordId, CrusherOnSite, LoggerOnSite, LoadFlatbeds, LoadDumps, MobileCrusher, CanExport, HasGaylordBoxes,
+        BalerOnSite, HasScale, LoadVanTrailers, HasLoadWrap, UsesOwnTrucks, RailAccess,
     ];
 
     /// <summary>The list view's fields.</summary>

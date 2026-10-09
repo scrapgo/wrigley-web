@@ -22,6 +22,12 @@ public sealed record SupplierResult(SupplierOutcome Outcome, SupplierResponse? S
 
 public sealed record SupplierListResult(SupplierOutcome Outcome, SupplierListResponse? Page = null);
 
+public sealed record SupplierYardCapabilitiesResult(
+    SupplierOutcome Outcome, SupplierYardCapabilitiesResponse? YardCapabilities = null);
+
+public sealed record SupplierCallProspectStatusResult(
+    SupplierOutcome Outcome, SupplierCallProspectStatusResponse? CallProspectStatus = null);
+
 /// <summary>
 /// Whose supplier access to check: an organization's application
 /// (<see cref="SupplierPermissions.Read"/>), or the platform when both are null
@@ -57,27 +63,59 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
 
     public async Task<SupplierResult> GetAsync(SupplierScope scope, int recordId, CancellationToken cancellationToken)
     {
+        var (outcome, found) = await ReadRecordAsync(scope, recordId, source.FindByRecordIdAsync, cancellationToken);
+        return found is { Value: { } supplier }
+            ? new(outcome, new SupplierResponse(supplier, found.Freshness))
+            : new(outcome);
+    }
+
+    /// <summary>The supplier's call and prospect status: last call result, objection, call back date, notes.</summary>
+    public async Task<SupplierCallProspectStatusResult> GetCallProspectStatusAsync(
+        SupplierScope scope, int recordId, CancellationToken cancellationToken)
+    {
+        var (outcome, found) = await ReadRecordAsync(scope, recordId, source.FindCallProspectStatusAsync, cancellationToken);
+        return found is { Value: { } status }
+            ? new(outcome, new SupplierCallProspectStatusResponse(status, found.Freshness))
+            : new(outcome);
+    }
+
+    /// <summary>The supplier's yard capabilities: crusher, baler, scale, loading options and so on.</summary>
+    public async Task<SupplierYardCapabilitiesResult> GetYardCapabilitiesAsync(
+        SupplierScope scope, int recordId, CancellationToken cancellationToken)
+    {
+        var (outcome, found) = await ReadRecordAsync(scope, recordId, source.FindYardCapabilitiesAsync, cancellationToken);
+        return found is { Value: { } capabilities }
+            ? new(outcome, new SupplierYardCapabilitiesResponse(capabilities, found.Freshness))
+            : new(outcome);
+    }
+
+    /// <summary>Checks access, then reads one supplier record; NotFound for a missing record.</summary>
+    private async Task<(SupplierOutcome Outcome, Sourced<T?>? Found)> ReadRecordAsync<T>(
+        SupplierScope scope,
+        int recordId,
+        Func<int, CancellationToken, Task<Sourced<T?>>> read,
+        CancellationToken cancellationToken)
+        where T : class
+    {
         if (!await CanReadAsync(scope, cancellationToken))
         {
-            return new(SupplierOutcome.Forbidden);
+            return (SupplierOutcome.Forbidden, null);
         }
 
         if (recordId < 1)
         {
-            return new(SupplierOutcome.NotFound);
+            return (SupplierOutcome.NotFound, null);
         }
 
         try
         {
-            var found = await source.FindByRecordIdAsync(recordId, cancellationToken);
-            return found.Value is { } supplier
-                ? new(SupplierOutcome.Success, new SupplierResponse(supplier, found.Freshness))
-                : new(SupplierOutcome.NotFound);
+            var found = await read(recordId, cancellationToken);
+            return found.Value is null ? (SupplierOutcome.NotFound, null) : (SupplierOutcome.Success, found);
         }
         catch (SupplierSourceUnavailableException ex)
         {
             logger.LogWarning(ex, "Supplier {RecordId} could not be read from the supplier source.", recordId);
-            return new(SupplierOutcome.SourceUnavailable);
+            return (SupplierOutcome.SourceUnavailable, null);
         }
     }
 

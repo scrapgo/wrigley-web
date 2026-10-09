@@ -107,6 +107,33 @@ public static class SupplierResponses
         }
         """;
 
+    /// <summary>The Target Pricing — Progress Rail query for record 17511 (sample values; some empty).</summary>
+    public const string TargetPricingProgressRail = """
+        {
+          "data": [
+            {
+              "3": { "value": 17511 },
+              "336": { "value": 180 },
+              "337": { "value": "Net Ton" },
+              "339": { "value": 2.5 },
+              "340": { "value": 22 },
+              "341": { "value": 1100.5 },
+              "342": { "value": 205.75 },
+              "345": { "value": 257 },
+              "346": { "value": 257 },
+              "347": { "value": 0.1285 },
+              "348": { "value": 12.85 },
+              "349": { "value": 287.84 },
+              "352": { "value": "#1 HMS" },
+              "358": { "value": "" },
+              "363": { "value": -5 }
+            }
+          ],
+          "fields": [],
+          "metadata": { "numRecords": 1, "skip": 0, "totalRecords": 1 }
+        }
+        """;
+
     /// <summary>The name list query, first records.</summary>
     public const string NameList = """
         {

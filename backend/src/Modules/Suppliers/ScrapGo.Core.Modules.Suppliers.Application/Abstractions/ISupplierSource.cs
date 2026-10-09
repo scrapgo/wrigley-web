@@ -19,6 +19,10 @@ public interface ISupplierSource
     /// <exception cref="SupplierSourceUnavailableException">The source failed and nothing cached could be served.</exception>
     Task<Sourced<SupplierYardCapabilitiesDto?>> FindYardCapabilitiesAsync(int recordId, CancellationToken cancellationToken);
 
+    /// <summary>One supplier's Target Pricing — Progress Rail by Record ID#; null value when there is no such supplier.</summary>
+    /// <exception cref="SupplierSourceUnavailableException">The source failed and nothing cached could be served.</exception>
+    Task<Sourced<SupplierTargetPricingProgressRailDto?>> FindTargetPricingProgressRailAsync(int recordId, CancellationToken cancellationToken);
+
     /// <summary>Suppliers with a name, sorted by name, optionally filtered by a name substring, one page at a time.</summary>
     /// <exception cref="SupplierSourceUnavailableException">The source failed and nothing cached could be served.</exception>
     Task<Sourced<SupplierPage>> ListAsync(string? search, int skip, int top, CancellationToken cancellationToken);

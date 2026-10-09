@@ -8,10 +8,11 @@ namespace ScrapGo.Core.Modules.Suppliers.Infrastructure.Quickbase;
 /// </summary>
 internal readonly struct QuickbaseRecord(JsonElement row)
 {
+    /// <summary>A text value as stored; empty or whitespace-only text is null.</summary>
     public string? Text(int fieldId) => Value(fieldId) is { } value
         ? value.ValueKind switch
         {
-            JsonValueKind.String => value.GetString(),
+            JsonValueKind.String => string.IsNullOrWhiteSpace(value.GetString()) ? null : value.GetString(),
             JsonValueKind.Number => value.GetRawText(),
             JsonValueKind.True => "true",
             JsonValueKind.False => "false",

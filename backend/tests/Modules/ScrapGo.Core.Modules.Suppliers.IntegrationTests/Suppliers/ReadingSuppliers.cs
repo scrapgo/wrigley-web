@@ -46,6 +46,7 @@ public class ReadingSuppliers
             Assert.Equal("john@scrapgo.com", supplier.GetProperty("leadAssignedTo").GetProperty("email").GetString());
             Assert.Equal(67, supplier.GetProperty("relevantConsumerDistances").GetInt32());
             Assert.Equal(JsonValueKind.Null, supplier.GetProperty("totalActivities").ValueKind);
+            Assert.Equal(JsonValueKind.Null, supplier.GetProperty("inStockItemRecords").ValueKind);
             Assert.Equal(257m, supplier.GetProperty("targetConsumerPrice").GetDecimal());
             Assert.Equal(2, supplier.GetProperty("deliveredLast90Days").GetInt32());
             Assert.Equal(2, supplier.GetProperty("deliveredBefore90Days").GetInt32());

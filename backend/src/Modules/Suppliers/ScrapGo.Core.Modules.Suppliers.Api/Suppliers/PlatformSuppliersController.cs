@@ -52,6 +52,21 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
             : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
     }
 
+    /// <summary>One supplier's Target Pricing — Progress Rail: target material, offer, freight, prices per unit, PO number.</summary>
+    [HttpGet("{recordId:int}/target-pricing-progress-rail")]
+    [ProducesResponseType<SupplierTargetPricingProgressRailResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> GetTargetPricingProgressRail(int recordId, CancellationToken cancellationToken)
+    {
+        var result = await suppliers.GetTargetPricingProgressRailAsync(SupplierScope.Platform, recordId, cancellationToken);
+
+        return result is { Outcome: SupplierOutcome.Success, TargetPricingProgressRail: { } pricing }
+            ? Ok(pricing)
+            : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
+    }
+
     /// <summary>One supplier's yard capabilities: crusher, baler, scale, loading options and so on (all yes/no).</summary>
     [HttpGet("{recordId:int}/yard-capabilities")]
     [ProducesResponseType<SupplierYardCapabilitiesResponse>(StatusCodes.Status200OK)]

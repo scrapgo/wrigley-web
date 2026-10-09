@@ -20,7 +20,7 @@ Modules (`src/Modules/`):
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Identity**        | Sign-in, users, organizations, roles and permissions, applications and modules, invitations                                                            |
 | **QuickbaseEngine** | The only path to Quickbase: `IQuickbaseQueryService`, cached in Postgres (`quickbase.query_caches`) and resilient (retries, timeouts, circuit breaker) |
-| **Suppliers**       | Read endpoints over the Quickbase Suppliers table (`bqrcgnatz`): list, details, call & prospect status, yard capabilities, and dropdown options. See [Suppliers](#suppliers) |
+| **Suppliers**       | Read endpoints over the Quickbase Suppliers table (`bqrcgnatz`): list, details, call & prospect status, yard capabilities, Target Pricing — Progress Rail, and dropdown options. See [Suppliers](#suppliers) |
 
 Proxy modules like Suppliers reach Quickbase and the caller only through
 contracts in `Shared.Kernel`: `IQuickbaseQueryService` (`Shared.Kernel.Quickbase`)
@@ -222,6 +222,7 @@ curl -s "http://localhost:5141/api/suppliers?search=Auto&top=5" -H "Authorizatio
 curl -s http://localhost:5141/api/suppliers/17511 -H "Authorization: Bearer <token>"
 curl -s http://localhost:5141/api/suppliers/17511/call-prospect-status -H "Authorization: Bearer <token>"
 curl -s http://localhost:5141/api/suppliers/17511/yard-capabilities -H "Authorization: Bearer <token>"
+curl -s http://localhost:5141/api/suppliers/17511/target-pricing-progress-rail -H "Authorization: Bearer <token>"
 ```
 
 ## Configuration
@@ -401,6 +402,7 @@ Each record endpoint exists in both route forms. For example,
 | `/{recordId}` | Details (below) |
 | `/{recordId}/call-prospect-status` | Call & prospect status (below) |
 | `/{recordId}/yard-capabilities` | Yard capabilities (below) |
+| `/{recordId}/target-pricing-progress-rail` | Target Pricing — Progress Rail (below) |
 | `/payment-terms` · `/dead-freight` · `/last-call-results` · `/supplier-objections` | Dropdown options: `[{ "value": "Net5", "label": "Net 5" }, …]` |
 
 Every record response carries `freshness`:
@@ -417,7 +419,7 @@ Errors:
 
 ### Fields
 
-All three views look up one record with `{3.EX.'<recordId>'}`. Fields are listed in query order, and `null` means empty in Quickbase.
+All four views look up one record with `{3.EX.'<recordId>'}`. Fields are listed in query order, and `null` means empty in Quickbase; empty or blank text is `null` too, never `""`.
 
 **Details** (`supplier`):
 
@@ -467,6 +469,25 @@ All three views look up one record with `{3.EX.'<recordId>'}`. Fields are listed
 | Has Load Wrap? | 187 | `hasLoadWrap` |
 | Use Own Trucks? | 184 | `usesOwnTrucks` |
 | Rail Access | 230 | `railAccess` |
+
+**Target Pricing — Progress Rail** (`targetPricingProgressRail`): currency and numeric fields are decimals.
+
+| Field | Id | API name | Type |
+| --- | --- | --- | --- |
+| Target Material | 352 | `targetMaterial` | text |
+| Target Break Even | 342 | `targetBreakEven` | currency |
+| Target Offer | 336 | `targetOffer` | currency |
+| Target UOM | 337 | `targetUom` | text |
+| Trucks / Week | 339 | `trucksPerWeek` | numeric |
+| Target FR/UOM | 340 | `targetFreightPerUom` | numeric |
+| Target Freight Cost | 341 | `targetFreightCost` | currency |
+| Target Consumer Price | 346 | `targetConsumerPrice` | currency |
+| Price in Net Tons | 345 | `priceInNetTons` | currency |
+| Price in LBS | 347 | `priceInLbs` | currency |
+| Price in CWT | 348 | `priceInCwt` | currency |
+| Price in Gross Tons | 349 | `priceInGrossTons` | currency |
+| Target PO Number | 358 | `targetPoNumber` | text |
+| Price Change from Prior | 363 | `priceChangeFromPrior` | currency |
 
 ### Dropdowns (enums)
 

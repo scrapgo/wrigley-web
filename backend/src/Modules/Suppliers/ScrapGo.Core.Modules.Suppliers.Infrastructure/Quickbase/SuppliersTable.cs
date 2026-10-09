@@ -46,6 +46,21 @@ public static class SuppliersTable
     public const int RailAccess = 230;
     public const int HasScale = 359;
 
+    // Target Pricing — Progress Rail.
+    public const int TargetOffer = 336;
+    public const int TargetUom = 337;
+    public const int TrucksPerWeek = 339;
+    public const int TargetFreightPerUom = 340;
+    public const int TargetFreightCost = 341;
+    public const int TargetBreakEven = 342;
+    public const int PriceInNetTons = 345;
+    public const int PriceInLbs = 347;
+    public const int PriceInCwt = 348;
+    public const int PriceInGrossTons = 349;
+    public const int TargetMaterial = 352;
+    public const int TargetPoNumber = 358;
+    public const int PriceChangeFromPrior = 363;
+
     public const int MainEmail = 301;
     public const int PaymentTerms = 320;
 
@@ -77,6 +92,14 @@ public static class SuppliersTable
     [
         RecordId, CrusherOnSite, LoggerOnSite, LoadFlatbeds, LoadDumps, MobileCrusher, CanExport, HasGaylordBoxes,
         BalerOnSite, HasScale, LoadVanTrailers, HasLoadWrap, UsesOwnTrucks, RailAccess,
+    ];
+
+    /// <summary>The Target Pricing — Progress Rail view's fields, in the order the portal's query asks for them.</summary>
+    public static readonly IReadOnlyList<int> TargetPricingProgressRailFields =
+    [
+        RecordId, TargetMaterial, TargetBreakEven, TargetOffer, TargetUom, TrucksPerWeek, TargetFreightPerUom,
+        TargetFreightCost, TargetConsumerPrice, PriceInNetTons, PriceInLbs, PriceInCwt, PriceInGrossTons,
+        TargetPoNumber, PriceChangeFromPrior,
     ];
 
     /// <summary>The list view's fields.</summary>

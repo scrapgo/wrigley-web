@@ -91,6 +91,45 @@ public sealed record SupplierYardCapabilitiesDto(
 
 public sealed record SupplierYardCapabilitiesResponse(SupplierYardCapabilitiesDto YardCapabilities, DataFreshness Freshness);
 
+/// <summary>
+/// A supplier's target pricing for Progress Rail (Quickbase Suppliers table,
+/// "Target Pricing — Progress Rail"). Currency and numeric fields are decimals;
+/// null means empty in Quickbase.
+/// </summary>
+/// <param name="TargetMaterial">Field 352 (text).</param>
+/// <param name="TargetBreakEven">Field 342 (currency).</param>
+/// <param name="TargetOffer">Field 336 (currency).</param>
+/// <param name="TargetUom">Field 337, "Target UOM" (text).</param>
+/// <param name="TrucksPerWeek">Field 339, "Trucks / Week" (numeric).</param>
+/// <param name="TargetFreightPerUom">Field 340, "Target FR/UOM" (numeric).</param>
+/// <param name="TargetFreightCost">Field 341 (currency).</param>
+/// <param name="TargetConsumerPrice">Field 346 (currency).</param>
+/// <param name="PriceInNetTons">Field 345 (currency).</param>
+/// <param name="PriceInLbs">Field 347, "Price in LBS" (currency).</param>
+/// <param name="PriceInCwt">Field 348, "Price in CWT" (currency).</param>
+/// <param name="PriceInGrossTons">Field 349 (currency).</param>
+/// <param name="TargetPoNumber">Field 358, "Target PO Number" (text).</param>
+/// <param name="PriceChangeFromPrior">Field 363 (currency).</param>
+public sealed record SupplierTargetPricingProgressRailDto(
+    int RecordId,
+    string? TargetMaterial,
+    decimal? TargetBreakEven,
+    decimal? TargetOffer,
+    string? TargetUom,
+    decimal? TrucksPerWeek,
+    decimal? TargetFreightPerUom,
+    decimal? TargetFreightCost,
+    decimal? TargetConsumerPrice,
+    decimal? PriceInNetTons,
+    decimal? PriceInLbs,
+    decimal? PriceInCwt,
+    decimal? PriceInGrossTons,
+    string? TargetPoNumber,
+    decimal? PriceChangeFromPrior);
+
+public sealed record SupplierTargetPricingProgressRailResponse(
+    SupplierTargetPricingProgressRailDto TargetPricingProgressRail, DataFreshness Freshness);
+
 public sealed record SupplierCallProspectStatusResponse(SupplierCallProspectStatusDto CallProspectStatus, DataFreshness Freshness);
 
 public sealed record SupplierListResponse(

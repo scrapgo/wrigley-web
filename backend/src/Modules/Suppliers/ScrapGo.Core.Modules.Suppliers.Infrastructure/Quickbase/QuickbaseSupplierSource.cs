@@ -45,6 +45,19 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
         return new(capabilities, Freshness(result));
     }
 
+    public async Task<Sourced<SupplierTargetPricingProgressRailDto?>> FindTargetPricingProgressRailAsync(
+        int recordId, CancellationToken cancellationToken)
+    {
+        var result = await QueryAsync(
+            new QuickbaseQuery(SuppliersTable.TableId, SuppliersTable.TargetPricingProgressRailFields, SuppliersTable.ByRecordId(recordId)),
+            cancellationToken);
+
+        using var document = JsonDocument.Parse(result.ResponseJson);
+        var pricing = Rows(document).Select(row => ToTargetPricingProgressRail(new QuickbaseRecord(row))).FirstOrDefault();
+
+        return new(pricing, Freshness(result));
+    }
+
     public async Task<Sourced<SupplierPage>> ListAsync(string? search, int skip, int top, CancellationToken cancellationToken)
     {
         var result = await QueryAsync(
@@ -114,6 +127,26 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
                 record.Int(SuppliersTable.DeliveredLast90Days),
                 record.Int(SuppliersTable.DeliveredBefore90Days),
                 QuickbaseDeadFreight.FromQuickbase(record.Bool(SuppliersTable.DeadFreight)))
+            : null;
+
+    private static SupplierTargetPricingProgressRailDto? ToTargetPricingProgressRail(QuickbaseRecord record) =>
+        record.Int(SuppliersTable.RecordId) is { } recordId
+            ? new SupplierTargetPricingProgressRailDto(
+                recordId,
+                record.Text(SuppliersTable.TargetMaterial),
+                record.Decimal(SuppliersTable.TargetBreakEven),
+                record.Decimal(SuppliersTable.TargetOffer),
+                record.Text(SuppliersTable.TargetUom),
+                record.Decimal(SuppliersTable.TrucksPerWeek),
+                record.Decimal(SuppliersTable.TargetFreightPerUom),
+                record.Decimal(SuppliersTable.TargetFreightCost),
+                record.Decimal(SuppliersTable.TargetConsumerPrice),
+                record.Decimal(SuppliersTable.PriceInNetTons),
+                record.Decimal(SuppliersTable.PriceInLbs),
+                record.Decimal(SuppliersTable.PriceInCwt),
+                record.Decimal(SuppliersTable.PriceInGrossTons),
+                record.Text(SuppliersTable.TargetPoNumber),
+                record.Decimal(SuppliersTable.PriceChangeFromPrior))
             : null;
 
     private static SupplierYardCapabilitiesDto? ToYardCapabilities(QuickbaseRecord record) =>

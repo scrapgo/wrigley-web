@@ -403,7 +403,7 @@ Each record endpoint exists in both route forms. For example,
 | `/{recordId}/call-prospect-status` | Call & prospect status (below) |
 | `/{recordId}/yard-capabilities` | Yard capabilities (below) |
 | `/{recordId}/target-pricing-progress-rail` | Target Pricing — Progress Rail (below) |
-| `/payment-terms` · `/dead-freight` · `/last-call-results` · `/supplier-objections` | Dropdown options: `[{ "value": "Net5", "label": "Net 5" }, …]` |
+| `/payment-terms` · `/dead-freight` · `/last-call-results` · `/supplier-objections` | Dropdown options: `[{ "value": "Net 5", "label": "Net 5" }, …]` (value and label are the same exact text) |
 
 Every record response carries `freshness`:
 - `source` is `Cache`, `Quickbase` or `StaleCache`.
@@ -491,20 +491,20 @@ All four views look up one record with `{3.EX.'<recordId>'}`. Fields are listed 
 
 ### Dropdowns (enums)
 
-Dropdown fields are enums, sent and accepted by **name** (e.g. `"Net5"`).
+Dropdown fields are enums, sent and accepted as their **exact text** (e.g. `"Net 5"`, `"No Answer - Voice Mail"`). The value, the label and the Quickbase text are the same string.
 
 | Enum | Quickbase field | Values (label) |
 | --- | --- | --- |
-| `PaymentTerms` | 320 (text) | `Net5` (Net 5), `Net10` (Net 10), `Net30` (Net 30), `TuesdayThursday` (Tuesday/Thursday), `MlNorwood` (ML Norwood) |
-| `DeadFreight` | 321 (checkbox) | `Exempt` (Exempt) = **unchecked**, `NotExempt` (Not Exempt) = **checked** |
-| `LastCallResult` | 193 (dropdown) | 14 values, e.g. `NoAnswerVoiceMail` (No Answer - Voice Mail), `PoPending` (PO Pending) |
-| `SupplierObjection` | 236 (dropdown) | 22 values, e.g. `PaymentTerms` (Payment Terms), `PastScrapGoIssues` (Past ScrapGo Issues), `SellsToOurConsumer` (Sells to Our Consumer) |
+| `PaymentTerms` | 320 (text) | Net 5 · Net 10 · Net 30 · Tuesday/Thursday · ML Norwood |
+| `DeadFreight` | 321 (checkbox) | Exempt (**unchecked**) · Not Exempt (**checked**) |
+| `LastCallResult` | 193 (dropdown) | Bad Number · Wrong Business · Consumer · Multiple Location · No Answer - Voice Mail · No Decision Maker · Can't Fill Truck Load · No Equipment · No Contact after 4 Calls · Not Interested · Send to the grid · Connected · Scrap Hauls · PO Pending |
+| `SupplierObjection` | 236 (dropdown) | Hot · Price · Payment Terms · Netting · Not interested · Too small · Labor Issues · No equipment · Too Difficult · Past ScrapGo Issues · Past Trucker Issues · Uses Own Truck · Nonferrous · Weird · I Don't Know · Other Ferrous · Sells to Our Consumer · Is a Mobile Crusher · No Contact · Loyalty · Seasonal · Too Far |
 
-- **Labels:** each label is what the dropdown shows and the **exact text Quickbase stores**. Matching ignores case, extra spaces and curly apostrophes.
+- **Labels:** each enum member carries its exact text in `[JsonStringEnumMemberName("…")]`, the single source for the JSON value, the label and the Quickbase text. Reading Quickbase ignores case, extra spaces and curly apostrophes.
 - **Unknown values:** Quickbase text that isn't a known value comes back as `null`, with a warning in the log (`… isn't a known value`).
 - **Where they're defined:** Application `Suppliers/*.cs` (`PaymentTermsCatalog`, `DropdownCatalog<TEnum>`).
 - **Conversion:** Infrastructure `Quickbase/Quickbase*.cs` converts to and from Quickbase, ready for future writes.
-- **Changing a dropdown:** add the value at the end, with its label exactly as Quickbase spells it. Never rename a value: its name is the API contract.
+- **Changing a dropdown:** add the member at the end, with `[JsonStringEnumMemberName]` set to the text exactly as Quickbase spells it. Never change the text of an existing value: the text is the API contract.
 
 ### Adding a supplier view
 

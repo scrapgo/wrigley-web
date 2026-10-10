@@ -28,8 +28,8 @@ public class CallProspectStatusSpecs
             Assert.Equal(17511, status.GetProperty("recordId").GetInt32());
             Assert.Equal("Yes", status.GetProperty("contactWithDecisionMakerMade").GetString());
             Assert.Equal("Prospect", status.GetProperty("prospectStatus").GetString());
-            Assert.Equal("NoAnswerVoiceMail", status.GetProperty("lastCallResult").GetString());
-            Assert.Equal("PaymentTerms", status.GetProperty("supplierObjection").GetString());
+            Assert.Equal("No Answer - Voice Mail", status.GetProperty("lastCallResult").GetString());
+            Assert.Equal("Payment Terms", status.GetProperty("supplierObjection").GetString());
             Assert.Equal(new DateTimeOffset(2026, 10, 15, 0, 0, 0, TimeSpan.Zero), status.GetProperty("callBackDate").GetDateTimeOffset());
             Assert.Equal("Wants Net 5 instead of Net 10.", status.GetProperty("objectionExplained").GetString());
             Assert.Equal("Spoke to David; call back next week.", status.GetProperty("callNotes").GetString());
@@ -158,12 +158,19 @@ public class CallProspectStatusSpecs
             var lastCall = await ReadOptionsAsync(await fixture.SendAsync(HttpMethod.Get, "/api/suppliers/last-call-results", token));
             var objections = await ReadOptionsAsync(await fixture.SendAsync(HttpMethod.Get, "/api/suppliers/supplier-objections", token));
 
-            Assert.Equal(14, lastCall.Count);
-            Assert.Equal(("BadNumber", "Bad Number"), lastCall[0]);
-            Assert.Equal(("PoPending", "PO Pending"), lastCall[^1]);
-            Assert.Equal(22, objections.Count);
-            Assert.Equal(("Hot", "Hot"), objections[0]);
-            Assert.Equal(("TooFar", "Too Far"), objections[^1]);
+            Assert.Equal(
+                ["Bad Number", "Wrong Business", "Consumer", "Multiple Location", "No Answer - Voice Mail",
+                 "No Decision Maker", "Can't Fill Truck Load", "No Equipment", "No Contact after 4 Calls",
+                 "Not Interested", "Send to the grid", "Connected", "Scrap Hauls", "PO Pending"],
+                lastCall.Select(o => o.Item1));
+            Assert.Equal(
+                ["Hot", "Price", "Payment Terms", "Netting", "Not interested", "Too small", "Labor Issues",
+                 "No equipment", "Too Difficult", "Past ScrapGo Issues", "Past Trucker Issues", "Uses Own Truck",
+                 "Nonferrous", "Weird", "I Don't Know", "Other Ferrous", "Sells to Our Consumer",
+                 "Is a Mobile Crusher", "No Contact", "Loyalty", "Seasonal", "Too Far"],
+                objections.Select(o => o.Item1));
+            // Value and label are the same exact text.
+            Assert.All(lastCall.Concat(objections), o => Assert.Equal(o.Item1, o.Item2));
         }
 
         [Fact]

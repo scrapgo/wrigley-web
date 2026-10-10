@@ -65,11 +65,11 @@ public class PaymentTermsSpecs
                 .ToList();
             Assert.Equal(
                 [
-                    ("Net5", "Net 5"),
-                    ("Net10", "Net 10"),
-                    ("Net30", "Net 30"),
-                    ("TuesdayThursday", "Tuesday/Thursday"),
-                    ("MlNorwood", "ML Norwood"),
+                    ("Net 5", "Net 5"),
+                    ("Net 10", "Net 10"),
+                    ("Net 30", "Net 30"),
+                    ("Tuesday/Thursday", "Tuesday/Thursday"),
+                    ("ML Norwood", "ML Norwood"),
                 ],
                 options);
         }

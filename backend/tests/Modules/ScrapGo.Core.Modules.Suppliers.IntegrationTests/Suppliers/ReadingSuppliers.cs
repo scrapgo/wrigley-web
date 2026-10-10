@@ -41,7 +41,7 @@ public class ReadingSuppliers
             Assert.Equal("32703", supplier.GetProperty("zipCode").GetString());
             Assert.Equal("(321) 356-4622", supplier.GetProperty("mainContactPhone").GetString());
             Assert.Equal("David Esteves ", Assert.Single(supplier.GetProperty("mainContactNames").EnumerateArray()).GetString());
-            Assert.Equal("Net5", supplier.GetProperty("paymentTerms").GetString());
+            Assert.Equal("Net 5", supplier.GetProperty("paymentTerms").GetString());
             Assert.Equal("pipoe720@hotmail.com", supplier.GetProperty("mainEmail").GetString());
             Assert.Equal("john@scrapgo.com", supplier.GetProperty("leadAssignedTo").GetProperty("email").GetString());
             Assert.Equal(67, supplier.GetProperty("relevantConsumerDistances").GetInt32());
@@ -50,7 +50,7 @@ public class ReadingSuppliers
             Assert.Equal(257m, supplier.GetProperty("targetConsumerPrice").GetDecimal());
             Assert.Equal(2, supplier.GetProperty("deliveredLast90Days").GetInt32());
             Assert.Equal(2, supplier.GetProperty("deliveredBefore90Days").GetInt32());
-            Assert.Equal("NotExempt", supplier.GetProperty("deadFreight").GetString());
+            Assert.Equal("Not Exempt", supplier.GetProperty("deadFreight").GetString());
             Assert.Equal("Quickbase", body.GetProperty("freshness").GetProperty("source").GetString());
         }
 

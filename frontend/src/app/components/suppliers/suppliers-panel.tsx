@@ -16,6 +16,7 @@ import {
 } from '../ui/table'
 import { useSuppliers } from '../../hooks/useSupplierQueries'
 import { adminErrorMessage } from '../../lib/admin-errors'
+import { htmlToText } from '../../lib/supplier-format'
 import { FreshnessBadge } from './freshness-badge'
 
 const PAGE_SIZE = 25
@@ -122,7 +123,7 @@ export function SuppliersPanel({ initialSearch = '' }: { initialSearch?: string 
                                             {supplier.recordId}
                                         </TableCell>
                                         <TableCell className="font-medium text-ink-900">
-                                            {supplier.account || '—'}
+                                            {htmlToText(supplier.account) || '—'}
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex justify-end">

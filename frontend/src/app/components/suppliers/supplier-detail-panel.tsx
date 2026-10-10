@@ -20,12 +20,22 @@ import { Skeleton } from '../ui/skeleton'
 import { EmptyState } from '../ui/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
-import { useSupplier } from '../../hooks/useSupplierQueries'
+import { catalogLabel, useSupplier, useSupplierCatalogs } from '../../hooks/useSupplierQueries'
 import { adminErrorMessage } from '../../lib/admin-errors'
 import { FreshnessBadge } from './freshness-badge'
+import {
+    DetailField,
+    SupplierCallProspectStatusCard,
+    SupplierPrimaryContactCard,
+    SupplierTargetPricingCard,
+    SupplierYardCapabilitiesCard,
+    SupplierStatusBadges,
+} from './supplier-detail-sections'
+import { formatCurrency, formatNumber, htmlToText } from '../../lib/supplier-format'
 
 export function SupplierDetailPanel({ recordId }: { recordId: number }) {
     const { data, isLoading, isError, error } = useSupplier(recordId)
+    const { data: catalogs } = useSupplierCatalogs()
 
     if (isLoading) {
         return (
@@ -79,8 +89,14 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
     }
 
     const { supplier, freshness } = data
-    const location = [supplier.city, supplier.state].filter(Boolean).join(', ')
-    const address = [supplier.streetAddress, location, supplier.zipCode].filter(Boolean).join(' · ')
+    const location = [supplier.city, supplier.state]
+        .map((part) => htmlToText(part))
+        .filter(Boolean)
+        .join(', ')
+    const address = [supplier.streetAddress, location, supplier.zipCode]
+        .map((part) => htmlToText(part))
+        .filter(Boolean)
+        .join(' · ')
 
     return (
         <div className="space-y-6">
@@ -97,10 +113,11 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
                     <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                             <h2 className="text-xl font-bold text-ink-900">
-                                {supplier.account || 'Unnamed supplier'}
+                                {htmlToText(supplier.account) || 'Unnamed supplier'}
                             </h2>
                             <Badge variant="neutral">Record #{supplier.recordId}</Badge>
                             <FreshnessBadge freshness={freshness} />
+                            <SupplierStatusBadges recordId={supplier.recordId} />
                         </div>
                         <div className="mt-3 flex flex-col gap-1.5 text-sm text-muted-foreground">
                             {address && (
@@ -112,7 +129,7 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
                             {supplier.mainContactPhone && (
                                 <span className="inline-flex items-center gap-2">
                                     <Phone className="h-4 w-4 shrink-0" />
-                                    {supplier.mainContactPhone}
+                                    {htmlToText(supplier.mainContactPhone)}
                                 </span>
                             )}
                             {supplier.leadAssignedTo?.name && (
@@ -141,7 +158,7 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
                 <StatTile
                     icon={Users}
                     label="In-Stock Items"
-                    value={supplier.inStockItemRecords || '—'}
+                    value={htmlToText(supplier.inStockItemRecords) || '—'}
                 />
                 <StatTile
                     icon={DollarSign}
@@ -162,33 +179,41 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
                 </TabsList>
 
                 <TabsContent value="overview">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base font-semibold">Supplier Details</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-                                <DetailField label="Supplier" value={supplier.account} />
-                                <DetailField label="Record ID" value={String(supplier.recordId)} />
-                                <DetailField label="Payment Terms" value={supplier.paymentTerms} />
-                                <DetailField label="Street Address" value={supplier.streetAddress} />
-                                <DetailField label="City" value={supplier.city} />
-                                <DetailField label="State" value={supplier.state} />
-                                <DetailField label="Zip Code" value={supplier.zipCode} />
-                                <DetailField label="Country" value={supplier.country} />
-                                <DetailField label="Main Contact Phone" value={supplier.mainContactPhone} />
-                                <DetailField label="Main Email" value={supplier.mainEmail} />
-                                <DetailField
-                                    label="Dead Freight"
-                                    value={supplier.deadFreight == null ? null : supplier.deadFreight ? 'Exempt' : 'Not exempt'}
-                                />
-                                <DetailField
-                                    label="Lead Assigned To"
-                                    value={supplier.leadAssignedTo?.name ?? supplier.leadAssignedTo?.email}
-                                />
-                            </dl>
-                        </CardContent>
-                    </Card>
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-base font-semibold">Supplier Details</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+                                    <DetailField label="Supplier" value={supplier.account} />
+                                    <DetailField label="Record ID" value={String(supplier.recordId)} />
+                                    <DetailField
+                                        label="Payment Terms"
+                                        value={catalogLabel(catalogs, 'paymentTerms', supplier.paymentTerms)}
+                                    />
+                                    <DetailField
+                                        label="Dead Freight"
+                                        value={catalogLabel(catalogs, 'deadFreight', supplier.deadFreight)}
+                                    />
+                                    <DetailField label="Street Address" value={supplier.streetAddress} />
+                                    <DetailField label="City" value={supplier.city} />
+                                    <DetailField label="State" value={supplier.state} />
+                                    <DetailField label="Zip Code" value={supplier.zipCode} />
+                                    <DetailField label="Country" value={supplier.country} />
+                                    <DetailField label="Main Contact Phone" value={supplier.mainContactPhone} />
+                                    <DetailField label="Main Email" value={supplier.mainEmail} />
+                                    <DetailField
+                                        label="Lead Assigned To"
+                                        value={supplier.leadAssignedTo?.name ?? supplier.leadAssignedTo?.email}
+                                    />
+                                </dl>
+                            </CardContent>
+                        </Card>
+                        <SupplierPrimaryContactCard supplier={supplier} />
+                        <SupplierCallProspectStatusCard recordId={supplier.recordId} />
+                        <SupplierYardCapabilitiesCard recordId={supplier.recordId} />
+                    </div>
                 </TabsContent>
 
                 <TabsContent value="materials">
@@ -203,24 +228,24 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
                                         label="Target Consumer Price"
                                         value={formatCurrency(supplier.targetConsumerPrice)}
                                     />
-                                    <DetailField label="Payment Terms" value={supplier.paymentTerms} />
+                                    <DetailField
+                                        label="Payment Terms"
+                                        value={catalogLabel(catalogs, 'paymentTerms', supplier.paymentTerms)}
+                                    />
                                     <DetailField
                                         label="Dead Freight"
-                                        value={supplier.deadFreight == null ? null : supplier.deadFreight ? 'Exempt' : 'Not exempt'}
+                                        value={catalogLabel(catalogs, 'deadFreight', supplier.deadFreight)}
                                     />
                                 </dl>
                             </CardContent>
                         </Card>
-                        <PlaceholderTab
-                            icon={DollarSign}
-                            title="Material pricing not available yet"
-                            description="Per-material pricing and grades aren't returned by the supplier API yet."
-                        />
+                        <SupplierTargetPricingCard recordId={supplier.recordId} />
                     </div>
                 </TabsContent>
 
                 <TabsContent value="calls">
                     <div className="space-y-6">
+                        <SupplierCallProspectStatusCard recordId={supplier.recordId} />
                         <Card>
                             <CardHeader>
                                 <CardTitle className="text-base font-semibold">Activity Summary</CardTitle>
@@ -234,11 +259,6 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
                                 </dl>
                             </CardContent>
                         </Card>
-                        <PlaceholderTab
-                            icon={Phone}
-                            title="Call history not available yet"
-                            description="Individual call and prospect records aren't returned by the supplier API yet."
-                        />
                     </div>
                 </TabsContent>
 
@@ -256,7 +276,7 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
                                     <ul className="mt-2 flex flex-wrap gap-2">
                                         {supplier.mainContactNames.map((name) => (
                                             <li key={name}>
-                                                <Badge variant="default">{name}</Badge>
+                                                <Badge variant="default">{htmlToText(name)}</Badge>
                                             </li>
                                         ))}
                                     </ul>
@@ -341,17 +361,6 @@ function StatTile({
     )
 }
 
-function DetailField({ label, value }: { label: string; value: string | null | undefined }) {
-    return (
-        <div>
-            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {label}
-            </dt>
-            <dd className="mt-1 text-sm text-ink-800">{value || '—'}</dd>
-        </div>
-    )
-}
-
 function PlaceholderTab({
     icon: Icon,
     title,
@@ -370,12 +379,4 @@ function PlaceholderTab({
     )
 }
 
-function formatNumber(value: number | null | undefined): string {
-    return value == null ? '—' : value.toLocaleString()
-}
 
-function formatCurrency(value: number | null | undefined): string {
-    return value == null
-        ? '—'
-        : value.toLocaleString(undefined, { style: 'currency', currency: 'USD' })
-}

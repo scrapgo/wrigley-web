@@ -34,23 +34,13 @@ public sealed class SupplierDropdownsController : ControllerBase
     [ProducesResponseType<IReadOnlyList<DropdownOption<UnitOfMeasure>>>(StatusCodes.Status200OK)]
     public IActionResult UnitOfMeasureOptions() => Ok(InStockItemDropdowns.UnitsOfMeasure.Options);
 
-    /// <summary>In-stock item preparation options, in order.</summary>
+    /// <summary>In-stock item packaging / prep options, in order.</summary>
     [HttpGet("in-stock-items/preparations")]
     [ProducesResponseType<IReadOnlyList<DropdownOption<Preparation>>>(StatusCodes.Status200OK)]
     public IActionResult PreparationOptions() => Ok(InStockItemDropdowns.Preparations.Options);
-
-    /// <summary>In-stock item availability options, in order.</summary>
-    [HttpGet("in-stock-items/availabilities")]
-    [ProducesResponseType<IReadOnlyList<DropdownOption<Availability>>>(StatusCodes.Status200OK)]
-    public IActionResult AvailabilityOptions() => Ok(InStockItemDropdowns.Availabilities.Options);
 
     /// <summary>In-stock item truck type options, in order.</summary>
     [HttpGet("in-stock-items/truck-types")]
     [ProducesResponseType<IReadOnlyList<DropdownOption<TruckType>>>(StatusCodes.Status200OK)]
     public IActionResult TruckTypeOptions() => Ok(InStockItemDropdowns.TruckTypes.Options);
-
-    /// <summary>In-stock item dirty or clean options, in order.</summary>
-    [HttpGet("in-stock-items/dirty-or-clean")]
-    [ProducesResponseType<IReadOnlyList<DropdownOption<DirtyOrClean>>>(StatusCodes.Status200OK)]
-    public IActionResult DirtyOrCleanOptions() => Ok(InStockItemDropdowns.DirtyOrClean.Options);
 }

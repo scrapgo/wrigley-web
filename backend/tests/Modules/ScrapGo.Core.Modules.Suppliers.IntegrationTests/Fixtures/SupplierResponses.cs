@@ -143,30 +143,19 @@ public static class SupplierResponses
               "6": { "value": "Aluminum Radiators" },
               "7": { "value": 2.5 },
               "8": { "value": "NT" },
-              "9": { "value": 5000 },
-              "10": { "value": "Wrapped/Palletized" },
-              "13": { "value": "Continous" },
+              "10": { "value": "Loose or Baled" },
               "14": { "value": 1250.75 },
               "15": { "value": 17511 },
-              "16": { "value": "1st Class Auto Salvage" },
               "18": { "value": "Van Trailer" },
               "19": { "value": 40 },
-              "20": { "value": 1 },
-              "21": { "value": 900 },
-              "22": { "value": true },
-              "23": { "value": "Clean" },
-              "26": { "value": "Ready for pickup" },
-              "27": { "value": "Gaylords" },
-              "28": { "value": 2 },
-              "31": { "value": "Offered" }
+              "20": { "value": 1.5 }
             },
             {
               "3": { "value": 502 },
               "6": { "value": "Copper Pipe" },
               "8": { "value": "" },
-              "15": { "value": 17511 },
-              "22": { "value": false },
-              "26": { "value": "" }
+              "10": { "value": "Loose or Bailed" },
+              "15": { "value": 17511 }
             }
           ],
           "fields": [],

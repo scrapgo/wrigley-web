@@ -403,8 +403,8 @@ Each record endpoint exists in both route forms. For example,
 | `/{recordId}/call-prospect-status` | Call & prospect status (below) |
 | `/{recordId}/yard-capabilities` | Yard capabilities (below) |
 | `/{recordId}/target-pricing-progress-rail` | Target Pricing — Progress Rail (below) |
-| `/{recordId}/in-stock-items` | The supplier's in-stock items, a list from the **In-Stock Items** table (below). Empty when it has none, never 404 |
-| `/in-stock-items/material-types` · `/units-of-measure` · `/preparations` · `/availabilities` · `/truck-types` · `/dirty-or-clean` | In-stock item dropdown options |
+| `/{recordId}/in-stock-items` | Materials Pricing: the supplier's in-stock items, a list from the **In-Stock Items** table (below). Empty when it has none, never 404 |
+| `/in-stock-items/material-types` · `/units-of-measure` · `/preparations` · `/truck-types` | In-stock item dropdown options (`/preparations` = Packaging / Prep) |
 | `/payment-terms` · `/dead-freight` · `/last-call-results` · `/supplier-objections` | Dropdown options: `[{ "value": "Net 5", "label": "Net 5" }, …]` (value and label are the same exact text) |
 
 Every record response carries `freshness`:
@@ -491,30 +491,23 @@ All four views look up one record with `{3.EX.'<recordId>'}`. Fields are listed 
 | Target PO Number | 358 | `targetPoNumber` | text |
 | Price Change from Prior | 363 | `priceChangeFromPrior` | currency |
 
-**In-stock items** (`items`, from table `bscpxjrw3`, `{15.EX.'<supplier recordId>'}`):
+**In-stock items, Materials Pricing** (`items`, from table `bscpxjrw3`, `{15.EX.'<supplier recordId>'}`):
 
 | Field | Id | API name | Type |
 | --- | --- | --- | --- |
 | Record ID# | 3 | `recordId` | number (the item) |
 | Related Supplier | 15 | `relatedSupplier` | number (the supplier's record id) |
-| Supplier - Accounting | 16 | `supplierAccounting` | text |
 | Material Type | 6 | `materialType` | enum `MaterialType` |
+| Packaging | 10 | `packaging` | enum `Preparation` |
+| Prep | 10 | `prep` | enum `Preparation`, the same field and value as `packaging` |
 | Weight | 7 | `weight` | numeric |
-| Unit of Measure | 8 | `unitOfMeasure` | enum `UnitOfMeasure` |
-| Weight (formula to lbs) | 9 | `weightInLbs` | numeric |
-| Preparation | 10 | `preparation` | enum `Preparation` |
-| Availability | 13 | `availability` | enum `Availability` |
+| UOM | 8 | `unitOfMeasure` | enum `UnitOfMeasure` |
 | Target Offer | 14 | `targetOffer` | currency |
 | Truck Type | 18 | `truckType` | enum `TruckType` |
+| Trucks/WK | 20 | `trucksPerWeek` | numeric |
 | Volume | 19 | `volume` | numeric |
-| Trucks Per Week | 20 | `trucksPerWeek` | numeric |
-| Freight Cost | 21 | `freightCost` | currency |
-| Verified | 22 | `verified` | checkbox |
-| Dirty or Clean | 23 | `dirtyOrClean` | enum `DirtyOrClean` |
-| Notes | 26 | `notes` | text |
-| Volume UOM | 27 | `volumeUom` | text |
-| Supplier -# of In Stock Item Records | 28 | `supplierInStockItemRecords` | number |
-| Offer Status | 31 | `offerStatus` | text |
+
+The query lists field 10 twice (`"select": [3,15,6,10,10,7,8,14,18,20,19]`), exactly as the portal's original query.
 
 ### Dropdowns (enums)
 
@@ -527,10 +520,8 @@ Dropdown fields are enums, sent and accepted as their **exact text** (e.g. `"Net
 | `LastCallResult` | 193 (dropdown) | Bad Number · Wrong Business · Consumer · Multiple Location · No Answer - Voice Mail · No Decision Maker · Can't Fill Truck Load · No Equipment · No Contact after 4 Calls · Not Interested · Send to the grid · Connected · Scrap Hauls · PO Pending |
 | `MaterialType` | In-Stock 6 | Aluminum Radiators · Auto Batteries · Harness wire · Alternators · Starters · Crushed Cars with Motors · Crushed Cars without Motors · All Al Motors · Cast Iron Motors · All Al Engine Combos · Cast Iron Combos · Aluminum Wheels · Sheet Metal · Prepared Steel |
 | `UnitOfMeasure` | In-Stock 8 | NT · Pieces · LBS · GT · MT |
-| `Preparation` | In-Stock 10 | Bales · Boxed · Crushed/Flattened · Logged · Loose · Loose or Bailed · Loose or Logged · Loose or Palletized · Unprepared · Wrapped/Palletized |
-| `Availability` | In-Stock 13 | Continous · One Time |
+| `Preparation` | In-Stock 10 (Packaging / Prep) | Wrapped / Palletized · Bales · Boxed · Crushed / Flattened · Logged · Loose · Loose or Baled · Loose or Logged · Loose or Palletized · Unprepared |
 | `TruckType` | In-Stock 18 | Dump Trailer · Van Trailer · Flatbed Trailer · Stepdeck Trailer · Other Specialized Trailer · Flatbread Trailer |
-| `DirtyOrClean` | In-Stock 23 | Dirty · Clean |
 | `SupplierObjection` | 236 (dropdown) | Hot · Price · Payment Terms · Netting · Not interested · Too small · Labor Issues · No equipment · Too Difficult · Past ScrapGo Issues · Past Trucker Issues · Uses Own Truck · Nonferrous · Weird · I Don't Know · Other Ferrous · Sells to Our Consumer · Is a Mobile Crusher · No Contact · Loyalty · Seasonal · Too Far |
 
 - **Labels:** each enum member carries its exact text in `[JsonStringEnumMemberName("…")]`, the single source for the JSON value, the label and the Quickbase text. Reading Quickbase ignores case, extra spaces and curly apostrophes.

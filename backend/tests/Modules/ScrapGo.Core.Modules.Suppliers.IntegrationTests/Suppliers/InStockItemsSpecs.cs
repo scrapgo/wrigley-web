@@ -1,4 +1,4 @@
-// A supplier's in-stock items: a list from the In-Stock Items table, with six dropdowns.
+// A supplier's in-stock items for Materials Pricing: a list from the In-Stock Items table, with four dropdowns.
 using ScrapGo.Core.Modules.Suppliers.Application.Suppliers;
 using ScrapGo.Core.Modules.Suppliers.Infrastructure.Quickbase;
 
@@ -21,7 +21,7 @@ public class InStockItemsSpecs
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var query = fixture.Quickbase.Queries.Last();
             Assert.Equal("bscpxjrw3", query.TableId);
-            Assert.Equal([3, 15, 16, 6, 7, 8, 9, 10, 13, 14, 18, 19, 20, 21, 22, 23, 26, 27, 28, 31], query.Select);
+            Assert.Equal([3, 15, 6, 10, 10, 7, 8, 14, 18, 20, 19], query.Select);
             Assert.Equal("{15.EX.'17511'}", query.Where);
 
             var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -32,31 +32,28 @@ public class InStockItemsSpecs
             var item = items[0];
             Assert.Equal(501, item.GetProperty("recordId").GetInt32());
             Assert.Equal(17511, item.GetProperty("relatedSupplier").GetInt32());
-            Assert.Equal("1st Class Auto Salvage", item.GetProperty("supplierAccounting").GetString());
             Assert.Equal("Aluminum Radiators", item.GetProperty("materialType").GetString());
+            Assert.Equal("Loose or Baled", item.GetProperty("packaging").GetString());
+            Assert.Equal("Loose or Baled", item.GetProperty("prep").GetString());
             Assert.Equal(2.5m, item.GetProperty("weight").GetDecimal());
             Assert.Equal("NT", item.GetProperty("unitOfMeasure").GetString());
-            Assert.Equal(5000m, item.GetProperty("weightInLbs").GetDecimal());
-            Assert.Equal("Wrapped/Palletized", item.GetProperty("preparation").GetString());
-            Assert.Equal("Continous", item.GetProperty("availability").GetString());
             Assert.Equal(1250.75m, item.GetProperty("targetOffer").GetDecimal());
             Assert.Equal("Van Trailer", item.GetProperty("truckType").GetString());
+            Assert.Equal(1.5m, item.GetProperty("trucksPerWeek").GetDecimal());
             Assert.Equal(40m, item.GetProperty("volume").GetDecimal());
-            Assert.Equal(1m, item.GetProperty("trucksPerWeek").GetDecimal());
-            Assert.Equal(900m, item.GetProperty("freightCost").GetDecimal());
-            Assert.True(item.GetProperty("verified").GetBoolean());
-            Assert.Equal("Clean", item.GetProperty("dirtyOrClean").GetString());
-            Assert.Equal("Ready for pickup", item.GetProperty("notes").GetString());
-            Assert.Equal("Gaylords", item.GetProperty("volumeUom").GetString());
-            Assert.Equal(2, item.GetProperty("supplierInStockItemRecords").GetInt32());
-            Assert.Equal("Offered", item.GetProperty("offerStatus").GetString());
 
-            // Unknown dropdown text and empty fields come back as null.
+            // The removed fields are no longer returned.
+            foreach (var removed in new[] { "supplierAccounting", "weightInLbs", "availability", "freightCost", "verified", "dirtyOrClean", "notes", "volumeUom", "supplierInStockItemRecords", "offerStatus" })
+            {
+                Assert.False(item.TryGetProperty(removed, out _), removed);
+            }
+
+            // Unknown dropdown text (including the old spelling "Loose or Bailed") comes back as null.
             var sparse = items[1];
             Assert.Equal(JsonValueKind.Null, sparse.GetProperty("materialType").ValueKind);
             Assert.Equal(JsonValueKind.Null, sparse.GetProperty("unitOfMeasure").ValueKind);
-            Assert.Equal(JsonValueKind.Null, sparse.GetProperty("notes").ValueKind);
-            Assert.False(sparse.GetProperty("verified").GetBoolean());
+            Assert.Equal(JsonValueKind.Null, sparse.GetProperty("packaging").ValueKind);
+            Assert.Equal(JsonValueKind.Null, sparse.GetProperty("prep").ValueKind);
         }
 
         [Fact]
@@ -115,10 +112,8 @@ public class InStockItemsSpecs
         [Theory]
         [InlineData("material-types", "Aluminum Radiators", "Prepared Steel", 14)]
         [InlineData("units-of-measure", "NT", "MT", 5)]
-        [InlineData("preparations", "Bales", "Wrapped/Palletized", 10)]
-        [InlineData("availabilities", "Continous", "One Time", 2)]
+        [InlineData("preparations", "Wrapped / Palletized", "Unprepared", 10)]
         [InlineData("truck-types", "Dump Trailer", "Flatbread Trailer", 6)]
-        [InlineData("dirty-or-clean", "Dirty", "Clean", 2)]
         public async Task Each_options_endpoint_lists_its_exact_text_in_order(string route, string first, string last, int count)
         {
             var (uid, _) = await fixture.SeedUserAsync();
@@ -135,14 +130,35 @@ public class InStockItemsSpecs
         }
 
         [Fact]
+        public void Preparation_uses_loose_or_baled()
+        {
+            Assert.Equal(
+                ["Wrapped / Palletized", "Bales", "Boxed", "Crushed / Flattened", "Logged", "Loose", "Loose or Baled",
+                 "Loose or Logged", "Loose or Palletized", "Unprepared"],
+                InStockItemDropdowns.Preparations.Options.Select(o => o.Label));
+            Assert.Contains(InStockItemDropdowns.Preparations.Options, o => o.Label == "Loose or Baled");
+            Assert.DoesNotContain(InStockItemDropdowns.Preparations.Options, o => o.Label == "Loose or Bailed");
+        }
+
+        [Theory]
+        [InlineData("availabilities")]
+        [InlineData("dirty-or-clean")]
+        public async Task The_removed_dropdowns_no_longer_have_options_endpoints(string route)
+        {
+            var (uid, _) = await fixture.SeedUserAsync();
+
+            var response = await fixture.SendAsync(HttpMethod.Get, $"/api/suppliers/in-stock-items/{route}", fixture.CreateToken(uid));
+
+            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        }
+
+        [Fact]
         public void Every_value_round_trips_through_its_quickbase_text()
         {
             AssertRoundTrips(InStockItemDropdowns.MaterialTypes);
             AssertRoundTrips(InStockItemDropdowns.UnitsOfMeasure);
             AssertRoundTrips(InStockItemDropdowns.Preparations);
-            AssertRoundTrips(InStockItemDropdowns.Availabilities);
             AssertRoundTrips(InStockItemDropdowns.TruckTypes);
-            AssertRoundTrips(InStockItemDropdowns.DirtyOrClean);
         }
 
         private static void AssertRoundTrips<TEnum>(DropdownCatalog<TEnum> catalog)

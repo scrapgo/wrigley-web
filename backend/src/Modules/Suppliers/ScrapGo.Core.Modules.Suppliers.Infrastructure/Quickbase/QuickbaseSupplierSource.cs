@@ -195,30 +195,27 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
                 record.Text(SuppliersTable.CallNotes))
             : null;
 
-    private SupplierInStockItemDto? ToInStockItem(QuickbaseRecord record) =>
-        record.Int(InStockItemsTable.RecordId) is { } recordId
-            ? new SupplierInStockItemDto(
-                recordId,
-                record.Int(InStockItemsTable.RelatedSupplier),
-                record.Text(InStockItemsTable.SupplierAccounting),
-                ChoiceOf(recordId, "material type", InStockItemDropdowns.MaterialTypes, record.Choice(InStockItemsTable.MaterialType)),
-                record.Decimal(InStockItemsTable.Weight),
-                ChoiceOf(recordId, "unit of measure", InStockItemDropdowns.UnitsOfMeasure, record.Choice(InStockItemsTable.UnitOfMeasure)),
-                record.Decimal(InStockItemsTable.WeightInLbs),
-                ChoiceOf(recordId, "preparation", InStockItemDropdowns.Preparations, record.Choice(InStockItemsTable.Preparation)),
-                ChoiceOf(recordId, "availability", InStockItemDropdowns.Availabilities, record.Choice(InStockItemsTable.Availability)),
-                record.Decimal(InStockItemsTable.TargetOffer),
-                ChoiceOf(recordId, "truck type", InStockItemDropdowns.TruckTypes, record.Choice(InStockItemsTable.TruckType)),
-                record.Decimal(InStockItemsTable.Volume),
-                record.Decimal(InStockItemsTable.TrucksPerWeek),
-                record.Decimal(InStockItemsTable.FreightCost),
-                record.Bool(InStockItemsTable.Verified),
-                ChoiceOf(recordId, "dirty or clean", InStockItemDropdowns.DirtyOrClean, record.Choice(InStockItemsTable.DirtyOrClean)),
-                record.Text(InStockItemsTable.Notes),
-                record.Text(InStockItemsTable.VolumeUom),
-                record.Int(InStockItemsTable.SupplierInStockItemRecords),
-                record.Text(InStockItemsTable.OfferStatus))
-            : null;
+    private SupplierInStockItemDto? ToInStockItem(QuickbaseRecord record)
+    {
+        if (record.Int(InStockItemsTable.RecordId) is not { } recordId)
+        {
+            return null;
+        }
+
+        var packaging = ChoiceOf(recordId, "packaging", InStockItemDropdowns.Preparations, record.Choice(InStockItemsTable.Packaging));
+        return new SupplierInStockItemDto(
+            recordId,
+            record.Int(InStockItemsTable.RelatedSupplier),
+            ChoiceOf(recordId, "material type", InStockItemDropdowns.MaterialTypes, record.Choice(InStockItemsTable.MaterialType)),
+            packaging,
+            packaging,
+            record.Decimal(InStockItemsTable.Weight),
+            ChoiceOf(recordId, "unit of measure", InStockItemDropdowns.UnitsOfMeasure, record.Choice(InStockItemsTable.UnitOfMeasure)),
+            record.Decimal(InStockItemsTable.TargetOffer),
+            ChoiceOf(recordId, "truck type", InStockItemDropdowns.TruckTypes, record.Choice(InStockItemsTable.TruckType)),
+            record.Decimal(InStockItemsTable.TrucksPerWeek),
+            record.Decimal(InStockItemsTable.Volume));
+    }
 
     /// <summary>A dropdown field as its enum; unknown text is returned as null and logged.</summary>
     private TEnum? ChoiceOf<TEnum>(int recordId, string fieldName, DropdownCatalog<TEnum> catalog, string? text)

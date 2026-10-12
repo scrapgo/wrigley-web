@@ -49,7 +49,7 @@ public enum MaterialType
     PreparedSteel,
 }
 
-/// <summary>The unit an in-stock item's weight is in (Quickbase In-Stock Items field 8, dropdown), sent and accepted as its exact text.</summary>
+/// <summary>The unit an in-stock item's weight is in (UOM) (Quickbase In-Stock Items field 8, dropdown), sent and accepted as its exact text.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<UnitOfMeasure>))]
 public enum UnitOfMeasure
 {
@@ -69,17 +69,20 @@ public enum UnitOfMeasure
     Mt,
 }
 
-/// <summary>How an in-stock item is prepared (Quickbase In-Stock Items field 10, dropdown), sent and accepted as its exact text.</summary>
+/// <summary>How an in-stock item is packaged or prepared ("Packaging" / "Prep") (Quickbase In-Stock Items field 10, dropdown), sent and accepted as its exact text.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<Preparation>))]
 public enum Preparation
 {
+    [JsonStringEnumMemberName("Wrapped / Palletized")]
+    WrappedPalletized,
+
     [JsonStringEnumMemberName("Bales")]
     Bales,
 
     [JsonStringEnumMemberName("Boxed")]
     Boxed,
 
-    [JsonStringEnumMemberName("Crushed/Flattened")]
+    [JsonStringEnumMemberName("Crushed / Flattened")]
     CrushedFlattened,
 
     [JsonStringEnumMemberName("Logged")]
@@ -88,8 +91,8 @@ public enum Preparation
     [JsonStringEnumMemberName("Loose")]
     Loose,
 
-    [JsonStringEnumMemberName("Loose or Bailed")]
-    LooseOrBailed,
+    [JsonStringEnumMemberName("Loose or Baled")]
+    LooseOrBaled,
 
     [JsonStringEnumMemberName("Loose or Logged")]
     LooseOrLogged,
@@ -99,20 +102,6 @@ public enum Preparation
 
     [JsonStringEnumMemberName("Unprepared")]
     Unprepared,
-
-    [JsonStringEnumMemberName("Wrapped/Palletized")]
-    WrappedPalletized,
-}
-
-/// <summary>Whether an in-stock item is available continuously or once. "Continous" is Quickbase's spelling (Quickbase In-Stock Items field 13, dropdown), sent and accepted as its exact text.</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<Availability>))]
-public enum Availability
-{
-    [JsonStringEnumMemberName("Continous")]
-    Continuous,
-
-    [JsonStringEnumMemberName("One Time")]
-    OneTime,
 }
 
 /// <summary>The truck an in-stock item needs (Quickbase In-Stock Items field 18, dropdown), sent and accepted as its exact text.</summary>
@@ -138,17 +127,6 @@ public enum TruckType
     FlatbreadTrailer,
 }
 
-/// <summary>Whether an in-stock item is dirty or clean (Quickbase In-Stock Items field 23, dropdown), sent and accepted as its exact text.</summary>
-[JsonConverter(typeof(JsonStringEnumConverter<DirtyOrClean>))]
-public enum DirtyOrClean
-{
-    [JsonStringEnumMemberName("Dirty")]
-    Dirty,
-
-    [JsonStringEnumMemberName("Clean")]
-    Clean,
-}
-
 /// <summary>The in-stock item dropdowns. Labels come from each member's <see cref="JsonStringEnumMemberNameAttribute"/>.</summary>
 public static class InStockItemDropdowns
 {
@@ -158,9 +136,5 @@ public static class InStockItemDropdowns
 
     public static DropdownCatalog<Preparation> Preparations { get; } = DropdownCatalog<Preparation>.FromJsonNames();
 
-    public static DropdownCatalog<Availability> Availabilities { get; } = DropdownCatalog<Availability>.FromJsonNames();
-
     public static DropdownCatalog<TruckType> TruckTypes { get; } = DropdownCatalog<TruckType>.FromJsonNames();
-
-    public static DropdownCatalog<DirtyOrClean> DirtyOrClean { get; } = DropdownCatalog<DirtyOrClean>.FromJsonNames();
 }

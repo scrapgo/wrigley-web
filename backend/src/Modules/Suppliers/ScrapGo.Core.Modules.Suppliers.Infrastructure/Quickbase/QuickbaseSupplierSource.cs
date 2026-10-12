@@ -58,6 +58,20 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
         return new(pricing, Freshness(result));
     }
 
+    public async Task<Sourced<IReadOnlyList<SupplierInStockItemDto>?>> ListInStockItemsAsync(
+        int supplierRecordId, CancellationToken cancellationToken)
+    {
+        var result = await QueryAsync(
+            new QuickbaseQuery(InStockItemsTable.TableId, InStockItemsTable.Fields, InStockItemsTable.BySupplier(supplierRecordId)),
+            cancellationToken);
+
+        using var document = JsonDocument.Parse(result.ResponseJson);
+        IReadOnlyList<SupplierInStockItemDto> items =
+            [.. Rows(document).Select(row => ToInStockItem(new QuickbaseRecord(row))).OfType<SupplierInStockItemDto>()];
+
+        return new(items, Freshness(result));
+    }
+
     public async Task<Sourced<SupplierPage>> ListAsync(string? search, int skip, int top, CancellationToken cancellationToken)
     {
         var result = await QueryAsync(
@@ -179,6 +193,31 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
                 record.DateTime(SuppliersTable.CallBackDate),
                 record.Text(SuppliersTable.ObjectionExplained),
                 record.Text(SuppliersTable.CallNotes))
+            : null;
+
+    private SupplierInStockItemDto? ToInStockItem(QuickbaseRecord record) =>
+        record.Int(InStockItemsTable.RecordId) is { } recordId
+            ? new SupplierInStockItemDto(
+                recordId,
+                record.Int(InStockItemsTable.RelatedSupplier),
+                record.Text(InStockItemsTable.SupplierAccounting),
+                ChoiceOf(recordId, "material type", InStockItemDropdowns.MaterialTypes, record.Choice(InStockItemsTable.MaterialType)),
+                record.Decimal(InStockItemsTable.Weight),
+                ChoiceOf(recordId, "unit of measure", InStockItemDropdowns.UnitsOfMeasure, record.Choice(InStockItemsTable.UnitOfMeasure)),
+                record.Decimal(InStockItemsTable.WeightInLbs),
+                ChoiceOf(recordId, "preparation", InStockItemDropdowns.Preparations, record.Choice(InStockItemsTable.Preparation)),
+                ChoiceOf(recordId, "availability", InStockItemDropdowns.Availabilities, record.Choice(InStockItemsTable.Availability)),
+                record.Decimal(InStockItemsTable.TargetOffer),
+                ChoiceOf(recordId, "truck type", InStockItemDropdowns.TruckTypes, record.Choice(InStockItemsTable.TruckType)),
+                record.Decimal(InStockItemsTable.Volume),
+                record.Decimal(InStockItemsTable.TrucksPerWeek),
+                record.Decimal(InStockItemsTable.FreightCost),
+                record.Bool(InStockItemsTable.Verified),
+                ChoiceOf(recordId, "dirty or clean", InStockItemDropdowns.DirtyOrClean, record.Choice(InStockItemsTable.DirtyOrClean)),
+                record.Text(InStockItemsTable.Notes),
+                record.Text(InStockItemsTable.VolumeUom),
+                record.Int(InStockItemsTable.SupplierInStockItemRecords),
+                record.Text(InStockItemsTable.OfferStatus))
             : null;
 
     /// <summary>A dropdown field as its enum; unknown text is returned as null and logged.</summary>

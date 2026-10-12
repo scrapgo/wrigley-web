@@ -130,6 +130,58 @@ public sealed record SupplierTargetPricingProgressRailDto(
 public sealed record SupplierTargetPricingProgressRailResponse(
     SupplierTargetPricingProgressRailDto TargetPricingProgressRail, DataFreshness Freshness);
 
+/// <summary>
+/// One of a supplier's in-stock items (Quickbase In-Stock Items table
+/// <c>bscpxjrw3</c>). Dropdowns are exact text; null means empty in Quickbase
+/// (or dropdown text that isn't a known value).
+/// </summary>
+/// <param name="RecordId">Field 3, the item's Record ID#.</param>
+/// <param name="RelatedSupplier">Field 15: the supplier's Record ID#.</param>
+/// <param name="SupplierAccounting">Field 16, "Supplier - Accounting" (text).</param>
+/// <param name="MaterialType">Field 6 (dropdown).</param>
+/// <param name="Weight">Field 7 (numeric).</param>
+/// <param name="UnitOfMeasure">Field 8 (dropdown).</param>
+/// <param name="WeightInLbs">Field 9, "Weight (formula to lbs)" (numeric).</param>
+/// <param name="Preparation">Field 10 (dropdown).</param>
+/// <param name="Availability">Field 13 (dropdown).</param>
+/// <param name="TargetOffer">Field 14 (currency).</param>
+/// <param name="TruckType">Field 18 (dropdown).</param>
+/// <param name="Volume">Field 19 (numeric).</param>
+/// <param name="TrucksPerWeek">Field 20 (numeric).</param>
+/// <param name="FreightCost">Field 21 (currency).</param>
+/// <param name="Verified">Field 22 (checkbox).</param>
+/// <param name="DirtyOrClean">Field 23 (dropdown).</param>
+/// <param name="Notes">Field 26 (text).</param>
+/// <param name="VolumeUom">Field 27, "Volume UOM" (text).</param>
+/// <param name="SupplierInStockItemRecords">Field 28, "Supplier -# of In Stock Item Records" (numeric).</param>
+/// <param name="OfferStatus">Field 31 (text).</param>
+public sealed record SupplierInStockItemDto(
+    int RecordId,
+    int? RelatedSupplier,
+    string? SupplierAccounting,
+    MaterialType? MaterialType,
+    decimal? Weight,
+    UnitOfMeasure? UnitOfMeasure,
+    decimal? WeightInLbs,
+    Preparation? Preparation,
+    Availability? Availability,
+    decimal? TargetOffer,
+    TruckType? TruckType,
+    decimal? Volume,
+    decimal? TrucksPerWeek,
+    decimal? FreightCost,
+    bool? Verified,
+    DirtyOrClean? DirtyOrClean,
+    string? Notes,
+    string? VolumeUom,
+    int? SupplierInStockItemRecords,
+    string? OfferStatus);
+
+/// <param name="SupplierRecordId">The supplier the items belong to.</param>
+/// <param name="Items">Every in-stock item of the supplier; empty when it has none.</param>
+public sealed record SupplierInStockItemsResponse(
+    int SupplierRecordId, IReadOnlyList<SupplierInStockItemDto> Items, DataFreshness Freshness);
+
 public sealed record SupplierCallProspectStatusResponse(SupplierCallProspectStatusDto CallProspectStatus, DataFreshness Freshness);
 
 public sealed record SupplierListResponse(

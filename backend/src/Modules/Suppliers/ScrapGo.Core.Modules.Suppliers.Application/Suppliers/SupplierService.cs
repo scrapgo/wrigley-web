@@ -22,6 +22,8 @@ public sealed record SupplierResult(SupplierOutcome Outcome, SupplierResponse? S
 
 public sealed record SupplierListResult(SupplierOutcome Outcome, SupplierListResponse? Page = null);
 
+public sealed record SupplierContactsResult(SupplierOutcome Outcome, SupplierContactsResponse? Contacts = null);
+
 public sealed record SupplierTargetPricingProgressRailResult(
     SupplierOutcome Outcome, SupplierTargetPricingProgressRailResponse? TargetPricingProgressRail = null);
 
@@ -99,6 +101,18 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
         var (outcome, found) = await ReadRecordAsync(scope, recordId, source.FindTargetPricingProgressRailAsync, cancellationToken);
         return found is { Value: { } pricing }
             ? new(outcome, new SupplierTargetPricingProgressRailResponse(pricing, found.Freshness))
+            : new(outcome);
+    }
+
+    /// <summary>
+    /// The supplier's contacts, main contact first. A supplier with none (or an
+    /// unknown supplier id) returns an empty list, not 404.
+    /// </summary>
+    public async Task<SupplierContactsResult> GetContactsAsync(SupplierScope scope, int recordId, CancellationToken cancellationToken)
+    {
+        var (outcome, found) = await ReadRecordAsync(scope, recordId, source.ListContactsAsync, cancellationToken);
+        return found is { Value: { } contacts }
+            ? new(outcome, new SupplierContactsResponse(recordId, contacts, found.Freshness))
             : new(outcome);
     }
 

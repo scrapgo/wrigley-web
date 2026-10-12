@@ -134,6 +134,19 @@ public static class SupplierResponses
         }
         """;
 
+    /// <summary>The contacts of supplier 17511 (sample values), deliberately not in display order.</summary>
+    public const string Contacts = """
+        {
+          "data": [
+            { "3": { "value": 61 }, "29": { "value": 17511 }, "20": { "value": "Smith" }, "18": { "value": "Ana" }, "25": { "value": "Buyer" }, "32": { "value": "" }, "15": { "value": "(407) 555-0101" }, "17": { "value": "ana@example.com" }, "21": { "value": "" }, "46": { "value": false } },
+            { "3": { "value": 42 }, "29": { "value": 17511 }, "20": { "value": "Esteves" }, "18": { "value": "David" }, "25": { "value": "Owner" }, "32": { "value": "(321) 356-4622" }, "15": { "value": "(321) 555-0199" }, "17": { "value": "pipoe720@hotmail.com" }, "21": { "value": "Prefers texts." }, "46": { "value": true } },
+            { "3": { "value": 55 }, "29": { "value": 17511 }, "20": { "value": "brown" }, "18": { "value": "Lee" }, "46": { "value": false } }
+          ],
+          "fields": [],
+          "metadata": { "numRecords": 3, "skip": 0, "totalRecords": 3 }
+        }
+        """;
+
     /// <summary>The name list query, first records.</summary>
     public const string NameList = """
         {

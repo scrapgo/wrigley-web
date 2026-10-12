@@ -130,6 +130,34 @@ public sealed record SupplierTargetPricingProgressRailDto(
 public sealed record SupplierTargetPricingProgressRailResponse(
     SupplierTargetPricingProgressRailDto TargetPricingProgressRail, DataFreshness Freshness);
 
+/// <summary>One contact of a supplier (Quickbase Contacts table <c>br8imsxs2</c>). Null means empty in Quickbase.</summary>
+/// <param name="RecordId">Field 3, the contact's Record ID#.</param>
+/// <param name="RelatedSupplier">Field 29: the supplier's Record ID#.</param>
+/// <param name="LastName">Field 20 (text).</param>
+/// <param name="FirstName">Field 18 (text).</param>
+/// <param name="Title">Field 25 (text).</param>
+/// <param name="Phone">Field 32 (text).</param>
+/// <param name="Cell">Field 15 (text).</param>
+/// <param name="Email">Field 17 (text).</param>
+/// <param name="Notes">Field 21 (text).</param>
+/// <param name="IsMain">Field 46, "Main?" (checkbox).</param>
+public sealed record SupplierContactDto(
+    int RecordId,
+    int? RelatedSupplier,
+    string? LastName,
+    string? FirstName,
+    string? Title,
+    string? Phone,
+    string? Cell,
+    string? Email,
+    string? Notes,
+    bool? IsMain);
+
+/// <param name="SupplierRecordId">The supplier the contacts belong to.</param>
+/// <param name="Contacts">Every contact of the supplier: the main contact first, then by last and first name. Empty when it has none.</param>
+public sealed record SupplierContactsResponse(
+    int SupplierRecordId, IReadOnlyList<SupplierContactDto> Contacts, DataFreshness Freshness);
+
 public sealed record SupplierCallProspectStatusResponse(SupplierCallProspectStatusDto CallProspectStatus, DataFreshness Freshness);
 
 public sealed record SupplierListResponse(

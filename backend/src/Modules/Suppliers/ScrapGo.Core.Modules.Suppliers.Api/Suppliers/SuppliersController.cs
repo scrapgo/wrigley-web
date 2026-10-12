@@ -76,6 +76,20 @@ public sealed class SuppliersController(SupplierService suppliers) : ControllerB
             : SupplierProblems.For(result.Outcome, SupplierPermissions.Read);
     }
 
+    /// <summary>The supplier's contacts (Quickbase Contacts table), main contact first. An empty list when it has none.</summary>
+    [HttpGet("{recordId:int}/contacts")]
+    [ProducesResponseType<SupplierContactsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> GetContacts(int organizationId, int applicationId, int recordId, CancellationToken cancellationToken)
+    {
+        var result = await suppliers.GetContactsAsync(SupplierScope.ForApplication(organizationId, applicationId), recordId, cancellationToken);
+
+        return result is { Outcome: SupplierOutcome.Success, Contacts: { } contacts }
+            ? Ok(contacts)
+            : SupplierProblems.For(result.Outcome, SupplierPermissions.Read);
+    }
+
     /// <summary>One supplier's yard capabilities: crusher, baler, scale, loading options and so on (all yes/no).</summary>
     [HttpGet("{recordId:int}/yard-capabilities")]
     [ProducesResponseType<SupplierYardCapabilitiesResponse>(StatusCodes.Status200OK)]

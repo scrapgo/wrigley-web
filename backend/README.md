@@ -403,6 +403,7 @@ Each record endpoint exists in both route forms. For example,
 | `/{recordId}/call-prospect-status` | Call & prospect status (below) |
 | `/{recordId}/yard-capabilities` | Yard capabilities (below) |
 | `/{recordId}/target-pricing-progress-rail` | Target Pricing — Progress Rail (below) |
+| `/{recordId}/contacts` | The supplier's contacts, main contact first, a list from the **Contacts** table (below). Empty when it has none, never 404 |
 | `/payment-terms` · `/dead-freight` · `/last-call-results` · `/supplier-objections` | Dropdown options: `[{ "value": "Net 5", "label": "Net 5" }, …]` (value and label are the same exact text) |
 
 Every record response carries `freshness`:
@@ -488,6 +489,21 @@ All four views look up one record with `{3.EX.'<recordId>'}`. Fields are listed 
 | Price in Gross Tons | 349 | `priceInGrossTons` | currency |
 | Target PO Number | 358 | `targetPoNumber` | text |
 | Price Change from Prior | 363 | `priceChangeFromPrior` | currency |
+
+**Contacts** (`contacts`, from table `br8imsxs2`, `{29.EX.'<supplier recordId>'}`), main contact first, then by last and first name:
+
+| Field | Id | API name | Type |
+| --- | --- | --- | --- |
+| Record ID# | 3 | `recordId` | number (the contact) |
+| Related Supplier | 29 | `relatedSupplier` | number (the supplier's record id) |
+| Last Name | 20 | `lastName` | text |
+| First Name | 18 | `firstName` | text |
+| Title | 25 | `title` | text |
+| Phone | 32 | `phone` | text |
+| Cell | 15 | `cell` | text |
+| Email | 17 | `email` | text |
+| Notes | 21 | `notes` | text |
+| Main? | 46 | `isMain` | checkbox |
 
 ### Dropdowns (enums)
 

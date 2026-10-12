@@ -130,6 +130,18 @@ public sealed record SupplierTargetPricingProgressRailDto(
 public sealed record SupplierTargetPricingProgressRailResponse(
     SupplierTargetPricingProgressRailDto TargetPricingProgressRail, DataFreshness Freshness);
 
+/// <summary>One call note of a supplier (Quickbase Call Notes table <c>br8tgw3tp</c>).</summary>
+/// <param name="RecordId">Field 3, the note's Record ID#.</param>
+/// <param name="DateCreated">Field 1, Quickbase's built-in Date Created (UTC).</param>
+/// <param name="Notes">Field 17 (text).</param>
+/// <param name="RelatedSupplier">Field 19: the supplier's Record ID#.</param>
+public sealed record SupplierCallNoteDto(int RecordId, DateTimeOffset? DateCreated, string? Notes, int? RelatedSupplier);
+
+/// <param name="SupplierRecordId">The supplier the notes belong to.</param>
+/// <param name="Notes">Every call note of the supplier, newest first; empty when it has none.</param>
+public sealed record SupplierCallNotesHistoryResponse(
+    int SupplierRecordId, IReadOnlyList<SupplierCallNoteDto> Notes, DataFreshness Freshness);
+
 public sealed record SupplierCallProspectStatusResponse(SupplierCallProspectStatusDto CallProspectStatus, DataFreshness Freshness);
 
 public sealed record SupplierListResponse(

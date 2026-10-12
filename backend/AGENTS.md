@@ -84,7 +84,8 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 - `GET …/suppliers/{recordId}/call-prospect-status` returns call & prospect status (fields 197, 192, 193, 236, 181, 238, 97).
 - `GET …/suppliers/{recordId}/yard-capabilities` returns yard capabilities (13 checkboxes).
 - `GET …/suppliers/{recordId}/target-pricing-progress-rail` returns Target Pricing — Progress Rail (text, currency and numeric fields 352, 342, 336, 337, 339, 340, 341, 346, 345, 347, 348, 349, 358, 363).
-- All four share `SupplierService.ReadRecordAsync`: the access check, then 404 / 502.
+- `GET …/suppliers/{recordId}/call-notes-history` returns the supplier's notes from the **Call Notes** table `br8tgw3tp` (`{19.EX.'<recordId>'}`), newest first (sorted in the API). An empty list, never 404.
+- All five share `SupplierService.ReadRecordAsync`: the access check, then 404 / 502.
 - `GET /api/suppliers…` (every endpoint above) does the same without an organization or application, for **platform administrators only** (`Admin.Access` at platform scope, which needs a Workspace sign-in). The Suppliers table is ScrapGo-wide.
 - Both require `Downstream.Suppliers.Read` at application scope, which also needs the Suppliers module enabled.
 - `ISupplierSource` (Application) is implemented by `QuickbaseSupplierSource` (Infrastructure), which holds the field ids (`SuppliersTable`) and the JSON mapping.

@@ -403,6 +403,7 @@ Each record endpoint exists in both route forms. For example,
 | `/{recordId}/call-prospect-status` | Call & prospect status (below) |
 | `/{recordId}/yard-capabilities` | Yard capabilities (below) |
 | `/{recordId}/target-pricing-progress-rail` | Target Pricing — Progress Rail (below) |
+| `/{recordId}/call-notes-history` | The supplier's call notes, newest first, a list from the **Call Notes** table (below). Empty when it has none, never 404 |
 | `/payment-terms` · `/dead-freight` · `/last-call-results` · `/supplier-objections` | Dropdown options: `[{ "value": "Net 5", "label": "Net 5" }, …]` (value and label are the same exact text) |
 
 Every record response carries `freshness`:
@@ -488,6 +489,15 @@ All four views look up one record with `{3.EX.'<recordId>'}`. Fields are listed 
 | Price in Gross Tons | 349 | `priceInGrossTons` | currency |
 | Target PO Number | 358 | `targetPoNumber` | text |
 | Price Change from Prior | 363 | `priceChangeFromPrior` | currency |
+
+**Call notes history** (`notes`, from table `br8tgw3tp`, `{19.EX.'<supplier recordId>'}`), newest first:
+
+| Field | Id | API name | Type |
+| --- | --- | --- | --- |
+| Record ID# | 3 | `recordId` | number (the note) |
+| Date Created | 1 | `dateCreated` | date/time (UTC) |
+| Notes | 17 | `notes` | text |
+| Related Supplier | 19 | `relatedSupplier` | number (the supplier's record id) |
 
 ### Dropdowns (enums)
 

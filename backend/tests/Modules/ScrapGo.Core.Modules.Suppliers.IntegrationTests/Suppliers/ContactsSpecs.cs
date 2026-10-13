@@ -18,7 +18,7 @@ public class ContactsSpecs
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var query = fixture.Quickbase.Queries.Last();
             Assert.Equal("br8imsxs2", query.TableId);
-            Assert.Equal([3, 29, 20, 18, 25, 32, 15, 17, 21, 46], query.Select);
+            Assert.Equal([3, 29, 20, 18, 25, 22, 15, 17, 21, 46], query.Select);
             Assert.Equal("{29.EX.'17511'}", query.Where);
 
             var body = await response.Content.ReadFromJsonAsync<JsonElement>();

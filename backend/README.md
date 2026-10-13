@@ -529,7 +529,7 @@ The query lists field 10 twice (`"select": [3,15,6,10,10,7,8,14,18,20,19]`), exa
 | Last Name | 20 | `lastName` | text |
 | First Name | 18 | `firstName` | text |
 | Title | 25 | `title` | text |
-| Phone | 32 | `phone` | text |
+| Phone | 22 | `phone` | text |
 | Cell | 15 | `cell` | text |
 | Email | 17 | `email` | text |
 | Notes | 21 | `notes` | text |

@@ -15,7 +15,7 @@ public static class ContactsTable
 
     /// <summary>The supplier's Record ID# (Suppliers table field 3).</summary>
     public const int RelatedSupplier = 29;
-    public const int Phone = 32;
+    public const int Phone = 22;
 
     /// <summary>"Main?": the supplier's main contact (checkbox).</summary>
     public const int IsMain = 46;

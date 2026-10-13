@@ -170,7 +170,7 @@ public sealed record SupplierInStockItemsResponse(
 /// <param name="LastName">Field 20 (text).</param>
 /// <param name="FirstName">Field 18 (text).</param>
 /// <param name="Title">Field 25 (text).</param>
-/// <param name="Phone">Field 32 (text).</param>
+/// <param name="Phone">Field 22 (text).</param>
 /// <param name="Cell">Field 15 (text).</param>
 /// <param name="Email">Field 17 (text).</param>
 /// <param name="Notes">Field 21 (text).</param>

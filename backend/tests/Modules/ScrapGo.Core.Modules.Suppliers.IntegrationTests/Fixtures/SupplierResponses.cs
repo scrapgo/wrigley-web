@@ -134,6 +134,61 @@ public static class SupplierResponses
         }
         """;
 
+    /// <summary>The in-stock items of supplier 17511 (sample values): two items, the second with unknown dropdown text.</summary>
+    public const string InStockItems = """
+        {
+          "data": [
+            {
+              "3": { "value": 501 },
+              "6": { "value": "Aluminum Radiators" },
+              "7": { "value": 2.5 },
+              "8": { "value": "NT" },
+              "10": { "value": "Loose or Baled" },
+              "14": { "value": 1250.75 },
+              "15": { "value": 17511 },
+              "18": { "value": "Van Trailer" },
+              "19": { "value": 40 },
+              "20": { "value": 1.5 }
+            },
+            {
+              "3": { "value": 502 },
+              "6": { "value": "Copper Pipe" },
+              "8": { "value": "" },
+              "10": { "value": "Loose or Bailed" },
+              "15": { "value": 17511 }
+            }
+          ],
+          "fields": [],
+          "metadata": { "numRecords": 2, "skip": 0, "totalRecords": 2 }
+        }
+        """;
+
+    /// <summary>The contacts of supplier 17511 (sample values), deliberately not in display order.</summary>
+    public const string Contacts = """
+        {
+          "data": [
+            { "3": { "value": 61 }, "29": { "value": 17511 }, "20": { "value": "Smith" }, "18": { "value": "Ana" }, "25": { "value": "Buyer" }, "22": { "value": "" }, "15": { "value": "(407) 555-0101" }, "17": { "value": "ana@example.com" }, "21": { "value": "" }, "46": { "value": false } },
+            { "3": { "value": 42 }, "29": { "value": 17511 }, "20": { "value": "Esteves" }, "18": { "value": "David" }, "25": { "value": "Owner" }, "22": { "value": "(321) 356-4622" }, "15": { "value": "(321) 555-0199" }, "17": { "value": "pipoe720@hotmail.com" }, "21": { "value": "Prefers texts." }, "46": { "value": true } },
+            { "3": { "value": 55 }, "29": { "value": 17511 }, "20": { "value": "brown" }, "18": { "value": "Lee" }, "46": { "value": false } }
+          ],
+          "fields": [],
+          "metadata": { "numRecords": 3, "skip": 0, "totalRecords": 3 }
+        }
+        """;
+
+    /// <summary>The call notes of supplier 17511 (sample values), deliberately not in date order.</summary>
+    public const string CallNotes = """
+        {
+          "data": [
+            { "1": { "value": "2026-09-02T15:04:05Z" }, "3": { "value": 801 }, "17": { "value": "Left a voicemail." }, "19": { "value": 17511 } },
+            { "1": { "value": "2026-10-06T18:30:00Z" }, "3": { "value": 845 }, "17": { "value": "Spoke to David; wants Net 5." }, "19": { "value": 17511 } },
+            { "1": { "value": "2026-09-20T13:00:00Z" }, "3": { "value": 822 }, "17": { "value": "" }, "19": { "value": 17511 } }
+          ],
+          "fields": [],
+          "metadata": { "numRecords": 3, "skip": 0, "totalRecords": 3 }
+        }
+        """;
+
     /// <summary>The name list query, first records.</summary>
     public const string NameList = """
         {

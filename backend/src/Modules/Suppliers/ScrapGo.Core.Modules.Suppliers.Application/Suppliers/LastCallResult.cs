@@ -4,46 +4,57 @@ namespace ScrapGo.Core.Modules.Suppliers.Application.Suppliers;
 
 /// <summary>
 /// The result of the last call to a supplier (Quickbase Suppliers field 193,
-/// dropdown). Serialized by name; labels are in <see cref="LastCallResults.Catalog"/>.
+/// dropdown). Each value is sent and accepted as its exact text
+/// (<c>"No Answer - Voice Mail"</c>), which is also the label and the Quickbase text.
 /// </summary>
-/// <remarks>Append new values; never rename one, since the name is the API contract.</remarks>
+/// <remarks>Add a value at the end with its exact text. Never change the text of one: it is the API contract.</remarks>
 [JsonConverter(typeof(JsonStringEnumConverter<LastCallResult>))]
 public enum LastCallResult
 {
+    [JsonStringEnumMemberName("Bad Number")]
     BadNumber,
+
+    [JsonStringEnumMemberName("Wrong Business")]
     WrongBusiness,
+
+    [JsonStringEnumMemberName("Consumer")]
     Consumer,
+
+    [JsonStringEnumMemberName("Multiple Location")]
     MultipleLocation,
+
+    [JsonStringEnumMemberName("No Answer - Voice Mail")]
     NoAnswerVoiceMail,
+
+    [JsonStringEnumMemberName("No Decision Maker")]
     NoDecisionMaker,
+
+    [JsonStringEnumMemberName("Can't Fill Truck Load")]
     CantFillTruckLoad,
+
+    [JsonStringEnumMemberName("No Equipment")]
     NoEquipment,
+
+    [JsonStringEnumMemberName("No Contact after 4 Calls")]
     NoContactAfter4Calls,
+
+    [JsonStringEnumMemberName("Not Interested")]
     NotInterested,
+
+    [JsonStringEnumMemberName("Send to the grid")]
     SendToTheGrid,
+
+    [JsonStringEnumMemberName("Connected")]
     Connected,
+
+    [JsonStringEnumMemberName("Scrap Hauls")]
     ScrapHauls,
+
+    [JsonStringEnumMemberName("PO Pending")]
     PoPending,
 }
 
 public static class LastCallResults
 {
-    /// <summary>Labels as given for the Quickbase dropdown.</summary>
-    public static DropdownCatalog<LastCallResult> Catalog { get; } = new(new Dictionary<LastCallResult, string>
-    {
-        [LastCallResult.BadNumber] = "Bad Number",
-        [LastCallResult.WrongBusiness] = "Wrong Business",
-        [LastCallResult.Consumer] = "Consumer",
-        [LastCallResult.MultipleLocation] = "Multiple Location",
-        [LastCallResult.NoAnswerVoiceMail] = "No Answer - Voice Mail",
-        [LastCallResult.NoDecisionMaker] = "No Decision Maker",
-        [LastCallResult.CantFillTruckLoad] = "Can't Fill Truck Load",
-        [LastCallResult.NoEquipment] = "No Equipment",
-        [LastCallResult.NoContactAfter4Calls] = "No Contact after 4 Calls",
-        [LastCallResult.NotInterested] = "Not Interested",
-        [LastCallResult.SendToTheGrid] = "Send to the grid",
-        [LastCallResult.Connected] = "Connected",
-        [LastCallResult.ScrapHauls] = "Scrap Hauls",
-        [LastCallResult.PoPending] = "PO Pending",
-    });
+    public static DropdownCatalog<LastCallResult> Catalog { get; } = DropdownCatalog<LastCallResult>.FromJsonNames();
 }

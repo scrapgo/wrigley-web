@@ -130,6 +130,80 @@ public sealed record SupplierTargetPricingProgressRailDto(
 public sealed record SupplierTargetPricingProgressRailResponse(
     SupplierTargetPricingProgressRailDto TargetPricingProgressRail, DataFreshness Freshness);
 
+/// <summary>
+/// One of a supplier's in-stock items for Materials Pricing (Quickbase In-Stock
+/// Items table <c>bscpxjrw3</c>). Dropdowns are exact text; null means empty in
+/// Quickbase (or dropdown text that isn't a known value).
+/// </summary>
+/// <param name="RecordId">Field 3, the item's Record ID#.</param>
+/// <param name="RelatedSupplier">Field 15: the supplier's Record ID#.</param>
+/// <param name="MaterialType">Field 6 (dropdown).</param>
+/// <param name="Packaging">Field 10, shown as "Packaging" (dropdown).</param>
+/// <param name="Prep">Field 10 again, shown as "Prep": always the same value as <paramref name="Packaging"/>.</param>
+/// <param name="Weight">Field 7 (numeric).</param>
+/// <param name="UnitOfMeasure">Field 8, "UOM" (dropdown).</param>
+/// <param name="TargetOffer">Field 14 (currency).</param>
+/// <param name="TruckType">Field 18 (dropdown).</param>
+/// <param name="TrucksPerWeek">Field 20, "Trucks/WK" (numeric).</param>
+/// <param name="Volume">Field 19 (numeric).</param>
+public sealed record SupplierInStockItemDto(
+    int RecordId,
+    int? RelatedSupplier,
+    MaterialType? MaterialType,
+    Preparation? Packaging,
+    Preparation? Prep,
+    decimal? Weight,
+    UnitOfMeasure? UnitOfMeasure,
+    decimal? TargetOffer,
+    TruckType? TruckType,
+    decimal? TrucksPerWeek,
+    decimal? Volume);
+
+/// <param name="SupplierRecordId">The supplier the items belong to.</param>
+/// <param name="Items">Every in-stock item of the supplier; empty when it has none.</param>
+public sealed record SupplierInStockItemsResponse(
+    int SupplierRecordId, IReadOnlyList<SupplierInStockItemDto> Items, DataFreshness Freshness);
+
+/// <summary>One contact of a supplier (Quickbase Contacts table <c>br8imsxs2</c>). Null means empty in Quickbase.</summary>
+/// <param name="RecordId">Field 3, the contact's Record ID#.</param>
+/// <param name="RelatedSupplier">Field 29: the supplier's Record ID#.</param>
+/// <param name="LastName">Field 20 (text).</param>
+/// <param name="FirstName">Field 18 (text).</param>
+/// <param name="Title">Field 25 (text).</param>
+/// <param name="Phone">Field 22 (text).</param>
+/// <param name="Cell">Field 15 (text).</param>
+/// <param name="Email">Field 17 (text).</param>
+/// <param name="Notes">Field 21 (text).</param>
+/// <param name="IsMain">Field 46, "Main?" (checkbox).</param>
+public sealed record SupplierContactDto(
+    int RecordId,
+    int? RelatedSupplier,
+    string? LastName,
+    string? FirstName,
+    string? Title,
+    string? Phone,
+    string? Cell,
+    string? Email,
+    string? Notes,
+    bool? IsMain);
+
+/// <param name="SupplierRecordId">The supplier the contacts belong to.</param>
+/// <param name="Contacts">Every contact of the supplier: the main contact first, then by last and first name. Empty when it has none.</param>
+public sealed record SupplierContactsResponse(
+    int SupplierRecordId, IReadOnlyList<SupplierContactDto> Contacts, DataFreshness Freshness);
+
+/// <summary>One call note of a supplier (Quickbase Call Notes table <c>br8tgw3tp</c>).</summary>
+/// <param name="RecordId">Field 3, the note's Record ID#.</param>
+/// <param name="DateCreated">Field 1, Quickbase's built-in Date Created (UTC).</param>
+/// <param name="Notes">Field 17 (text).</param>
+/// <param name="RelatedSupplier">Field 19: the supplier's Record ID#.</param>
+public sealed record SupplierCallNoteDto(int RecordId, DateTimeOffset? DateCreated, string? Notes, int? RelatedSupplier);
+
+/// <param name="SupplierRecordId">The supplier the notes belong to.</param>
+/// <param name="Notes">Every call note of the supplier, newest first; empty when it has none.</param>
+public sealed record SupplierCallNotesHistoryResponse(
+    int SupplierRecordId, IReadOnlyList<SupplierCallNoteDto> Notes, DataFreshness Freshness);
+
 public sealed record SupplierCallProspectStatusResponse(SupplierCallProspectStatusDto CallProspectStatus, DataFreshness Freshness);
 
 public sealed record SupplierListResponse(

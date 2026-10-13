@@ -403,7 +403,11 @@ Each record endpoint exists in both route forms. For example,
 | `/{recordId}/call-prospect-status` | Call & prospect status (below) |
 | `/{recordId}/yard-capabilities` | Yard capabilities (below) |
 | `/{recordId}/target-pricing-progress-rail` | Target Pricing — Progress Rail (below) |
-| `/payment-terms` · `/dead-freight` · `/last-call-results` · `/supplier-objections` | Dropdown options: `[{ "value": "Net5", "label": "Net 5" }, …]` |
+| `/{recordId}/in-stock-items` | Materials Pricing: the supplier's in-stock items, a list from the **In-Stock Items** table (below). Empty when it has none, never 404 |
+| `/in-stock-items/material-types` · `/units-of-measure` · `/preparations` · `/truck-types` | In-stock item dropdown options (`/preparations` = Packaging / Prep) |
+| `/{recordId}/call-notes-history` | The supplier's call notes, newest first, a list from the **Call Notes** table (below). Empty when it has none, never 404 |
+| `/{recordId}/contacts` | The supplier's contacts, main contact first, a list from the **Contacts** table (below). Empty when it has none, never 404 |
+| `/payment-terms` · `/dead-freight` · `/last-call-results` · `/supplier-objections` | Dropdown options: `[{ "value": "Net 5", "label": "Net 5" }, …]` (value and label are the same exact text) |
 
 Every record response carries `freshness`:
 - `source` is `Cache`, `Quickbase` or `StaleCache`.
@@ -489,22 +493,68 @@ All four views look up one record with `{3.EX.'<recordId>'}`. Fields are listed 
 | Target PO Number | 358 | `targetPoNumber` | text |
 | Price Change from Prior | 363 | `priceChangeFromPrior` | currency |
 
+**In-stock items, Materials Pricing** (`items`, from table `bscpxjrw3`, `{15.EX.'<supplier recordId>'}`):
+
+| Field | Id | API name | Type |
+| --- | --- | --- | --- |
+| Record ID# | 3 | `recordId` | number (the item) |
+| Related Supplier | 15 | `relatedSupplier` | number (the supplier's record id) |
+| Material Type | 6 | `materialType` | enum `MaterialType` |
+| Packaging | 10 | `packaging` | enum `Preparation` |
+| Prep | 10 | `prep` | enum `Preparation`, the same field and value as `packaging` |
+| Weight | 7 | `weight` | numeric |
+| UOM | 8 | `unitOfMeasure` | enum `UnitOfMeasure` |
+| Target Offer | 14 | `targetOffer` | currency |
+| Truck Type | 18 | `truckType` | enum `TruckType` |
+| Trucks/WK | 20 | `trucksPerWeek` | numeric |
+| Volume | 19 | `volume` | numeric |
+
+The query lists field 10 twice (`"select": [3,15,6,10,10,7,8,14,18,20,19]`), exactly as the portal's original query.
+
+**Call notes history** (`notes`, from table `br8tgw3tp`, `{19.EX.'<supplier recordId>'}`), newest first:
+
+| Field | Id | API name | Type |
+| --- | --- | --- | --- |
+| Record ID# | 3 | `recordId` | number (the note) |
+| Date Created | 1 | `dateCreated` | date/time (UTC) |
+| Notes | 17 | `notes` | text |
+| Related Supplier | 19 | `relatedSupplier` | number (the supplier's record id) |
+
+**Contacts** (`contacts`, from table `br8imsxs2`, `{29.EX.'<supplier recordId>'}`), main contact first, then by last and first name:
+
+| Field | Id | API name | Type |
+| --- | --- | --- | --- |
+| Record ID# | 3 | `recordId` | number (the contact) |
+| Related Supplier | 29 | `relatedSupplier` | number (the supplier's record id) |
+| Last Name | 20 | `lastName` | text |
+| First Name | 18 | `firstName` | text |
+| Title | 25 | `title` | text |
+| Phone | 22 | `phone` | text |
+| Cell | 15 | `cell` | text |
+| Email | 17 | `email` | text |
+| Notes | 21 | `notes` | text |
+| Main? | 46 | `isMain` | checkbox |
+
 ### Dropdowns (enums)
 
-Dropdown fields are enums, sent and accepted by **name** (e.g. `"Net5"`).
+Dropdown fields are enums, sent and accepted as their **exact text** (e.g. `"Net 5"`, `"No Answer - Voice Mail"`). The value, the label and the Quickbase text are the same string.
 
 | Enum | Quickbase field | Values (label) |
 | --- | --- | --- |
-| `PaymentTerms` | 320 (text) | `Net5` (Net 5), `Net10` (Net 10), `Net30` (Net 30), `TuesdayThursday` (Tuesday/Thursday), `MlNorwood` (ML Norwood) |
-| `DeadFreight` | 321 (checkbox) | `Exempt` (Exempt) = **unchecked**, `NotExempt` (Not Exempt) = **checked** |
-| `LastCallResult` | 193 (dropdown) | 14 values, e.g. `NoAnswerVoiceMail` (No Answer - Voice Mail), `PoPending` (PO Pending) |
-| `SupplierObjection` | 236 (dropdown) | 22 values, e.g. `PaymentTerms` (Payment Terms), `PastScrapGoIssues` (Past ScrapGo Issues), `SellsToOurConsumer` (Sells to Our Consumer) |
+| `PaymentTerms` | 320 (text) | Net 5 · Net 10 · Net 30 · Tuesday/Thursday · ML Norwood |
+| `DeadFreight` | 321 (checkbox) | Exempt (**unchecked**) · Not Exempt (**checked**) |
+| `LastCallResult` | 193 (dropdown) | Bad Number · Wrong Business · Consumer · Multiple Location · No Answer - Voice Mail · No Decision Maker · Can't Fill Truck Load · No Equipment · No Contact after 4 Calls · Not Interested · Send to the grid · Connected · Scrap Hauls · PO Pending |
+| `MaterialType` | In-Stock 6 | Aluminum Radiators · Auto Batteries · Harness wire · Alternators · Starters · Crushed Cars with Motors · Crushed Cars without Motors · All Al Motors · Cast Iron Motors · All Al Engine Combos · Cast Iron Combos · Aluminum Wheels · Sheet Metal · Prepared Steel |
+| `UnitOfMeasure` | In-Stock 8 | NT · Pieces · LBS · GT · MT |
+| `Preparation` | In-Stock 10 (Packaging / Prep) | Wrapped / Palletized · Bales · Boxed · Crushed / Flattened · Logged · Loose · Loose or Baled · Loose or Logged · Loose or Palletized · Unprepared |
+| `TruckType` | In-Stock 18 | Dump Trailer · Van Trailer · Flatbed Trailer · Stepdeck Trailer · Other Specialized Trailer · Flatbread Trailer |
+| `SupplierObjection` | 236 (dropdown) | Hot · Price · Payment Terms · Netting · Not interested · Too small · Labor Issues · No equipment · Too Difficult · Past ScrapGo Issues · Past Trucker Issues · Uses Own Truck · Nonferrous · Weird · I Don't Know · Other Ferrous · Sells to Our Consumer · Is a Mobile Crusher · No Contact · Loyalty · Seasonal · Too Far |
 
-- **Labels:** each label is what the dropdown shows and the **exact text Quickbase stores**. Matching ignores case, extra spaces and curly apostrophes.
+- **Labels:** each enum member carries its exact text in `[JsonStringEnumMemberName("…")]`, the single source for the JSON value, the label and the Quickbase text. Reading Quickbase ignores case, extra spaces and curly apostrophes.
 - **Unknown values:** Quickbase text that isn't a known value comes back as `null`, with a warning in the log (`… isn't a known value`).
 - **Where they're defined:** Application `Suppliers/*.cs` (`PaymentTermsCatalog`, `DropdownCatalog<TEnum>`).
 - **Conversion:** Infrastructure `Quickbase/Quickbase*.cs` converts to and from Quickbase, ready for future writes.
-- **Changing a dropdown:** add the value at the end, with its label exactly as Quickbase spells it. Never rename a value: its name is the API contract.
+- **Changing a dropdown:** add the member at the end, with `[JsonStringEnumMemberName]` set to the text exactly as Quickbase spells it. Never change the text of an existing value: the text is the API contract.
 
 ### Adding a supplier view
 

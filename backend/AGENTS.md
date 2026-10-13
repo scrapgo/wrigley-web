@@ -84,12 +84,16 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 - `GET …/suppliers/{recordId}/call-prospect-status` returns call & prospect status (fields 197, 192, 193, 236, 181, 238, 97).
 - `GET …/suppliers/{recordId}/yard-capabilities` returns yard capabilities (13 checkboxes).
 - `GET …/suppliers/{recordId}/target-pricing-progress-rail` returns Target Pricing — Progress Rail (text, currency and numeric fields 352, 342, 336, 337, 339, 340, 341, 346, 345, 347, 348, 349, 358, 363).
-- All four share `SupplierService.ReadRecordAsync`: the access check, then 404 / 502.
+- `GET …/suppliers/{recordId}/in-stock-items` returns the supplier's items from the **In-Stock Items** table `bscpxjrw3` (`{15.EX.'<recordId>'}`), for Materials Pricing: a list with four dropdowns (`InStockItemDropdowns`; field 10 is returned as both `packaging` and `prep`). An empty list, never 404.
+- `GET …/suppliers/{recordId}/contacts` returns the supplier's contacts from the **Contacts** table `br8imsxs2` (`{29.EX.'<recordId>'}`), main contact first (sorted in the API). An empty list, never 404.
+- `GET …/suppliers/{recordId}/call-notes-history` returns the supplier's notes from the **Call Notes** table `br8tgw3tp` (`{19.EX.'<recordId>'}`), newest first (sorted in the API). An empty list, never 404.
+- All of them share `SupplierService.ReadRecordAsync`: the access check, then 404 / 502.
 - `GET /api/suppliers…` (every endpoint above) does the same without an organization or application, for **platform administrators only** (`Admin.Access` at platform scope, which needs a Workspace sign-in). The Suppliers table is ScrapGo-wide.
 - Both require `Downstream.Suppliers.Read` at application scope, which also needs the Suppliers module enabled.
 - `ISupplierSource` (Application) is implemented by `QuickbaseSupplierSource` (Infrastructure), which holds the field ids (`SuppliersTable`) and the JSON mapping.
 - Errors: 403 `missing_permission`, 404 `supplier_not_found`, 502 `quickbase_unavailable`.
-- **Payment terms** are the `PaymentTerms` enum (Application), serialized by name.
+- **Every supplier dropdown is sent and accepted as its exact text.** Each enum member carries the text in `[JsonStringEnumMemberName("…")]`, which is the single source for the JSON value, the label (`DropdownCatalog<TEnum>.FromJsonNames()`) and the Quickbase text.
+- **Payment terms** are the `PaymentTerms` enum (Application), e.g. `"Net 5"`.
   - `PaymentTermsCatalog` holds the labels, which are also the exact Quickbase text in field 320. `QuickbasePaymentTerms` (Infrastructure) converts them.
   - Unknown Quickbase text is returned as `null` and logged.
   - To add a value: append it and its label. Never rename one.
@@ -99,7 +103,7 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
   - Unknown Quickbase text is returned as `null` and logged.
   - Options are served at `GET /api/suppliers/last-call-results` and `GET /api/suppliers/supplier-objections`.
   - New dropdowns follow this pattern.
-- **Dead freight** is the `DeadFreight` enum (`Exempt`, `NotExempt`), serialized by name.
+- **Dead freight** is the `DeadFreight` enum: `"Exempt"` and `"Not Exempt"`.
   - Quickbase field 321 is a checkbox: **checked is `NotExempt`**, unchecked `Exempt` (despite the legacy name `DeadFreightExempt`). `QuickbaseDeadFreight` (Infrastructure) converts it.
   - `GET /api/suppliers/dead-freight` lists the dropdown options.
 

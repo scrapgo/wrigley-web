@@ -58,6 +58,82 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
         return new(pricing, Freshness(result));
     }
 
+    public async Task<Sourced<IReadOnlyList<SupplierInStockItemDto>?>> ListInStockItemsAsync(
+        int supplierRecordId, CancellationToken cancellationToken)
+    {
+        var result = await QueryAsync(
+            new QuickbaseQuery(InStockItemsTable.TableId, InStockItemsTable.Fields, InStockItemsTable.BySupplier(supplierRecordId)),
+            cancellationToken);
+
+        using var document = JsonDocument.Parse(result.ResponseJson);
+        IReadOnlyList<SupplierInStockItemDto> items =
+            [.. Rows(document).Select(row => ToInStockItem(new QuickbaseRecord(row))).OfType<SupplierInStockItemDto>()];
+
+        return new(items, Freshness(result));
+    }
+
+    public async Task<Sourced<IReadOnlyList<SupplierContactDto>?>> ListContactsAsync(
+        int supplierRecordId, CancellationToken cancellationToken)
+    {
+        var result = await QueryAsync(
+            new QuickbaseQuery(ContactsTable.TableId, ContactsTable.Fields, ContactsTable.BySupplier(supplierRecordId)),
+            cancellationToken);
+
+        using var document = JsonDocument.Parse(result.ResponseJson);
+
+        // The main contact first, then by last and first name (case-insensitive), then record id.
+        IReadOnlyList<SupplierContactDto> contacts =
+        [
+            .. Rows(document)
+                .Select(row => new QuickbaseRecord(row))
+                .Where(record => record.Int(ContactsTable.RecordId) is not null)
+                .Select(record => new SupplierContactDto(
+                    record.Int(ContactsTable.RecordId)!.Value,
+                    record.Int(ContactsTable.RelatedSupplier),
+                    record.Text(ContactsTable.LastName),
+                    record.Text(ContactsTable.FirstName),
+                    record.Text(ContactsTable.Title),
+                    record.Text(ContactsTable.Phone),
+                    record.Text(ContactsTable.Cell),
+                    record.Text(ContactsTable.Email),
+                    record.Text(ContactsTable.Notes),
+                    record.Bool(ContactsTable.IsMain)))
+                .OrderByDescending(contact => contact.IsMain == true)
+                .ThenBy(contact => contact.LastName ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(contact => contact.FirstName ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(contact => contact.RecordId),
+        ];
+
+        return new(contacts, Freshness(result));
+    }
+
+    public async Task<Sourced<IReadOnlyList<SupplierCallNoteDto>?>> ListCallNotesAsync(
+        int supplierRecordId, CancellationToken cancellationToken)
+    {
+        var result = await QueryAsync(
+            new QuickbaseQuery(CallNotesTable.TableId, CallNotesTable.Fields, CallNotesTable.BySupplier(supplierRecordId)),
+            cancellationToken);
+
+        using var document = JsonDocument.Parse(result.ResponseJson);
+
+        // Newest first; notes without a date last, then by record id (newest records have the highest ids).
+        IReadOnlyList<SupplierCallNoteDto> notes =
+        [
+            .. Rows(document)
+                .Select(row => new QuickbaseRecord(row))
+                .Where(record => record.Int(CallNotesTable.RecordId) is not null)
+                .Select(record => new SupplierCallNoteDto(
+                    record.Int(CallNotesTable.RecordId)!.Value,
+                    record.DateTime(CallNotesTable.DateCreated),
+                    record.Text(CallNotesTable.Notes),
+                    record.Int(CallNotesTable.RelatedSupplier)))
+                .OrderByDescending(note => note.DateCreated ?? DateTimeOffset.MinValue)
+                .ThenByDescending(note => note.RecordId),
+        ];
+
+        return new(notes, Freshness(result));
+    }
+
     public async Task<Sourced<SupplierPage>> ListAsync(string? search, int skip, int top, CancellationToken cancellationToken)
     {
         var result = await QueryAsync(
@@ -180,6 +256,28 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
                 record.Text(SuppliersTable.ObjectionExplained),
                 record.Text(SuppliersTable.CallNotes))
             : null;
+
+    private SupplierInStockItemDto? ToInStockItem(QuickbaseRecord record)
+    {
+        if (record.Int(InStockItemsTable.RecordId) is not { } recordId)
+        {
+            return null;
+        }
+
+        var packaging = ChoiceOf(recordId, "packaging", InStockItemDropdowns.Preparations, record.Choice(InStockItemsTable.Packaging));
+        return new SupplierInStockItemDto(
+            recordId,
+            record.Int(InStockItemsTable.RelatedSupplier),
+            ChoiceOf(recordId, "material type", InStockItemDropdowns.MaterialTypes, record.Choice(InStockItemsTable.MaterialType)),
+            packaging,
+            packaging,
+            record.Decimal(InStockItemsTable.Weight),
+            ChoiceOf(recordId, "unit of measure", InStockItemDropdowns.UnitsOfMeasure, record.Choice(InStockItemsTable.UnitOfMeasure)),
+            record.Decimal(InStockItemsTable.TargetOffer),
+            ChoiceOf(recordId, "truck type", InStockItemDropdowns.TruckTypes, record.Choice(InStockItemsTable.TruckType)),
+            record.Decimal(InStockItemsTable.TrucksPerWeek),
+            record.Decimal(InStockItemsTable.Volume));
+    }
 
     /// <summary>A dropdown field as its enum; unknown text is returned as null and logged.</summary>
     private TEnum? ChoiceOf<TEnum>(int recordId, string fieldName, DropdownCatalog<TEnum> catalog, string? text)

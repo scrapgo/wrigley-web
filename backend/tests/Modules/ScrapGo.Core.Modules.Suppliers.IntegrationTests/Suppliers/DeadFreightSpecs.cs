@@ -45,7 +45,7 @@ public class DeadFreightSpecs
             var options = (await response.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray()
                 .Select(o => (o.GetProperty("value").GetString(), o.GetProperty("label").GetString()))
                 .ToList();
-            Assert.Equal([("Exempt", "Exempt"), ("NotExempt", "Not Exempt")], options);
+            Assert.Equal([("Exempt", "Exempt"), ("Not Exempt", "Not Exempt")], options);
         }
 
         [Fact]

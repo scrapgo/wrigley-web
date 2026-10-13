@@ -4,67 +4,48 @@ namespace ScrapGo.Core.Modules.Suppliers.Application.Suppliers;
 
 /// <summary>
 /// A supplier's payment terms: a fixed list, shown as a dropdown in the
-/// portal. Serialized by name (<c>"Net5"</c>); each value's label
-/// (<see cref="PaymentTermsCatalog.Label"/>) is what the dropdown shows and
-/// the exact text stored in Quickbase (Suppliers field 320).
+/// portal. Each value is sent and accepted as its exact text (<c>"Net 5"</c>),
+/// which is also the label and the text stored in Quickbase (Suppliers field 320).
 /// </summary>
-/// <remarks>Append new values; never rename one, since the name is the API contract.</remarks>
+/// <remarks>Add a value at the end with its exact text. Never change the text of one: it is the API contract.</remarks>
 [JsonConverter(typeof(JsonStringEnumConverter<PaymentTerms>))]
 public enum PaymentTerms
 {
+    [JsonStringEnumMemberName("Net 5")]
     Net5,
+
+    [JsonStringEnumMemberName("Net 10")]
     Net10,
+
+    [JsonStringEnumMemberName("Net 30")]
     Net30,
+
+    [JsonStringEnumMemberName("Tuesday/Thursday")]
     TuesdayThursday,
+
+    [JsonStringEnumMemberName("ML Norwood")]
     MlNorwood,
 }
 
-/// <summary>One dropdown option: the value the API sends and accepts, and the label to show.</summary>
+/// <summary>One dropdown option: the value the API sends and accepts, and the label to show (the same text).</summary>
 public sealed record PaymentTermsOption(PaymentTerms Value, string Label);
 
 /// <summary>The payment terms list and its labels, in dropdown order.</summary>
 public static class PaymentTermsCatalog
 {
-    private static readonly IReadOnlyDictionary<PaymentTerms, string> Labels = new Dictionary<PaymentTerms, string>
-    {
-        [PaymentTerms.Net5] = "Net 5",
-        [PaymentTerms.Net10] = "Net 10",
-        [PaymentTerms.Net30] = "Net 30",
-        [PaymentTerms.TuesdayThursday] = "Tuesday/Thursday",
-        [PaymentTerms.MlNorwood] = "ML Norwood",
-    };
+    private static readonly DropdownCatalog<PaymentTerms> Catalog = DropdownCatalog<PaymentTerms>.FromJsonNames();
 
     /// <summary>Every option, in dropdown order.</summary>
     public static IReadOnlyList<PaymentTermsOption> Options { get; } =
-        [.. Enum.GetValues<PaymentTerms>().Select(terms => new PaymentTermsOption(terms, Labels[terms]))];
+        [.. Catalog.Options.Select(option => new PaymentTermsOption(option.Value, option.Label))];
 
-    /// <summary>The display label, which is also the Quickbase text, e.g. <c>"Net 5"</c>.</summary>
-    public static string Label(this PaymentTerms terms) =>
-        Labels.TryGetValue(terms, out var label)
-            ? label
-            : throw new ArgumentOutOfRangeException(nameof(terms), terms, "Not a known payment terms value.");
+    /// <summary>The exact text, e.g. <c>"Net 5"</c>: the JSON value, the label and the Quickbase text.</summary>
+    public static string Label(this PaymentTerms terms) => Catalog.Label(terms);
 
     /// <summary>
-    /// The value whose label matches <paramref name="text"/>, ignoring case and
+    /// The value whose text matches <paramref name="text"/>, ignoring case and
     /// extra whitespace (<c>" net  5 "</c> is <see cref="PaymentTerms.Net5"/>).
     /// False for empty or unknown text.
     /// </summary>
-    public static bool TryParseLabel(string? text, out PaymentTerms terms)
-    {
-        var normalized = Normalize(text);
-        foreach (var (value, label) in Labels)
-        {
-            if (normalized.Length > 0 && string.Equals(Normalize(label), normalized, StringComparison.OrdinalIgnoreCase))
-            {
-                terms = value;
-                return true;
-            }
-        }
-
-        terms = default;
-        return false;
-    }
-
-    private static string Normalize(string? text) =>
-        string.Join(' ', (text ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+    public static bool TryParseLabel(string? text, out PaymentTerms terms) => Catalog.TryParseLabel(text, out terms);
 }

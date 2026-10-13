@@ -1,3 +1,6 @@
+using System.Reflection;
+using System.Text.Json.Serialization;
+
 namespace ScrapGo.Core.Modules.Suppliers.Application.Suppliers;
 
 /// <summary>One dropdown option: the value the API sends and accepts, and the label to show.</summary>
@@ -5,9 +8,10 @@ public sealed record DropdownOption<TEnum>(TEnum Value, string Label)
     where TEnum : struct, Enum;
 
 /// <summary>
-/// A Quickbase dropdown as an enum. Each value's label is what the portal
-/// shows and the exact text Quickbase stores; reading ignores case, extra
-/// whitespace and curly apostrophes.
+/// A Quickbase dropdown as an enum. Each value's label is its exact text: the
+/// JSON value the API sends and accepts, what the portal shows, and what
+/// Quickbase stores. Reading Quickbase text ignores case, extra whitespace and
+/// curly apostrophes.
 /// </summary>
 public sealed class DropdownCatalog<TEnum>
     where TEnum : struct, Enum
@@ -26,6 +30,17 @@ public sealed class DropdownCatalog<TEnum>
         _labels = labels;
         Options = [.. Enum.GetValues<TEnum>().Select(value => new DropdownOption<TEnum>(value, labels[value]))];
     }
+
+    /// <summary>
+    /// The catalog of an enum whose members carry their exact text as
+    /// <see cref="JsonStringEnumMemberNameAttribute"/>, the single source of each label.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">A member has no <see cref="JsonStringEnumMemberNameAttribute"/>.</exception>
+    public static DropdownCatalog<TEnum> FromJsonNames() =>
+        new(Enum.GetValues<TEnum>().ToDictionary(
+            value => value,
+            value => typeof(TEnum).GetField(value.ToString())?.GetCustomAttribute<JsonStringEnumMemberNameAttribute>()?.Name
+                ?? throw new InvalidOperationException($"{typeof(TEnum).Name}.{value} has no [JsonStringEnumMemberName].")));
 
     /// <summary>Every option, in enum (dropdown) order.</summary>
     public IReadOnlyList<DropdownOption<TEnum>> Options { get; }

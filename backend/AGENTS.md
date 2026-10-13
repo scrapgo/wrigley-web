@@ -85,6 +85,8 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 - `GET …/suppliers/{recordId}/yard-capabilities` returns yard capabilities (13 checkboxes).
 - `GET …/suppliers/{recordId}/target-pricing-progress-rail` returns Target Pricing — Progress Rail (text, currency and numeric fields 352, 342, 336, 337, 339, 340, 341, 346, 345, 347, 348, 349, 358, 363).
 - `GET …/suppliers/{recordId}/in-stock-items` returns the supplier's items from the **In-Stock Items** table `bscpxjrw3` (`{15.EX.'<recordId>'}`), for Materials Pricing: a list with four dropdowns (`InStockItemDropdowns`; field 10 is returned as both `packaging` and `prep`). An empty list, never 404.
+- `GET …/suppliers/{recordId}/contacts` returns the supplier's contacts from the **Contacts** table `br8imsxs2` (`{29.EX.'<recordId>'}`), main contact first (sorted in the API). An empty list, never 404.
+- `GET …/suppliers/{recordId}/call-notes-history` returns the supplier's notes from the **Call Notes** table `br8tgw3tp` (`{19.EX.'<recordId>'}`), newest first (sorted in the API). An empty list, never 404.
 - All of them share `SupplierService.ReadRecordAsync`: the access check, then 404 / 502.
 - `GET /api/suppliers…` (every endpoint above) does the same without an organization or application, for **platform administrators only** (`Admin.Access` at platform scope, which needs a Workspace sign-in). The Suppliers table is ScrapGo-wide.
 - Both require `Downstream.Suppliers.Read` at application scope, which also needs the Suppliers module enabled.

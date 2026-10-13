@@ -72,6 +72,41 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
         return new(items, Freshness(result));
     }
 
+    public async Task<Sourced<IReadOnlyList<SupplierContactDto>?>> ListContactsAsync(
+        int supplierRecordId, CancellationToken cancellationToken)
+    {
+        var result = await QueryAsync(
+            new QuickbaseQuery(ContactsTable.TableId, ContactsTable.Fields, ContactsTable.BySupplier(supplierRecordId)),
+            cancellationToken);
+
+        using var document = JsonDocument.Parse(result.ResponseJson);
+
+        // The main contact first, then by last and first name (case-insensitive), then record id.
+        IReadOnlyList<SupplierContactDto> contacts =
+        [
+            .. Rows(document)
+                .Select(row => new QuickbaseRecord(row))
+                .Where(record => record.Int(ContactsTable.RecordId) is not null)
+                .Select(record => new SupplierContactDto(
+                    record.Int(ContactsTable.RecordId)!.Value,
+                    record.Int(ContactsTable.RelatedSupplier),
+                    record.Text(ContactsTable.LastName),
+                    record.Text(ContactsTable.FirstName),
+                    record.Text(ContactsTable.Title),
+                    record.Text(ContactsTable.Phone),
+                    record.Text(ContactsTable.Cell),
+                    record.Text(ContactsTable.Email),
+                    record.Text(ContactsTable.Notes),
+                    record.Bool(ContactsTable.IsMain)))
+                .OrderByDescending(contact => contact.IsMain == true)
+                .ThenBy(contact => contact.LastName ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(contact => contact.FirstName ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(contact => contact.RecordId),
+        ];
+
+        return new(contacts, Freshness(result));
+    }
+
     public async Task<Sourced<SupplierPage>> ListAsync(string? search, int skip, int top, CancellationToken cancellationToken)
     {
         var result = await QueryAsync(

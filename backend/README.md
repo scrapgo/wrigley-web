@@ -405,6 +405,8 @@ Each record endpoint exists in both route forms. For example,
 | `/{recordId}/target-pricing-progress-rail` | Target Pricing — Progress Rail (below) |
 | `/{recordId}/in-stock-items` | Materials Pricing: the supplier's in-stock items, a list from the **In-Stock Items** table (below). Empty when it has none, never 404 |
 | `/in-stock-items/material-types` · `/units-of-measure` · `/preparations` · `/truck-types` | In-stock item dropdown options (`/preparations` = Packaging / Prep) |
+| `/{recordId}/call-notes-history` | The supplier's call notes, newest first, a list from the **Call Notes** table (below). Empty when it has none, never 404 |
+| `/{recordId}/contacts` | The supplier's contacts, main contact first, a list from the **Contacts** table (below). Empty when it has none, never 404 |
 | `/payment-terms` · `/dead-freight` · `/last-call-results` · `/supplier-objections` | Dropdown options: `[{ "value": "Net 5", "label": "Net 5" }, …]` (value and label are the same exact text) |
 
 Every record response carries `freshness`:
@@ -508,6 +510,30 @@ All four views look up one record with `{3.EX.'<recordId>'}`. Fields are listed 
 | Volume | 19 | `volume` | numeric |
 
 The query lists field 10 twice (`"select": [3,15,6,10,10,7,8,14,18,20,19]`), exactly as the portal's original query.
+
+**Call notes history** (`notes`, from table `br8tgw3tp`, `{19.EX.'<supplier recordId>'}`), newest first:
+
+| Field | Id | API name | Type |
+| --- | --- | --- | --- |
+| Record ID# | 3 | `recordId` | number (the note) |
+| Date Created | 1 | `dateCreated` | date/time (UTC) |
+| Notes | 17 | `notes` | text |
+| Related Supplier | 19 | `relatedSupplier` | number (the supplier's record id) |
+
+**Contacts** (`contacts`, from table `br8imsxs2`, `{29.EX.'<supplier recordId>'}`), main contact first, then by last and first name:
+
+| Field | Id | API name | Type |
+| --- | --- | --- | --- |
+| Record ID# | 3 | `recordId` | number (the contact) |
+| Related Supplier | 29 | `relatedSupplier` | number (the supplier's record id) |
+| Last Name | 20 | `lastName` | text |
+| First Name | 18 | `firstName` | text |
+| Title | 25 | `title` | text |
+| Phone | 32 | `phone` | text |
+| Cell | 15 | `cell` | text |
+| Email | 17 | `email` | text |
+| Notes | 21 | `notes` | text |
+| Main? | 46 | `isMain` | checkbox |
 
 ### Dropdowns (enums)
 

@@ -107,6 +107,33 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
         return new(contacts, Freshness(result));
     }
 
+    public async Task<Sourced<IReadOnlyList<SupplierCallNoteDto>?>> ListCallNotesAsync(
+        int supplierRecordId, CancellationToken cancellationToken)
+    {
+        var result = await QueryAsync(
+            new QuickbaseQuery(CallNotesTable.TableId, CallNotesTable.Fields, CallNotesTable.BySupplier(supplierRecordId)),
+            cancellationToken);
+
+        using var document = JsonDocument.Parse(result.ResponseJson);
+
+        // Newest first; notes without a date last, then by record id (newest records have the highest ids).
+        IReadOnlyList<SupplierCallNoteDto> notes =
+        [
+            .. Rows(document)
+                .Select(row => new QuickbaseRecord(row))
+                .Where(record => record.Int(CallNotesTable.RecordId) is not null)
+                .Select(record => new SupplierCallNoteDto(
+                    record.Int(CallNotesTable.RecordId)!.Value,
+                    record.DateTime(CallNotesTable.DateCreated),
+                    record.Text(CallNotesTable.Notes),
+                    record.Int(CallNotesTable.RelatedSupplier)))
+                .OrderByDescending(note => note.DateCreated ?? DateTimeOffset.MinValue)
+                .ThenByDescending(note => note.RecordId),
+        ];
+
+        return new(notes, Freshness(result));
+    }
+
     public async Task<Sourced<SupplierPage>> ListAsync(string? search, int skip, int top, CancellationToken cancellationToken)
     {
         var result = await QueryAsync(

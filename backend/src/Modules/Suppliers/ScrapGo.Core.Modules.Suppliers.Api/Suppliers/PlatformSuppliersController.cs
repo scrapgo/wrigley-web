@@ -98,6 +98,20 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
             : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
     }
 
+    /// <summary>The supplier's call notes history (Quickbase Call Notes table), newest first. An empty list when it has none.</summary>
+    [HttpGet("{recordId:int}/call-notes-history")]
+    [ProducesResponseType<SupplierCallNotesHistoryResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> GetCallNotesHistory(int recordId, CancellationToken cancellationToken)
+    {
+        var result = await suppliers.GetCallNotesHistoryAsync(SupplierScope.Platform, recordId, cancellationToken);
+
+        return result is { Outcome: SupplierOutcome.Success, CallNotesHistory: { } history }
+            ? Ok(history)
+            : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
+    }
+
     /// <summary>One supplier's yard capabilities: crusher, baler, scale, loading options and so on (all yes/no).</summary>
     [HttpGet("{recordId:int}/yard-capabilities")]
     [ProducesResponseType<SupplierYardCapabilitiesResponse>(StatusCodes.Status200OK)]

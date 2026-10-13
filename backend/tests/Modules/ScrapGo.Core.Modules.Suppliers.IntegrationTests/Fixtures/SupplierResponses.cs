@@ -176,6 +176,19 @@ public static class SupplierResponses
         }
         """;
 
+    /// <summary>The call notes of supplier 17511 (sample values), deliberately not in date order.</summary>
+    public const string CallNotes = """
+        {
+          "data": [
+            { "1": { "value": "2026-09-02T15:04:05Z" }, "3": { "value": 801 }, "17": { "value": "Left a voicemail." }, "19": { "value": 17511 } },
+            { "1": { "value": "2026-10-06T18:30:00Z" }, "3": { "value": 845 }, "17": { "value": "Spoke to David; wants Net 5." }, "19": { "value": 17511 } },
+            { "1": { "value": "2026-09-20T13:00:00Z" }, "3": { "value": 822 }, "17": { "value": "" }, "19": { "value": 17511 } }
+          ],
+          "fields": [],
+          "metadata": { "numRecords": 3, "skip": 0, "totalRecords": 3 }
+        }
+        """;
+
     /// <summary>The name list query, first records.</summary>
     public const string NameList = """
         {

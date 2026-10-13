@@ -24,13 +24,12 @@ import { apiClient } from './api-client'
  * block from here yet, so the ids are pinned here; keep in sync if the table
  * changes. Rendered (sanitized) via `<RichText richText />`.
  *
- * | Id  | Quickbase label          | DTO field                       |
- * | --- | ------------------------ | ------------------------------- |
- * | 192 | Color Status             | `prospectStatus`                |
- * | 197 | Text Connected           | `contactWithDecisionMakerMade`  |
- * | 363 | Price Change (color)     | `priceChangeFromPrior` (unused) |
+ * | Id  | Quickbase label          | DTO field                      |
+ * | --- | ------------------------ | ------------------------------ |
+ * | 192 | Color Status             | `prospectStatus`               |
+ * | 197 | Text Connected           | `contactWithDecisionMakerMade` |
  */
-export const RICH_TEXT_FIELD_IDS = [192, 197, 363] as const
+export const RICH_TEXT_FIELD_IDS = [192, 197] as const
 
 /* -------------------------------------------------------------------------- */
 /*  DTOs (mirror the backend contracts)                                       */
@@ -202,6 +201,90 @@ export interface SupplierTargetPricingProgressRailResponse {
     freshness: DataFreshness
 }
 
+/** One contact for a supplier (Quickbase Contacts table). Null means empty in Quickbase. */
+export interface SupplierContact {
+    /** Quickbase Record ID# (field 3). */
+    recordId: number
+    /** Field 29, the supplier's record id this contact belongs to. */
+    relatedSupplier: number | null
+    /** Field 20. */
+    lastName: string | null
+    /** Field 18. */
+    firstName: string | null
+    /** Field 25. */
+    title: string | null
+    /** Field 22. */
+    phone: string | null
+    /** Field 15. */
+    cell: string | null
+    /** Field 17. */
+    email: string | null
+    /** Field 21. */
+    notes: string | null
+    /** Field 46, "Main?". The main contact is returned first. */
+    isMain: boolean | null
+}
+
+export interface SupplierContactsResponse {
+    supplierRecordId: number
+    contacts: SupplierContact[]
+    freshness: DataFreshness
+}
+
+/**
+ * One in-stock item for a supplier (Quickbase In-Stock Items table). Currency
+ * and numeric fields are decimals; null means empty. `packaging` and `prep` are
+ * the same Quickbase field (10) and always carry the same value.
+ */
+export interface SupplierInStockItem {
+    /** Quickbase Record ID# (field 3), the item's id. */
+    recordId: number
+    /** Field 15, the supplier's record id this item belongs to. */
+    relatedSupplier: number | null
+    /** Field 6. Use the material-types catalog for a label. */
+    materialType: string | null
+    /** Field 10 (Packaging). Use the preparations catalog for a label. */
+    packaging: string | null
+    /** Field 10 (Prep), the same value as `packaging`. */
+    prep: string | null
+    /** Field 7. */
+    weight: number | null
+    /** Field 8. Use the units-of-measure catalog for a label. */
+    unitOfMeasure: string | null
+    /** Field 14 (currency). */
+    targetOffer: number | null
+    /** Field 18. Use the truck-types catalog for a label. */
+    truckType: string | null
+    /** Field 20. */
+    trucksPerWeek: number | null
+    /** Field 19. */
+    volume: number | null
+}
+
+export interface SupplierInStockItemsResponse {
+    supplierRecordId: number
+    items: SupplierInStockItem[]
+    freshness: DataFreshness
+}
+
+/** One call note for a supplier (Quickbase Call Notes table). Newest first. */
+export interface SupplierCallNote {
+    /** Quickbase Record ID# (field 3), the note's id. */
+    recordId: number
+    /** Field 1 (date/time, UTC). */
+    dateCreated: string | null
+    /** Field 17. */
+    notes: string | null
+    /** Field 19, the supplier's record id this note belongs to. */
+    relatedSupplier: number | null
+}
+
+export interface SupplierCallNotesHistoryResponse {
+    supplierRecordId: number
+    notes: SupplierCallNote[]
+    freshness: DataFreshness
+}
+
 /** One static dropdown option: the `value` a supplier response carries, and the `label` to show. */
 export interface DropdownOption {
     value: string
@@ -258,6 +341,31 @@ export function getSupplierTargetPricingProgressRail(
     )
 }
 
+/** A supplier's contacts, main contact first. Empty when it has none. */
+export function getSupplierContacts(recordId: number): Promise<SupplierContactsResponse> {
+    return apiClient.fetchWithAuth<SupplierContactsResponse>(
+        `/api/suppliers/${recordId}/contacts`
+    )
+}
+
+/** A supplier's in-stock items. Empty when it has none. */
+export function getSupplierInStockItems(
+    recordId: number
+): Promise<SupplierInStockItemsResponse> {
+    return apiClient.fetchWithAuth<SupplierInStockItemsResponse>(
+        `/api/suppliers/${recordId}/in-stock-items`
+    )
+}
+
+/** A supplier's call notes history, newest first. Empty when it has none. */
+export function getSupplierCallNotesHistory(
+    recordId: number
+): Promise<SupplierCallNotesHistoryResponse> {
+    return apiClient.fetchWithAuth<SupplierCallNotesHistoryResponse>(
+        `/api/suppliers/${recordId}/call-notes-history`
+    )
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Dropdown catalogs (static reference data; any signed-in user)             */
 /* -------------------------------------------------------------------------- */
@@ -280,4 +388,26 @@ export function listLastCallResults(): Promise<DropdownOption[]> {
 /** Supplier objection options. */
 export function listSupplierObjections(): Promise<DropdownOption[]> {
     return apiClient.fetchWithAuth<DropdownOption[]>('/api/suppliers/supplier-objections')
+}
+
+/** In-stock item material type options. */
+export function listMaterialTypes(): Promise<DropdownOption[]> {
+    return apiClient.fetchWithAuth<DropdownOption[]>('/api/suppliers/in-stock-items/material-types')
+}
+
+/** In-stock item unit-of-measure options. */
+export function listUnitsOfMeasure(): Promise<DropdownOption[]> {
+    return apiClient.fetchWithAuth<DropdownOption[]>(
+        '/api/suppliers/in-stock-items/units-of-measure'
+    )
+}
+
+/** In-stock item preparation (packaging / prep) options. */
+export function listPreparations(): Promise<DropdownOption[]> {
+    return apiClient.fetchWithAuth<DropdownOption[]>('/api/suppliers/in-stock-items/preparations')
+}
+
+/** In-stock item truck type options. */
+export function listTruckTypes(): Promise<DropdownOption[]> {
+    return apiClient.fetchWithAuth<DropdownOption[]>('/api/suppliers/in-stock-items/truck-types')
 }

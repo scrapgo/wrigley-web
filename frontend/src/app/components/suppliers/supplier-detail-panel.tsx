@@ -20,12 +20,15 @@ import { Skeleton } from '../ui/skeleton'
 import { EmptyState } from '../ui/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
-import { catalogLabel, useSupplier, useSupplierCatalogs } from '../../hooks/useSupplierQueries'
+import { catalogLabel, useSupplier, useSupplierCatalogs, useSupplierInStockItems } from '../../hooks/useSupplierQueries'
 import { adminErrorMessage } from '../../lib/admin-errors'
 import { FreshnessBadge } from './freshness-badge'
 import {
     DetailField,
+    SupplierCallNotesHistoryCard,
     SupplierCallProspectStatusCard,
+    SupplierContactsCard,
+    SupplierInStockItemsCard,
     SupplierPrimaryContactCard,
     SupplierTargetPricingCard,
     SupplierYardCapabilitiesCard,
@@ -36,6 +39,12 @@ import { formatCurrency, formatNumber, htmlToText } from '../../lib/supplier-for
 export function SupplierDetailPanel({ recordId }: { recordId: number }) {
     const { data, isLoading, isError, error } = useSupplier(recordId)
     const { data: catalogs } = useSupplierCatalogs()
+    const { data: inStock } = useSupplierInStockItems(recordId)
+    const inStockItems = inStock?.items ?? []
+    const inStockVolume = inStockItems.reduce<number | null>(
+        (sum, item) => (item.volume == null ? sum : (sum ?? 0) + item.volume),
+        null
+    )
 
     if (isLoading) {
         return (
@@ -158,7 +167,8 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
                 <StatTile
                     icon={Users}
                     label="In-Stock Items"
-                    value={htmlToText(supplier.inStockItemRecords) || '—'}
+                    value={String(inStockItems.length)}
+                    hint={inStockVolume != null ? `Volume ${formatNumber(inStockVolume)}` : undefined}
                 />
                 <StatTile
                     icon={DollarSign}
@@ -240,6 +250,7 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
                             </CardContent>
                         </Card>
                         <SupplierTargetPricingCard recordId={supplier.recordId} />
+                        <SupplierInStockItemsCard recordId={supplier.recordId} />
                     </div>
                 </TabsContent>
 
@@ -256,44 +267,48 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
                                         label="Total Activities"
                                         value={formatNumber(supplier.totalActivities)}
                                     />
+                                    <DetailField
+                                        label="Delivered (last 90 days)"
+                                        value={formatNumber(supplier.deliveredLast90Days)}
+                                    />
+                                    <DetailField
+                                        label="Delivered (before 90 days)"
+                                        value={formatNumber(supplier.deliveredBefore90Days)}
+                                    />
                                 </dl>
                             </CardContent>
                         </Card>
+                        <SupplierCallNotesHistoryCard recordId={supplier.recordId} />
                     </div>
                 </TabsContent>
 
                 <TabsContent value="contacts">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base font-semibold">Contacts</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                    Main Contact Names
-                                </p>
-                                {supplier.mainContactNames.length > 0 ? (
-                                    <ul className="mt-2 flex flex-wrap gap-2">
-                                        {supplier.mainContactNames.map((name) => (
-                                            <li key={name}>
-                                                <Badge variant="default">{htmlToText(name)}</Badge>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <p className="mt-2 text-sm text-muted-foreground">—</p>
-                                )}
-                            </div>
-                            <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-                                <DetailField label="Main Email" value={supplier.mainEmail} />
-                                <DetailField label="Main Contact Phone" value={supplier.mainContactPhone} />
-                                <DetailField
-                                    label="Lead Assigned To"
-                                    value={supplier.leadAssignedTo?.name ?? supplier.leadAssignedTo?.email}
-                                />
-                            </dl>
-                        </CardContent>
-                    </Card>
+                    <div className="space-y-6">
+                        <SupplierContactsCard recordId={supplier.recordId} />
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="text-base font-semibold">
+                                    Main Contact &amp; Assignment
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+                                    <DetailField label="Main Email" value={supplier.mainEmail} />
+                                    <DetailField
+                                        label="Main Contact Phone"
+                                        value={supplier.mainContactPhone}
+                                    />
+                                    <DetailField
+                                        label="Lead Assigned To"
+                                        value={
+                                            supplier.leadAssignedTo?.name ??
+                                            supplier.leadAssignedTo?.email
+                                        }
+                                    />
+                                </dl>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </TabsContent>
 
                 <TabsContent value="distances">
@@ -339,10 +354,12 @@ function StatTile({
     icon: Icon,
     label,
     value,
+    hint,
 }: {
     icon: LucideIcon
     label: string
     value: string
+    hint?: string
 }) {
     return (
         <Card>
@@ -355,6 +372,7 @@ function StatTile({
                         {label}
                     </p>
                     <p className="mt-0.5 truncate text-lg font-bold text-ink-900">{value}</p>
+                    {hint && <p className="truncate text-xs text-muted-foreground">{hint}</p>}
                 </div>
             </CardContent>
         </Card>

@@ -5,6 +5,14 @@ import { Badge } from '../ui/badge'
 import { Checkbox } from '../ui/checkbox'
 import { Skeleton } from '../ui/skeleton'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '../ui/table'
 import { FreshnessBadge } from './freshness-badge'
 import { RichText } from './rich-text'
 import { adminErrorMessage } from '../../lib/admin-errors'
@@ -12,12 +20,20 @@ import { cn } from '../../lib/utils'
 import { htmlToText, formatCurrency, formatDate, formatNumber } from '../../lib/supplier-format'
 import {
     catalogLabel,
+    useSupplierCallNotesHistory,
     useSupplierCallProspectStatus,
     useSupplierCatalogs,
+    useSupplierContacts,
+    useSupplierInStockItems,
     useSupplierTargetPricing,
     useSupplierYardCapabilities,
 } from '../../hooks/useSupplierQueries'
-import type { DataFreshness, SupplierDetail, SupplierYardCapabilities } from '../../lib/supplier-api'
+import type {
+    DataFreshness,
+    SupplierContact,
+    SupplierDetail,
+    SupplierYardCapabilities,
+} from '../../lib/supplier-api'
 
 /* -------------------------------------------------------------------------- */
 /*  Shared presentational helpers                                             */
@@ -140,16 +156,31 @@ function SectionError({ error, onRetry }: { error: unknown; onRetry?: () => void
 /* -------------------------------------------------------------------------- */
 
 export function SupplierPrimaryContactCard({ supplier }: { supplier: SupplierDetail }) {
+    // Prefer the real "Main?" contact from the Contacts table; fall back to the
+    // flat fields carried on the supplier detail record.
+    const { data } = useSupplierContacts(supplier.recordId)
+    const main = data?.contacts.find((contact) => contact.isMain)
+
+    const contactName = [htmlToText(main?.firstName), htmlToText(main?.lastName)]
+        .filter(Boolean)
+        .join(' ')
     const name =
-        htmlToText(supplier.mainContactNames[0]) ??
-        htmlToText(supplier.leadAssignedTo?.name) ??
+        contactName ||
+        htmlToText(supplier.mainContactNames[0]) ||
+        htmlToText(supplier.leadAssignedTo?.name) ||
         'No contact on file'
+
+    const phone = main?.phone ?? supplier.mainContactPhone
+    const email = main?.email ?? supplier.mainEmail
+    const title = htmlToText(main?.title)
+    const cell = htmlToText(main?.cell)
     const leadName = htmlToText(supplier.leadAssignedTo?.name)
 
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-base font-semibold">Primary Contact</CardTitle>
+                {main && <Badge variant="default">Main</Badge>}
             </CardHeader>
             <CardContent className="space-y-5">
                 <div className="flex items-center gap-3">
@@ -158,6 +189,9 @@ export function SupplierPrimaryContactCard({ supplier }: { supplier: SupplierDet
                     </span>
                     <div className="min-w-0">
                         <p className="truncate font-semibold text-ink-900">{name}</p>
+                        {title && (
+                            <p className="truncate text-xs text-muted-foreground">{title}</p>
+                        )}
                         {leadName && supplier.mainContactNames.length > 0 && (
                             <p className="truncate text-xs text-muted-foreground">
                                 Lead: {leadName}
@@ -166,22 +200,23 @@ export function SupplierPrimaryContactCard({ supplier }: { supplier: SupplierDet
                     </div>
                 </div>
                 <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
-                    <DetailField label="Phone" value={supplier.mainContactPhone} />
-                    <DetailField label="Email" value={supplier.mainEmail} />
+                    <DetailField label="Phone" value={phone} />
+                    <DetailField label="Cell" value={cell} />
+                    <DetailField label="Email" value={email} />
                 </dl>
-                {(supplier.mainContactPhone || supplier.mainEmail) && (
+                {(phone || cell || email) && (
                     <div className="flex flex-wrap gap-2">
-                        {supplier.mainContactPhone && (
+                        {phone && (
                             <Button variant="outline" size="sm" asChild>
-                                <a href={`tel:${htmlToText(supplier.mainContactPhone)}`}>
+                                <a href={`tel:${htmlToText(phone)}`}>
                                     <Phone className="h-4 w-4" />
                                     Call Now
                                 </a>
                             </Button>
                         )}
-                        {supplier.mainEmail && (
+                        {email && (
                             <Button variant="outline" size="sm" asChild>
-                                <a href={`mailto:${htmlToText(supplier.mainEmail)}`}>Send Email</a>
+                                <a href={`mailto:${htmlToText(email)}`}>Send Email</a>
                             </Button>
                         )}
                     </div>
@@ -382,6 +417,215 @@ export function SupplierTargetPricingCard({ recordId }: { recordId: number }) {
                         </dl>
                     </div>
                 </div>
+            )}
+        </DataSection>
+    )
+}
+
+/* -------------------------------------------------------------------------- */
+/*  In-stock items (Materials Pricing)                                        */
+/* -------------------------------------------------------------------------- */
+
+export function SupplierInStockItemsCard({ recordId }: { recordId: number }) {
+    const { data, isLoading, isError, error, refetch } = useSupplierInStockItems(recordId)
+    const { data: catalogs } = useSupplierCatalogs()
+    const items = data?.items ?? []
+    const totalVolume = items.reduce<number | null>(
+        (sum, item) => (item.volume == null ? sum : (sum ?? 0) + item.volume),
+        null
+    )
+
+    return (
+        <DataSection
+            title="In-Stock Items"
+            freshness={data?.freshness}
+            isLoading={isLoading}
+            isError={isError}
+            error={error}
+            onRetry={() => void refetch()}
+        >
+            {items.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No in-stock items recorded.</p>
+            ) : (
+                <>
+                    <div className="mb-4 flex flex-wrap items-center gap-2">
+                        <Badge variant="outline">
+                            {items.length} {items.length === 1 ? 'item' : 'items'}
+                        </Badge>
+                        {totalVolume != null && (
+                            <Badge variant="neutral">
+                                Total volume: {formatNumber(totalVolume)}
+                            </Badge>
+                        )}
+                    </div>
+                    <div className="overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Material Type</TableHead>
+                                <TableHead>Packaging</TableHead>
+                                <TableHead>UOM</TableHead>
+                                <TableHead className="text-right">Weight</TableHead>
+                                <TableHead className="text-right">Target Offer</TableHead>
+                                <TableHead>Truck Type</TableHead>
+                                <TableHead className="text-right">Trucks / WK</TableHead>
+                                <TableHead className="text-right">Volume</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {items.map((item) => (
+                                <TableRow key={item.recordId}>
+                                    <TableCell className="font-medium text-ink-900">
+                                        {catalogLabel(catalogs, 'materialTypes', item.materialType)}
+                                    </TableCell>
+                                    <TableCell>
+                                        {catalogLabel(catalogs, 'preparations', item.packaging)}
+                                    </TableCell>
+                                    <TableCell>
+                                        {catalogLabel(catalogs, 'unitsOfMeasure', item.unitOfMeasure)}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        {formatNumber(item.weight)}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        {formatCurrency(item.targetOffer)}
+                                    </TableCell>
+                                    <TableCell>
+                                        {catalogLabel(catalogs, 'truckTypes', item.truckType)}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        {formatNumber(item.trucksPerWeek)}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        {formatNumber(item.volume)}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                    </div>
+                </>
+            )}
+        </DataSection>
+    )
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Contacts                                                                  */
+/* -------------------------------------------------------------------------- */
+
+export function SupplierContactsCard({ recordId }: { recordId: number }) {
+    const { data, isLoading, isError, error, refetch } = useSupplierContacts(recordId)
+    const contacts = data?.contacts ?? []
+
+    return (
+        <DataSection
+            title="Contacts"
+            freshness={data?.freshness}
+            isLoading={isLoading}
+            isError={isError}
+            error={error}
+            onRetry={() => void refetch()}
+        >
+            {contacts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No contacts on file.</p>
+            ) : (
+                <ul className="space-y-3">
+                    {contacts.map((contact) => (
+                        <SupplierContactRow key={contact.recordId} contact={contact} />
+                    ))}
+                </ul>
+            )}
+        </DataSection>
+    )
+}
+
+function SupplierContactRow({ contact }: { contact: SupplierContact }) {
+    const name =
+        [contact.firstName, contact.lastName]
+            .map((part) => htmlToText(part) ?? '')
+            .filter(Boolean)
+            .join(' ') || 'Unnamed contact'
+
+    return (
+        <li className="rounded-lg border border-border p-4">
+            <div className="flex items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-500 text-xs font-bold uppercase text-white">
+                    {initials(name)}
+                </span>
+                <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate font-semibold text-ink-900">{name}</p>
+                        {contact.isMain && <Badge variant="default">Main</Badge>}
+                    </div>
+                    {contact.title && (
+                        <p className="truncate text-xs text-muted-foreground">
+                            {htmlToText(contact.title)}
+                        </p>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-800">
+                        {contact.phone && (
+                            <a className="hover:underline" href={`tel:${htmlToText(contact.phone)}`}>
+                                {htmlToText(contact.phone)}
+                            </a>
+                        )}
+                        {contact.cell && (
+                            <a className="hover:underline" href={`tel:${htmlToText(contact.cell)}`}>
+                                {htmlToText(contact.cell)} (cell)
+                            </a>
+                        )}
+                        {contact.email && (
+                            <a
+                                className="hover:underline"
+                                href={`mailto:${htmlToText(contact.email)}`}
+                            >
+                                {htmlToText(contact.email)}
+                            </a>
+                        )}
+                    </div>
+                    {contact.notes && (
+                        <div className="mt-2 text-sm text-muted-foreground">
+                            <RichText value={contact.notes} />
+                        </div>
+                    )}
+                </div>
+            </div>
+        </li>
+    )
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Call notes history                                                       */
+/* -------------------------------------------------------------------------- */
+
+export function SupplierCallNotesHistoryCard({ recordId }: { recordId: number }) {
+    const { data, isLoading, isError, error, refetch } = useSupplierCallNotesHistory(recordId)
+    const notes = data?.notes ?? []
+
+    return (
+        <DataSection
+            title="Call Notes History"
+            freshness={data?.freshness}
+            isLoading={isLoading}
+            isError={isError}
+            error={error}
+            onRetry={() => void refetch()}
+        >
+            {notes.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No call notes yet.</p>
+            ) : (
+                <ol className="space-y-4">
+                    {notes.map((note) => (
+                        <li key={note.recordId} className="border-l-2 border-brand-200 pl-4">
+                            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                {formatDate(note.dateCreated) ?? 'No date'}
+                            </p>
+                            <div className="mt-1 whitespace-pre-wrap text-sm text-ink-800">
+                                <RichText value={note.notes} />
+                            </div>
+                        </li>
+                    ))}
+                </ol>
             )}
         </DataSection>
     )

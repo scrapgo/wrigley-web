@@ -2,14 +2,21 @@ import { useQuery } from '@tanstack/react-query'
 
 import {
     getSupplier,
+    getSupplierCallNotesHistory,
     getSupplierCallProspectStatus,
+    getSupplierContacts,
+    getSupplierInStockItems,
     getSupplierTargetPricingProgressRail,
     getSupplierYardCapabilities,
     listDeadFreight,
     listLastCallResults,
+    listMaterialTypes,
     listPaymentTerms,
+    listPreparations,
     listSuppliers,
     listSupplierObjections,
+    listTruckTypes,
+    listUnitsOfMeasure,
     type DropdownOption,
 } from '../lib/supplier-api'
 
@@ -27,6 +34,11 @@ export const supplierKeys = {
         ['suppliers', 'detail', recordId, 'yard-capabilities'] as const,
     targetPricing: (recordId: number) =>
         ['suppliers', 'detail', recordId, 'target-pricing-progress-rail'] as const,
+    contacts: (recordId: number) => ['suppliers', 'detail', recordId, 'contacts'] as const,
+    inStockItems: (recordId: number) =>
+        ['suppliers', 'detail', recordId, 'in-stock-items'] as const,
+    callNotesHistory: (recordId: number) =>
+        ['suppliers', 'detail', recordId, 'call-notes-history'] as const,
     catalogs: ['suppliers', 'catalogs'] as const,
 }
 
@@ -79,12 +91,43 @@ export function useSupplierTargetPricing(recordId: number) {
     })
 }
 
+/** One supplier's contacts, main contact first. */
+export function useSupplierContacts(recordId: number) {
+    return useQuery({
+        queryKey: supplierKeys.contacts(recordId),
+        queryFn: () => getSupplierContacts(recordId),
+        enabled: recordId > 0,
+    })
+}
+
+/** One supplier's in-stock items. */
+export function useSupplierInStockItems(recordId: number) {
+    return useQuery({
+        queryKey: supplierKeys.inStockItems(recordId),
+        queryFn: () => getSupplierInStockItems(recordId),
+        enabled: recordId > 0,
+    })
+}
+
+/** One supplier's call notes history, newest first. */
+export function useSupplierCallNotesHistory(recordId: number) {
+    return useQuery({
+        queryKey: supplierKeys.callNotesHistory(recordId),
+        queryFn: () => getSupplierCallNotesHistory(recordId),
+        enabled: recordId > 0,
+    })
+}
+
 /** The static dropdown catalogs, as `value -> label` maps. Static, so cached for the session. */
 export interface SupplierCatalogs {
     paymentTerms: Record<string, string>
     deadFreight: Record<string, string>
     lastCallResults: Record<string, string>
     supplierObjections: Record<string, string>
+    materialTypes: Record<string, string>
+    unitsOfMeasure: Record<string, string>
+    preparations: Record<string, string>
+    truckTypes: Record<string, string>
 }
 
 function toLabelMap(options: DropdownOption[]): Record<string, string> {
@@ -96,18 +139,34 @@ export function useSupplierCatalogs() {
         queryKey: supplierKeys.catalogs,
         staleTime: Infinity,
         queryFn: async (): Promise<SupplierCatalogs> => {
-            const [paymentTerms, deadFreight, lastCallResults, supplierObjections] =
-                await Promise.all([
-                    listPaymentTerms(),
-                    listDeadFreight(),
-                    listLastCallResults(),
-                    listSupplierObjections(),
-                ])
+            const [
+                paymentTerms,
+                deadFreight,
+                lastCallResults,
+                supplierObjections,
+                materialTypes,
+                unitsOfMeasure,
+                preparations,
+                truckTypes,
+            ] = await Promise.all([
+                listPaymentTerms(),
+                listDeadFreight(),
+                listLastCallResults(),
+                listSupplierObjections(),
+                listMaterialTypes(),
+                listUnitsOfMeasure(),
+                listPreparations(),
+                listTruckTypes(),
+            ])
             return {
                 paymentTerms: toLabelMap(paymentTerms),
                 deadFreight: toLabelMap(deadFreight),
                 lastCallResults: toLabelMap(lastCallResults),
                 supplierObjections: toLabelMap(supplierObjections),
+                materialTypes: toLabelMap(materialTypes),
+                unitsOfMeasure: toLabelMap(unitsOfMeasure),
+                preparations: toLabelMap(preparations),
+                truckTypes: toLabelMap(truckTypes),
             }
         },
     })

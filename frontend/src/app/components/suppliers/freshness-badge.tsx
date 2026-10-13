@@ -1,4 +1,5 @@
 import { Badge } from '../ui/badge'
+import { formatRelativeTime } from '../../lib/supplier-format'
 import type { DataFreshness } from '../../lib/supplier-api'
 
 const LABELS: Record<string, string> = {
@@ -25,6 +26,9 @@ export function FreshnessBadge({ freshness }: { freshness: DataFreshness }) {
     return (
         <Badge variant={variant} title={`Fetched ${fetched.toLocaleString()}`}>
             {label}
+            <span className="font-normal opacity-70">
+                · {formatRelativeTime(freshness.fetchedAt)}
+            </span>
         </Badge>
     )
 }

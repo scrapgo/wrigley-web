@@ -87,6 +87,7 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 - `GET …/suppliers/{recordId}/in-stock-items` returns the supplier's items from the **In-Stock Items** table `bscpxjrw3` (`{15.EX.'<recordId>'}`), for Materials Pricing: a list with four dropdowns (`InStockItemDropdowns`; field 10 is returned as both `packaging` and `prep`). An empty list, never 404.
 - `GET …/suppliers/{recordId}/contacts` returns the supplier's contacts from the **Contacts** table `br8imsxs2` (`{29.EX.'<recordId>'}`), main contact first (sorted in the API). An empty list, never 404.
 - `GET …/suppliers/{recordId}/call-notes-history` returns the supplier's notes from the **Call Notes** table `br8tgw3tp` (`{19.EX.'<recordId>'}`), newest first (sorted in the API). An empty list, never 404.
+- `GET …/suppliers/{recordId}/linked-its-dispatch-records` returns the ITS dispatch records linked to the supplier from table `bspsb9kpm` (`{366.EX.'<recordId>'}`), newest ship date first; `consumer` is "Consumer - City, State". An empty list, never 404.
 - All of them share `SupplierService.ReadRecordAsync`: the access check, then 404 / 502.
 - `GET /api/suppliers…` (every endpoint above) does the same without an organization or application, for **platform administrators only** (`Admin.Access` at platform scope, which needs a Workspace sign-in). The Suppliers table is ScrapGo-wide.
 - Both require `Downstream.Suppliers.Read` at application scope, which also needs the Suppliers module enabled.

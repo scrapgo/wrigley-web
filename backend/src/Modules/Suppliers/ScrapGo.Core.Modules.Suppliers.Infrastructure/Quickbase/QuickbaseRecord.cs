@@ -41,6 +41,14 @@ internal readonly struct QuickbaseRecord(JsonElement row)
             ? parsed
             : null;
 
+    /// <summary>A date field: <c>"2026-10-15"</c> (or a date/time, whose date part is taken).</summary>
+    public DateOnly? Date(int fieldId) =>
+        Text(fieldId) is { Length: > 0 } text
+            ? DateOnly.TryParseExact(text, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+                ? date
+                : DateTime(fieldId) is { } moment ? DateOnly.FromDateTime(moment.UtcDateTime) : null
+            : null;
+
     /// <summary>A dropdown's text: a single value, or the first of a multi-select.</summary>
     public string? Choice(int fieldId) => Text(fieldId) ?? TextList(fieldId).FirstOrDefault();
 

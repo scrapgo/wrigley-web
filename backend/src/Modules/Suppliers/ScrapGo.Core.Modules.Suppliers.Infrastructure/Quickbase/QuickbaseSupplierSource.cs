@@ -134,6 +134,28 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
         return new(notes, Freshness(result));
     }
 
+    public async Task<Sourced<IReadOnlyList<SupplierDispatchRecordDto>?>> ListDispatchRecordsAsync(
+        int supplierRecordId, CancellationToken cancellationToken)
+    {
+        var result = await QueryAsync(
+            new QuickbaseQuery(DispatchRecordsTable.TableId, DispatchRecordsTable.Fields, DispatchRecordsTable.BySupplier(supplierRecordId)),
+            cancellationToken);
+
+        using var document = JsonDocument.Parse(result.ResponseJson);
+
+        // Newest ship date first; records without one last, then by record id (newest first).
+        IReadOnlyList<SupplierDispatchRecordDto> records =
+        [
+            .. Rows(document)
+                .Select(row => ToDispatchRecord(new QuickbaseRecord(row)))
+                .OfType<SupplierDispatchRecordDto>()
+                .OrderByDescending(record => record.ShipDate ?? DateOnly.MinValue)
+                .ThenByDescending(record => record.RecordId),
+        ];
+
+        return new(records, Freshness(result));
+    }
+
     public async Task<Sourced<SupplierPage>> ListAsync(string? search, int skip, int top, CancellationToken cancellationToken)
     {
         var result = await QueryAsync(
@@ -277,6 +299,29 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
             ChoiceOf(recordId, "truck type", InStockItemDropdowns.TruckTypes, record.Choice(InStockItemsTable.TruckType)),
             record.Decimal(InStockItemsTable.TrucksPerWeek),
             record.Decimal(InStockItemsTable.Volume));
+    }
+
+    private SupplierDispatchRecordDto? ToDispatchRecord(QuickbaseRecord record)
+    {
+        if (record.Int(DispatchRecordsTable.RecordId) is not { } recordId)
+        {
+            return null;
+        }
+
+        var city = record.Text(DispatchRecordsTable.ConsumerCity);
+        var state = record.Text(DispatchRecordsTable.ConsumerState);
+        return new SupplierDispatchRecordDto(
+            recordId,
+            record.Text(DispatchRecordsTable.LoadNumber),
+            DispatchRecordsTable.FormatConsumer(record.Text(DispatchRecordsTable.Consumer), city, state),
+            city,
+            state,
+            record.Text(DispatchRecordsTable.CarrierDriver),
+            record.Text(DispatchRecordsTable.Material),
+            record.Decimal(DispatchRecordsTable.Weight),
+            record.Date(DispatchRecordsTable.ShipDate),
+            record.Date(DispatchRecordsTable.DeliveryDate),
+            ChoiceOf(recordId, "dispatch status", DispatchStatuses.Catalog, record.Choice(DispatchRecordsTable.Status)));
     }
 
     /// <summary>A dropdown field as its enum; unknown text is returned as null and logged.</summary>

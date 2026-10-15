@@ -121,6 +121,23 @@ public sealed class SuppliersController(SupplierService suppliers) : ControllerB
             : SupplierProblems.For(result.Outcome, SupplierPermissions.Read);
     }
 
+    /// <summary>
+    /// The ITS dispatch records linked to the supplier (Quickbase ITS Dispatch
+    /// Records table), newest ship date first. An empty list when there are none.
+    /// </summary>
+    [HttpGet("{recordId:int}/linked-its-dispatch-records")]
+    [ProducesResponseType<SupplierDispatchRecordsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> GetLinkedDispatchRecords(int organizationId, int applicationId, int recordId, CancellationToken cancellationToken)
+    {
+        var result = await suppliers.GetDispatchRecordsAsync(SupplierScope.ForApplication(organizationId, applicationId), recordId, cancellationToken);
+
+        return result is { Outcome: SupplierOutcome.Success, DispatchRecords: { } records }
+            ? Ok(records)
+            : SupplierProblems.For(result.Outcome, SupplierPermissions.Read);
+    }
+
     /// <summary>One supplier's yard capabilities: crusher, baler, scale, loading options and so on (all yes/no).</summary>
     [HttpGet("{recordId:int}/yard-capabilities")]
     [ProducesResponseType<SupplierYardCapabilitiesResponse>(StatusCodes.Status200OK)]

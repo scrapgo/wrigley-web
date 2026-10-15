@@ -43,4 +43,9 @@ public sealed class SupplierDropdownsController : ControllerBase
     [HttpGet("in-stock-items/truck-types")]
     [ProducesResponseType<IReadOnlyList<DropdownOption<TruckType>>>(StatusCodes.Status200OK)]
     public IActionResult TruckTypeOptions() => Ok(InStockItemDropdowns.TruckTypes.Options);
+
+    /// <summary>ITS dispatch record status options, in order.</summary>
+    [HttpGet("linked-its-dispatch-records/statuses")]
+    [ProducesResponseType<IReadOnlyList<DropdownOption<DispatchStatus>>>(StatusCodes.Status200OK)]
+    public IActionResult DispatchStatusOptions() => Ok(DispatchStatuses.Catalog.Options);
 }

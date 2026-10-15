@@ -4,7 +4,6 @@ import {
     Building2,
     ClipboardList,
     DollarSign,
-    FileText,
     MapPin,
     Phone,
     Ruler,
@@ -28,6 +27,7 @@ import {
     SupplierCallNotesHistoryCard,
     SupplierCallProspectStatusCard,
     SupplierContactsCard,
+    SupplierDispatchRecordsCard,
     SupplierInStockItemsCard,
     SupplierPrimaryContactCard,
     SupplierTargetPricingCard,
@@ -335,11 +335,7 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
                 </TabsContent>
 
                 <TabsContent value="documents">
-                    <PlaceholderTab
-                        icon={FileText}
-                        title="Documents &amp; other details not available yet"
-                        description="Documents, notes, and other attachments aren't returned by the supplier API yet."
-                    />
+                    <SupplierDispatchRecordsCard recordId={supplier.recordId} />
                 </TabsContent>
             </Tabs>
         </div>

@@ -25,6 +25,7 @@ import {
     useSupplierCatalogs,
     useSupplierContacts,
     useSupplierInStockItems,
+    useSupplierLinkedDispatchRecords,
     useSupplierTargetPricing,
     useSupplierYardCapabilities,
 } from '../../hooks/useSupplierQueries'
@@ -32,6 +33,7 @@ import type {
     DataFreshness,
     SupplierContact,
     SupplierDetail,
+    SupplierDispatchRecord,
     SupplierYardCapabilities,
 } from '../../lib/supplier-api'
 
@@ -628,6 +630,93 @@ export function SupplierCallNotesHistoryCard({ recordId }: { recordId: number })
                 </ol>
             )}
         </DataSection>
+    )
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Linked ITS dispatch records (Documents & Other)                           */
+/* -------------------------------------------------------------------------- */
+
+export function SupplierDispatchRecordsCard({ recordId }: { recordId: number }) {
+    const { data, isLoading, isError, error, refetch } = useSupplierLinkedDispatchRecords(recordId)
+    const { data: catalogs } = useSupplierCatalogs()
+    const records = data?.dispatchRecords ?? []
+
+    return (
+        <DataSection
+            title="Linked ITS Dispatch Records"
+            freshness={data?.freshness}
+            isLoading={isLoading}
+            isError={isError}
+            error={error}
+            onRetry={() => void refetch()}
+        >
+            {records.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No linked dispatch records.</p>
+            ) : (
+                <>
+                    <div className="mb-4 flex flex-wrap items-center gap-2">
+                        <Badge variant="outline">
+                            {records.length} {records.length === 1 ? 'record' : 'records'}
+                        </Badge>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Load #</TableHead>
+                                    <TableHead>Consumer</TableHead>
+                                    <TableHead>Carrier / Driver</TableHead>
+                                    <TableHead>Material</TableHead>
+                                    <TableHead className="text-right">Weight</TableHead>
+                                    <TableHead>Ship Date</TableHead>
+                                    <TableHead>Del Date</TableHead>
+                                    <TableHead>Status</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {records.map((record) => (
+                                    <SupplierDispatchRecordRow
+                                        key={record.recordId}
+                                        record={record}
+                                        statusLabel={catalogLabel(
+                                            catalogs,
+                                            'dispatchStatuses',
+                                            record.status
+                                        )}
+                                    />
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </>
+            )}
+        </DataSection>
+    )
+}
+
+function SupplierDispatchRecordRow({
+    record,
+    statusLabel,
+}: {
+    record: SupplierDispatchRecord
+    statusLabel: string | null
+}) {
+    return (
+        <TableRow>
+            <TableCell className="font-medium text-ink-900">
+                {htmlToText(record.loadNumber) ?? '—'}
+            </TableCell>
+            <TableCell>{htmlToText(record.consumer) ?? '—'}</TableCell>
+            <TableCell>{htmlToText(record.carrierDriver) ?? '—'}</TableCell>
+            <TableCell>{htmlToText(record.material) ?? '—'}</TableCell>
+            <TableCell className="text-right">{formatNumber(record.weight)}</TableCell>
+            <TableCell>{formatDate(record.shipDate) ?? '—'}</TableCell>
+            <TableCell>{formatDate(record.deliveryDate) ?? '—'}</TableCell>
+            <TableCell>
+                {statusLabel ? <Badge variant="neutral">{statusLabel}</Badge> : '—'}
+            </TableCell>
+        </TableRow>
     )
 }
 

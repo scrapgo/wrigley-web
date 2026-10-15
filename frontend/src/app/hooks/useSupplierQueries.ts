@@ -6,9 +6,11 @@ import {
     getSupplierCallProspectStatus,
     getSupplierContacts,
     getSupplierInStockItems,
+    getSupplierLinkedDispatchRecords,
     getSupplierTargetPricingProgressRail,
     getSupplierYardCapabilities,
     listDeadFreight,
+    listDispatchStatuses,
     listLastCallResults,
     listMaterialTypes,
     listPaymentTerms,
@@ -39,6 +41,8 @@ export const supplierKeys = {
         ['suppliers', 'detail', recordId, 'in-stock-items'] as const,
     callNotesHistory: (recordId: number) =>
         ['suppliers', 'detail', recordId, 'call-notes-history'] as const,
+    dispatchRecords: (recordId: number) =>
+        ['suppliers', 'detail', recordId, 'linked-its-dispatch-records'] as const,
     catalogs: ['suppliers', 'catalogs'] as const,
 }
 
@@ -118,6 +122,15 @@ export function useSupplierCallNotesHistory(recordId: number) {
     })
 }
 
+/** One supplier's linked ITS dispatch records, newest ship date first. */
+export function useSupplierLinkedDispatchRecords(recordId: number) {
+    return useQuery({
+        queryKey: supplierKeys.dispatchRecords(recordId),
+        queryFn: () => getSupplierLinkedDispatchRecords(recordId),
+        enabled: recordId > 0,
+    })
+}
+
 /** The static dropdown catalogs, as `value -> label` maps. Static, so cached for the session. */
 export interface SupplierCatalogs {
     paymentTerms: Record<string, string>
@@ -128,6 +141,7 @@ export interface SupplierCatalogs {
     unitsOfMeasure: Record<string, string>
     preparations: Record<string, string>
     truckTypes: Record<string, string>
+    dispatchStatuses: Record<string, string>
 }
 
 function toLabelMap(options: DropdownOption[]): Record<string, string> {
@@ -148,6 +162,7 @@ export function useSupplierCatalogs() {
                 unitsOfMeasure,
                 preparations,
                 truckTypes,
+                dispatchStatuses,
             ] = await Promise.all([
                 listPaymentTerms(),
                 listDeadFreight(),
@@ -157,6 +172,7 @@ export function useSupplierCatalogs() {
                 listUnitsOfMeasure(),
                 listPreparations(),
                 listTruckTypes(),
+                listDispatchStatuses(),
             ])
             return {
                 paymentTerms: toLabelMap(paymentTerms),
@@ -167,6 +183,7 @@ export function useSupplierCatalogs() {
                 unitsOfMeasure: toLabelMap(unitsOfMeasure),
                 preparations: toLabelMap(preparations),
                 truckTypes: toLabelMap(truckTypes),
+                dispatchStatuses: toLabelMap(dispatchStatuses),
             }
         },
     })

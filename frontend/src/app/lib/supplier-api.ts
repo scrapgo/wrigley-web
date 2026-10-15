@@ -285,6 +285,42 @@ export interface SupplierCallNotesHistoryResponse {
     freshness: DataFreshness
 }
 
+/**
+ * One ITS dispatch record linked to a supplier (Quickbase ITS Dispatch Records
+ * table). Null means empty in Quickbase. Dates are `yyyy-MM-dd`.
+ */
+export interface SupplierDispatchRecord {
+    /** Quickbase Record ID# (field 3), the dispatch record's id. */
+    recordId: number
+    /** Field 6, "Load #". */
+    loadNumber: string | null
+    /** Field 241 with 432 and 433, formatted as "Consumer - City, State" (empty parts left out). */
+    consumer: string | null
+    /** Field 432. */
+    consumerCity: string | null
+    /** Field 433. */
+    consumerState: string | null
+    /** Field 28, "Carrier/Driver". */
+    carrierDriver: string | null
+    /** Field 508. */
+    material: string | null
+    /** Field 378. */
+    weight: number | null
+    /** Field 14, `yyyy-MM-dd`. */
+    shipDate: string | null
+    /** Field 15, "Del Date", `yyyy-MM-dd`. */
+    deliveryDate: string | null
+    /** Field 8. Use the dispatch-statuses catalog for a label; null when empty or unknown. */
+    status: string | null
+}
+
+/** A supplier's linked ITS dispatch records, newest ship date first. Empty when there are none. */
+export interface SupplierDispatchRecordsResponse {
+    supplierRecordId: number
+    dispatchRecords: SupplierDispatchRecord[]
+    freshness: DataFreshness
+}
+
 /** One static dropdown option: the `value` a supplier response carries, and the `label` to show. */
 export interface DropdownOption {
     value: string
@@ -366,6 +402,15 @@ export function getSupplierCallNotesHistory(
     )
 }
 
+/** A supplier's linked ITS dispatch records, newest ship date first. Empty when there are none. */
+export function getSupplierLinkedDispatchRecords(
+    recordId: number
+): Promise<SupplierDispatchRecordsResponse> {
+    return apiClient.fetchWithAuth<SupplierDispatchRecordsResponse>(
+        `/api/suppliers/${recordId}/linked-its-dispatch-records`
+    )
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Dropdown catalogs (static reference data; any signed-in user)             */
 /* -------------------------------------------------------------------------- */
@@ -410,4 +455,11 @@ export function listPreparations(): Promise<DropdownOption[]> {
 /** In-stock item truck type options. */
 export function listTruckTypes(): Promise<DropdownOption[]> {
     return apiClient.fetchWithAuth<DropdownOption[]>('/api/suppliers/in-stock-items/truck-types')
+}
+
+/** ITS dispatch record status options, in order. */
+export function listDispatchStatuses(): Promise<DropdownOption[]> {
+    return apiClient.fetchWithAuth<DropdownOption[]>(
+        '/api/suppliers/linked-its-dispatch-records/statuses'
+    )
 }

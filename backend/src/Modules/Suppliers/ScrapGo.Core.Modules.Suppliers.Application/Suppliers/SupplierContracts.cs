@@ -204,6 +204,42 @@ public sealed record SupplierCallNoteDto(int RecordId, DateTimeOffset? DateCreat
 public sealed record SupplierCallNotesHistoryResponse(
     int SupplierRecordId, IReadOnlyList<SupplierCallNoteDto> Notes, DataFreshness Freshness);
 
+/// <summary>
+/// One ITS dispatch record linked to a supplier (Quickbase ITS Dispatch Records
+/// table <c>bspsb9kpm</c>). Null means empty in Quickbase.
+/// </summary>
+/// <param name="RecordId">Field 3, the dispatch record's Record ID#.</param>
+/// <param name="LoadNumber">Field 6, "Load #" (text).</param>
+/// <param name="Consumer">
+/// Field 241 with fields 432 and 433, formatted as "Consumer - City, State"
+/// (parts left out when empty).
+/// </param>
+/// <param name="ConsumerCity">Field 432 (text).</param>
+/// <param name="ConsumerState">Field 433 (text).</param>
+/// <param name="CarrierDriver">Field 28, "Carrier/Driver" (text).</param>
+/// <param name="Material">Field 508 (text).</param>
+/// <param name="Weight">Field 378 (numeric).</param>
+/// <param name="ShipDate">Field 14 (date).</param>
+/// <param name="DeliveryDate">Field 15, "Del Date" (date).</param>
+/// <param name="Status">Field 8 (dropdown); null when empty or not a known value.</param>
+public sealed record SupplierDispatchRecordDto(
+    int RecordId,
+    string? LoadNumber,
+    string? Consumer,
+    string? ConsumerCity,
+    string? ConsumerState,
+    string? CarrierDriver,
+    string? Material,
+    decimal? Weight,
+    DateOnly? ShipDate,
+    DateOnly? DeliveryDate,
+    DispatchStatus? Status);
+
+/// <param name="SupplierRecordId">The supplier the dispatch records are linked to.</param>
+/// <param name="DispatchRecords">Every linked dispatch record, newest ship date first; empty when there are none.</param>
+public sealed record SupplierDispatchRecordsResponse(
+    int SupplierRecordId, IReadOnlyList<SupplierDispatchRecordDto> DispatchRecords, DataFreshness Freshness);
+
 public sealed record SupplierCallProspectStatusResponse(SupplierCallProspectStatusDto CallProspectStatus, DataFreshness Freshness);
 
 public sealed record SupplierListResponse(

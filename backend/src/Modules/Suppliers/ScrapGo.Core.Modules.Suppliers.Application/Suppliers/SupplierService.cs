@@ -29,6 +29,9 @@ public sealed record SupplierContactsResult(SupplierOutcome Outcome, SupplierCon
 public sealed record SupplierCallNotesHistoryResult(
     SupplierOutcome Outcome, SupplierCallNotesHistoryResponse? CallNotesHistory = null);
 
+public sealed record SupplierDispatchRecordsResult(
+    SupplierOutcome Outcome, SupplierDispatchRecordsResponse? DispatchRecords = null);
+
 public sealed record SupplierTargetPricingProgressRailResult(
     SupplierOutcome Outcome, SupplierTargetPricingProgressRailResponse? TargetPricingProgressRail = null);
 
@@ -145,6 +148,20 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
         var (outcome, found) = await ReadRecordAsync(scope, recordId, source.ListCallNotesAsync, cancellationToken);
         return found is { Value: { } notes }
             ? new(outcome, new SupplierCallNotesHistoryResponse(recordId, notes, found.Freshness))
+            : new(outcome);
+    }
+
+    /// <summary>
+    /// The ITS dispatch records linked to the supplier (Documents &amp; Other),
+    /// newest ship date first. None (or an unknown supplier id) returns an empty
+    /// list, not 404.
+    /// </summary>
+    public async Task<SupplierDispatchRecordsResult> GetDispatchRecordsAsync(
+        SupplierScope scope, int recordId, CancellationToken cancellationToken)
+    {
+        var (outcome, found) = await ReadRecordAsync(scope, recordId, source.ListDispatchRecordsAsync, cancellationToken);
+        return found is { Value: { } records }
+            ? new(outcome, new SupplierDispatchRecordsResponse(recordId, records, found.Freshness))
             : new(outcome);
     }
 

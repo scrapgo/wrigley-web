@@ -189,6 +189,19 @@ public static class SupplierResponses
         }
         """;
 
+    /// <summary>The ITS dispatch records linked to supplier 17511 (sample values), deliberately not in date order.</summary>
+    public const string DispatchRecords = """
+        {
+          "data": [
+            { "3": { "value": 9001 }, "6": { "value": "L-1001" }, "241": { "value": "Progress Rail" }, "432": { "value": "Atlanta" }, "433": { "value": "GA" }, "28": { "value": "ABC Trucking / Joe" }, "508": { "value": "#1 HMS" }, "378": { "value": 42000.5 }, "14": { "value": "2026-09-01" }, "15": { "value": "2026-09-03" }, "8": { "value": "Delivered" } },
+            { "3": { "value": 9007 }, "6": { "value": "L-1007" }, "241": { "value": "Nucor" }, "432": { "value": "" }, "433": { "value": "FL" }, "28": { "value": "" }, "508": { "value": "Shred" }, "378": { "value": 38000 }, "14": { "value": "2026-10-02" }, "15": { "value": "" }, "8": { "value": "On Route" } },
+            { "3": { "value": 9004 }, "6": { "value": "L-1004" }, "241": { "value": "" }, "432": { "value": "Tampa" }, "433": { "value": "FL" }, "14": { "value": "2026-09-20" }, "8": { "value": "Lost in transit" } }
+          ],
+          "fields": [],
+          "metadata": { "numRecords": 3, "skip": 0, "totalRecords": 3 }
+        }
+        """;
+
     /// <summary>The name list query, first records.</summary>
     public const string NameList = """
         {

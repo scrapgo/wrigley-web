@@ -406,6 +406,8 @@ Each record endpoint exists in both route forms. For example,
 | `/{recordId}/in-stock-items` | Materials Pricing: the supplier's in-stock items, a list from the **In-Stock Items** table (below). Empty when it has none, never 404 |
 | `/in-stock-items/material-types` · `/units-of-measure` · `/preparations` · `/truck-types` | In-stock item dropdown options (`/preparations` = Packaging / Prep) |
 | `/{recordId}/call-notes-history` | The supplier's call notes, newest first, a list from the **Call Notes** table (below). Empty when it has none, never 404 |
+| `/{recordId}/linked-its-dispatch-records` | Documents & Other: the ITS dispatch records linked to the supplier, newest ship date first, a list from the **ITS Dispatch Records** table (below). Empty when there are none, never 404 |
+| `/linked-its-dispatch-records/statuses` | Dispatch status dropdown options |
 | `/{recordId}/contacts` | The supplier's contacts, main contact first, a list from the **Contacts** table (below). Empty when it has none, never 404 |
 | `/payment-terms` · `/dead-freight` · `/last-call-results` · `/supplier-objections` | Dropdown options: `[{ "value": "Net 5", "label": "Net 5" }, …]` (value and label are the same exact text) |
 
@@ -535,6 +537,24 @@ The query lists field 10 twice (`"select": [3,15,6,10,10,7,8,14,18,20,19]`), exa
 | Notes | 21 | `notes` | text |
 | Main? | 46 | `isMain` | checkbox |
 
+**Linked ITS dispatch records** (`dispatchRecords`, from table `bspsb9kpm`, `{366.EX.'<supplier recordId>'}`), newest ship date first:
+
+| Field | Id | API name | Type |
+| --- | --- | --- | --- |
+| Record ID# | 3 | `recordId` | number (the dispatch record) |
+| Load # | 6 | `loadNumber` | text |
+| Consumer | 241 + 432 + 433 | `consumer` | text: "Consumer - City, State" (empty parts left out) |
+| Consumer City | 432 | `consumerCity` | text |
+| Consumer State | 433 | `consumerState` | text |
+| Carrier/Driver | 28 | `carrierDriver` | text |
+| Material | 508 | `material` | text |
+| Weight | 378 | `weight` | numeric |
+| Ship Date | 14 | `shipDate` | date (`yyyy-MM-dd`) |
+| Del Date | 15 | `deliveryDate` | date (`yyyy-MM-dd`) |
+| Status | 8 | `status` | enum `DispatchStatus` |
+
+The query adds field 6 (Load #) to the portal's original select: `[3, 6, 241, 432, 433, 28, 508, 378, 14, 15, 8]`.
+
 ### Dropdowns (enums)
 
 Dropdown fields are enums, sent and accepted as their **exact text** (e.g. `"Net 5"`, `"No Answer - Voice Mail"`). The value, the label and the Quickbase text are the same string.
@@ -548,6 +568,7 @@ Dropdown fields are enums, sent and accepted as their **exact text** (e.g. `"Net
 | `UnitOfMeasure` | In-Stock 8 | NT · Pieces · LBS · GT · MT |
 | `Preparation` | In-Stock 10 (Packaging / Prep) | Wrapped / Palletized · Bales · Boxed · Crushed / Flattened · Logged · Loose · Loose or Baled · Loose or Logged · Loose or Palletized · Unprepared |
 | `TruckType` | In-Stock 18 | Dump Trailer · Van Trailer · Flatbed Trailer · Stepdeck Trailer · Other Specialized Trailer · Flatbread Trailer |
+| `DispatchStatus` | ITS Dispatch 8 | Pending · Delivered · Open · On Route · Completed · Dispatched · Refused · Invoiced · Test · Test2 · Loading · Covered · In Yard · Unloading · Roll Over |
 | `SupplierObjection` | 236 (dropdown) | Hot · Price · Payment Terms · Netting · Not interested · Too small · Labor Issues · No equipment · Too Difficult · Past ScrapGo Issues · Past Trucker Issues · Uses Own Truck · Nonferrous · Weird · I Don't Know · Other Ferrous · Sells to Our Consumer · Is a Mobile Crusher · No Contact · Loyalty · Seasonal · Too Far |
 
 - **Labels:** each enum member carries its exact text in `[JsonStringEnumMemberName("…")]`, the single source for the JSON value, the label and the Quickbase text. Reading Quickbase ignores case, extra spaces and curly apostrophes.

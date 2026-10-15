@@ -35,6 +35,10 @@ public interface ISupplierSource
     /// <exception cref="SupplierSourceUnavailableException">The source failed and nothing cached could be served.</exception>
     Task<Sourced<IReadOnlyList<SupplierCallNoteDto>?>> ListCallNotesAsync(int supplierRecordId, CancellationToken cancellationToken);
 
+    /// <summary>Every ITS dispatch record linked to a supplier (by field 366), newest ship date first; empty when there are none.</summary>
+    /// <exception cref="SupplierSourceUnavailableException">The source failed and nothing cached could be served.</exception>
+    Task<Sourced<IReadOnlyList<SupplierDispatchRecordDto>?>> ListDispatchRecordsAsync(int supplierRecordId, CancellationToken cancellationToken);
+
     /// <summary>Suppliers with a name, sorted by name, optionally filtered by a name substring, one page at a time.</summary>
     /// <exception cref="SupplierSourceUnavailableException">The source failed and nothing cached could be served.</exception>
     Task<Sourced<SupplierPage>> ListAsync(string? search, int skip, int top, CancellationToken cancellationToken);

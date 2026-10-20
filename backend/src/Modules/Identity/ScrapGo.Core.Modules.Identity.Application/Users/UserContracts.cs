@@ -1,8 +1,7 @@
 namespace ScrapGo.Core.Modules.Identity.Application.Users;
 
 /// <summary>One role a user holds.</summary>
-/// <param name="ExpiresAt">When the grant stops resolving; null never expires.</param>
-public sealed record AssignedRoleDto(int RoleId, string Name, DateTimeOffset? ExpiresAt = null);
+public sealed record AssignedRoleDto(int RoleId, string Name);
 
 /// <summary>Filters for the admin user list. Every filter is optional; omitted means "any".</summary>
 /// <param name="Search">Case-insensitive substring of the email (the only name-like field stored today).</param>

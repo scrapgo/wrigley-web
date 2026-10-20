@@ -73,7 +73,7 @@ public class ExternalUserRules
         [Fact]
         public async Task An_internal_user_is_never_affected()
         {
-            var (uid, _) = await fixture.SeedUserAsync("staff@scrapgo.example", UserClassification.Internal);
+            var (uid, _) = await fixture.SeedUserAsync("staff@scrapgo.example", UserType.Internal);
 
             Assert.Equal(HttpStatusCode.OK, (await fixture.SendUsersMeAsync(fixture.CreateToken(uid))).StatusCode);
         }

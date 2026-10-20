@@ -7,17 +7,17 @@ namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Fixtures;
 /// </summary>
 public static class IdentitySeed
 {
-    /// <param name="classification">External by default, as for any sign-in outside the internal Workspace domains.</param>
+    /// <param name="userType">External by default, as for any sign-in outside the internal Workspace domains.</param>
     public static async Task<(string Uid, int UserId)> SeedUserAsync(
         this IdentitySpecFixture fixture,
         string email = "member@example.com",
-        UserClassification classification = UserClassification.External)
+        UserType userType = UserType.External)
     {
         var uid = Guid.NewGuid().ToString();
-        var user = User.Provision(uid, email, classification, DateTimeOffset.UtcNow);
+        var user = User.Provision(uid, email, userType, DateTimeOffset.UtcNow);
         fixture.DbContext.Users.Add(user);
         await fixture.DbContext.SaveChangesAsync();
-        if (classification == UserClassification.Internal)
+        if (userType == UserType.Internal)
         {
             fixture.MarkInternal(uid);
         }
@@ -28,7 +28,7 @@ public static class IdentitySeed
     /// <summary>A new internal user holding the built-in PlatformAdministrator.</summary>
     public static async Task<(string Uid, int UserId)> SeedPlatformAdministratorAsync(this IdentitySpecFixture fixture)
     {
-        var (uid, userId) = await fixture.SeedUserAsync("platform-admin@scrapgo.example", UserClassification.Internal);
+        var (uid, userId) = await fixture.SeedUserAsync("platform-admin@scrapgo.example", UserType.Internal);
         var roleId = await fixture.DbContext.Roles
             .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator)
             .Select(r => r.Id)
@@ -41,7 +41,7 @@ public static class IdentitySeed
     /// <summary>Creates a role granting <paramref name="permissionNames"/> and assigns it to the user.</summary>
     public static async Task<int> GrantPermissionsAsync(this IdentitySpecFixture fixture, int userId, params string[] permissionNames)
     {
-        var role = Role.Create($"Spec Role {Guid.NewGuid():N}", null, DateTimeOffset.UtcNow);
+        var role = Role.Create($"spec_role_{Guid.NewGuid():N}", "Spec Role", null, UserType.Internal, isSystem: false);
 
         fixture.DbContext.Roles.Add(role);
         await fixture.DbContext.SaveChangesAsync();
@@ -68,14 +68,14 @@ public static class IdentitySeed
     {
         await fixture.MakeInternalAsync(userId);
 
-        fixture.DbContext.UserRoles.Add(UserRole.Assign(userId, roleId, DateTimeOffset.UtcNow));
+        fixture.DbContext.UserRoles.Add(UserRole.Assign(userId, roleId, UserType.Internal, assignedByUserId: null, DateTimeOffset.UtcNow));
         await fixture.DbContext.SaveChangesAsync();
     }
 
     private static async Task MakeInternalAsync(this IdentitySpecFixture fixture, int userId)
     {
         await fixture.DbContext.Database.ExecuteSqlAsync(
-            $"UPDATE identity.users SET classification = 'Internal' WHERE id = {userId}");
+            $"UPDATE identity.users SET user_type = 'Internal' WHERE id = {userId}");
         var uid = await fixture.DbContext.Users.AsNoTracking().Where(u => u.Id == userId).Select(u => u.IdentityPlatformUid).SingleAsync();
         fixture.MarkInternal(uid);
     }

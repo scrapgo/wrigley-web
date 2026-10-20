@@ -10,6 +10,10 @@ public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
 
         builder.HasKey(r => r.Id);
 
+        builder.Property(r => r.Key)
+            .HasColumnType("text")
+            .IsRequired();
+
         builder.Property(r => r.Name)
             .HasColumnType("text")
             .IsRequired();
@@ -18,35 +22,29 @@ public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
             .HasColumnType("text")
             .IsRequired();
 
-        // Only to filter out the old schema's organization custom roles until B6.
-        builder.Property<int?>(LegacyScope.Property).HasColumnName(LegacyScope.Column);
-
-        builder.Property(r => r.Status)
+        builder.Property(r => r.UserType)
             .HasColumnType("text")
             .HasConversion<string>()
+            .IsRequired();
+
+        builder.Property(r => r.IsSystem)
             .IsRequired()
-            .HasDefaultValue(RoleStatus.Active);
+            .HasDefaultValue(false);
 
-        builder.Property(r => r.CreatedAt)
-            .HasColumnType("timestamptz")
-            .IsRequired();
+        // The target of user_roles' composite foreign key (role_id, user_type).
+        builder.HasAlternateKey(r => new { r.Id, r.UserType })
+            .HasName("ux_roles_id_user_type");
 
-        builder.Property(r => r.UpdatedAt)
-            .HasColumnType("timestamptz")
-            .IsRequired();
-
-        // Role names are unique. The name is the old schema's platform-scope
-        // index, the one that applies now that roles are global.
-        builder.HasIndex(r => r.Name)
+        builder.HasIndex(r => r.Key)
             .IsUnique()
-            .HasDatabaseName("ux_roles_name_platform_scope");
+            .HasDatabaseName("ux_roles_key");
 
-        builder.ToTable(t => t.HasCheckConstraint("ck_roles_status", "status IN ('Active', 'Deleted')"));
+        builder.ToTable(t => t.HasCheckConstraint("ck_roles_user_type", "user_type IN ('Internal', 'External')"));
 
         builder.HasMany(r => r.RolePermissions)
             .WithOne()
             .HasForeignKey(rp => rp.RoleId)
-            .OnDelete(DeleteBehavior.Restrict)
+            .OnDelete(DeleteBehavior.Cascade)
             .HasConstraintName("fk_role_permissions_role_id");
     }
 }

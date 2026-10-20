@@ -25,19 +25,34 @@ public class User
     /// <summary>Display attribute only; never used for identity resolution or authorization.</summary>
     public string Email { get; private set; } = string.Empty;
 
-    public UserStatus Status { get; private set; } = UserStatus.Active;
+    /// <summary>The name from the identity provider, when it sent one.</summary>
+    public string? DisplayName { get; private set; }
 
     /// <summary>
-    /// Decided exactly once, at provisioning time, and never re-evaluated on
-    /// later requests. See <see cref="UserClassification"/>.
+    /// Set once, at creation, and never changed: <c>(id, user_type)</c> is the
+    /// target of the composite foreign keys that keep roles and supplier links
+    /// to users of the right type.
     /// </summary>
-    public UserClassification Classification { get; private set; } = UserClassification.External;
+    public UserType UserType { get; private set; } = UserType.External;
+
+    public UserStatus Status { get; private set; } = UserStatus.Active;
+
+    /// <summary>The token's <c>firebase.sign_in_provider</c> at the last sign-in, e.g. <c>google.com</c> or <c>password</c>.</summary>
+    public string? SignInProvider { get; private set; }
+
+    public DateTimeOffset? LastSignInAt { get; private set; }
 
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset UpdatedAt { get; private set; }
 
-    public static User Provision(string identityPlatformUid, string email, UserClassification classification, DateTimeOffset now)
+    public static User Provision(
+        string identityPlatformUid,
+        string email,
+        UserType userType,
+        DateTimeOffset now,
+        string? displayName = null,
+        string? signInProvider = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(identityPlatformUid);
 
@@ -45,14 +60,24 @@ public class User
         {
             IdentityPlatformUid = identityPlatformUid,
             Email = email,
+            DisplayName = displayName,
+            UserType = userType,
             Status = UserStatus.Active,
-            Classification = classification,
+            SignInProvider = signInProvider,
+            LastSignInAt = signInProvider is null ? null : now,
             CreatedAt = now,
             UpdatedAt = now,
         };
     }
 
     public bool IsActive => Status == UserStatus.Active;
+
+    public void RecordSignIn(string? signInProvider, DateTimeOffset now)
+    {
+        SignInProvider = signInProvider;
+        LastSignInAt = now;
+        UpdatedAt = now;
+    }
 
     public void Disable(DateTimeOffset now)
     {

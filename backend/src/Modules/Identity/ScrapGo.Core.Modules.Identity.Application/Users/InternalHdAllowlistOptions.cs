@@ -2,7 +2,7 @@ namespace ScrapGo.Core.Modules.Identity.Application.Users;
 
 /// <summary>
 /// Hosted-domain (<c>hd</c> claim) values that classify a newly provisioned
-/// user as <see cref="UserClassification.Internal"/>. Parsed once at startup
+/// user as <see cref="UserType.Internal"/>. Parsed once at startup
 /// from the <c>INTERNAL_HD_ALLOWLIST</c> setting: a JSON array in appsettings
 /// (<c>["scrapgo.com"]</c>) or a comma-separated string (the Cloud Run env var).
 /// Empty (the default) means every user is classified External.

@@ -25,6 +25,14 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
 
     public DbSet<UserRole> UserRoles => Set<UserRole>();
 
+    public DbSet<Feature> Features => Set<Feature>();
+
+    public DbSet<FeatureTarget> FeatureTargets => Set<FeatureTarget>();
+
+    public DbSet<UserSupplier> UserSuppliers => Set<UserSupplier>();
+
+    public DbSet<Invitation> Invitations => Set<Invitation>();
+
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     /// <remarks>

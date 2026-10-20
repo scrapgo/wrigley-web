@@ -10,32 +10,36 @@ public sealed class PermissionConfiguration : IEntityTypeConfiguration<Permissio
 
         builder.HasKey(p => p.Id);
 
+        builder.Property(p => p.Key)
+            .HasColumnType("text")
+            .IsRequired();
+
+        builder.Property(p => p.Audience)
+            .HasColumnType("text")
+            .HasConversion<string>()
+            .IsRequired();
+
         builder.Property(p => p.Name)
             .HasColumnType("text")
             .IsRequired();
 
-        builder.Property(p => p.CreatedAt)
-            .HasColumnType("timestamptz")
+        builder.Property(p => p.Description)
+            .HasColumnType("text")
             .IsRequired();
 
-        builder.Property(p => p.UpdatedAt)
-            .HasColumnType("timestamptz")
-            .IsRequired();
-
-        builder.HasIndex(p => p.Name)
+        builder.HasIndex(p => p.Key)
             .IsUnique()
-            .HasDatabaseName("ux_permissions_name");
+            .HasDatabaseName("ux_permissions_key");
 
-        // The catalog is a compile-time contract, seeded here and never written
-        // over HTTP. Ids are 1-based positions in Permissions.All, so new
-        // permissions must be appended, never inserted or reordered.
-        var seededAt = new DateTimeOffset(2026, 9, 10, 0, 0, 0, TimeSpan.Zero);
-        builder.HasData(Permissions.All.Select((name, index) => new
-        {
-            Id = index + 1,
-            Name = name,
-            CreatedAt = seededAt,
-            UpdatedAt = seededAt,
-        }));
+        builder.HasIndex(p => p.FeatureId)
+            .HasDatabaseName("ix_permissions_feature_id");
+
+        builder.ToTable(t => t.HasCheckConstraint("ck_permissions_audience", "audience IN ('Internal', 'External', 'Any')"));
+
+        builder.HasOne<Feature>()
+            .WithMany()
+            .HasForeignKey(p => p.FeatureId)
+            .OnDelete(DeleteBehavior.Restrict)
+            .HasConstraintName("fk_permissions_feature_id");
     }
 }

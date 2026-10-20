@@ -2,25 +2,17 @@ using ScrapGo.Core.Modules.Identity.Application.Users;
 
 namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence;
 
-/// <remarks>
-/// Every query skips rows with a <see cref="LegacyScope"/>: organization-scoped
-/// roles and grants the old schema still holds until B6.
-/// </remarks>
 public sealed class RoleRepository(IdentityDbContext dbContext) : IRoleRepository
 {
-    private IQueryable<Role> Roles => dbContext.Roles.Where(r => EF.Property<int?>(r, LegacyScope.Property) == null);
-
-    private IQueryable<UserRole> UserRoles => dbContext.UserRoles.Where(ur => EF.Property<int?>(ur, LegacyScope.Property) == null);
-
     public Task<Role?> FindActiveRoleAsync(int roleId, CancellationToken cancellationToken) =>
-        Roles
+        dbContext.Roles
             .AsNoTracking()
-            .SingleOrDefaultAsync(r => r.Id == roleId && r.Status == RoleStatus.Active, cancellationToken);
+            .SingleOrDefaultAsync(r => r.Id == roleId, cancellationToken);
 
-    public Task<int> GetPlatformRoleIdAsync(string roleName, CancellationToken cancellationToken) =>
-        Roles
+    public Task<int> GetPlatformRoleIdAsync(string roleKey, CancellationToken cancellationToken) =>
+        dbContext.Roles
             .AsNoTracking()
-            .Where(r => r.Name == roleName)
+            .Where(r => r.Key == roleKey)
             .Select(r => r.Id)
             .SingleAsync(cancellationToken);
 
@@ -29,7 +21,7 @@ public sealed class RoleRepository(IdentityDbContext dbContext) : IRoleRepositor
             $"SELECT 1 FROM identity.roles WHERE id = {roleId} FOR UPDATE", cancellationToken);
 
     public Task<int> CountActiveHoldersAsync(int roleId, int excludingUserId, CancellationToken cancellationToken) =>
-        (from ur in UserRoles.AsNoTracking()
+        (from ur in dbContext.UserRoles.AsNoTracking()
          join u in dbContext.Users.AsNoTracking() on ur.UserId equals u.Id
          where ur.RoleId == roleId
              && ur.UserId != excludingUserId
@@ -39,7 +31,7 @@ public sealed class RoleRepository(IdentityDbContext dbContext) : IRoleRepositor
         .CountAsync(cancellationToken);
 
     public async Task<IReadOnlyList<int>> ListHolderIdsAsync(int roleId, CancellationToken cancellationToken) =>
-        await UserRoles
+        await dbContext.UserRoles
             .AsNoTracking()
             .Where(ur => ur.RoleId == roleId)
             .Select(ur => ur.UserId)
@@ -47,7 +39,7 @@ public sealed class RoleRepository(IdentityDbContext dbContext) : IRoleRepositor
             .ToListAsync(cancellationToken);
 
     public Task<bool> IsHeldByAsync(int userId, int roleId, CancellationToken cancellationToken) =>
-        UserRoles.AsNoTracking().AnyAsync(ur => ur.UserId == userId && ur.RoleId == roleId, cancellationToken);
+        dbContext.UserRoles.AsNoTracking().AnyAsync(ur => ur.UserId == userId && ur.RoleId == roleId, cancellationToken);
 
     public void AddUserRole(UserRole userRole) => dbContext.UserRoles.Add(userRole);
 
@@ -55,20 +47,20 @@ public sealed class RoleRepository(IdentityDbContext dbContext) : IRoleRepositor
         await dbContext.RolePermissions
             .AsNoTracking()
             .Where(rp => rp.RoleId == roleId)
-            .Select(rp => rp.Permission.Name)
-            .OrderBy(name => name)
+            .Select(rp => rp.Permission.Key)
+            .OrderBy(key => key)
             .ToListAsync(cancellationToken);
 
     public async Task<IReadOnlyList<AssignedRoleDto>> ListUserRolesAsync(int userId, CancellationToken cancellationToken) =>
-        await UserRoles
+        await dbContext.UserRoles
             .AsNoTracking()
-            .Where(ur => ur.UserId == userId && ur.Role.Status == RoleStatus.Active)
+            .Where(ur => ur.UserId == userId)
             .OrderBy(ur => ur.Role.Name)
-            .Select(ur => new AssignedRoleDto(ur.RoleId, ur.Role.Name, ur.ExpiresAt))
+            .Select(ur => new AssignedRoleDto(ur.RoleId, ur.Role.Name))
             .ToListAsync(cancellationToken);
 
     public Task<UserRole?> FindUserRoleAsync(int userId, int roleId, CancellationToken cancellationToken) =>
-        UserRoles.SingleOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == roleId, cancellationToken);
+        dbContext.UserRoles.SingleOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == roleId, cancellationToken);
 
     public void RemoveUserRole(UserRole userRole) => dbContext.UserRoles.Remove(userRole);
 }

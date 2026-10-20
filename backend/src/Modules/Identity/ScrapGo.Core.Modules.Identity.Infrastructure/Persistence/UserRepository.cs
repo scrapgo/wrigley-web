@@ -24,10 +24,10 @@ public sealed class UserRepository(IdentityDbContext dbContext) : IUserRepositor
         // not at build time.
         var inserted = await dbContext.Users
             .FromSqlInterpolated($"""
-                INSERT INTO identity.users (identity_platform_uid, email, status, classification, created_at, updated_at)
-                VALUES ({candidate.IdentityPlatformUid}, {candidate.Email}, {candidate.Status.ToString()}, {candidate.Classification.ToString()}, {candidate.CreatedAt}, {candidate.UpdatedAt})
+                INSERT INTO identity.users (identity_platform_uid, email, status, user_type, created_at, updated_at)
+                VALUES ({candidate.IdentityPlatformUid}, {candidate.Email}, {candidate.Status.ToString()}, {candidate.UserType.ToString()}, {candidate.CreatedAt}, {candidate.UpdatedAt})
                 ON CONFLICT (identity_platform_uid) DO NOTHING
-                RETURNING id, identity_platform_uid, email, status, classification, created_at, updated_at
+                RETURNING id, identity_platform_uid, email, status, user_type, created_at, updated_at
                 """)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
@@ -64,7 +64,7 @@ public sealed class UserRepository(IdentityDbContext dbContext) : IUserRepositor
         dbContext.Users
             .AsNoTracking()
             .Where(u => u.IdentityPlatformUid == identityPlatformUid)
-            .Select(u => new UserStatusSnapshot(u.Id, u.Status, u.Classification))
+            .Select(u => new UserStatusSnapshot(u.Id, u.Status, u.UserType))
             .SingleOrDefaultAsync(cancellationToken);
 
     public Task<int?> GetIdByUidAsync(string identityPlatformUid, CancellationToken cancellationToken) =>

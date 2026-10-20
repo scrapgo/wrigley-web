@@ -36,7 +36,7 @@ public class FirstRequestAutoProvisioningIsExactlyOnce
 
         public async Task InitializeAsync()
         {
-            fixture.DbContext.Users.Add(User.Provision(_uid, "existing@example.com", UserClassification.External, DateTimeOffset.UtcNow));
+            fixture.DbContext.Users.Add(User.Provision(_uid, "existing@example.com", UserType.External, DateTimeOffset.UtcNow));
             await fixture.DbContext.SaveChangesAsync();
         }
 

@@ -18,7 +18,7 @@ public sealed class RolePermissionConfiguration : IEntityTypeConfiguration<RoleP
         builder.HasOne(rp => rp.Permission)
             .WithMany()
             .HasForeignKey(rp => rp.PermissionId)
-            .OnDelete(DeleteBehavior.Restrict)
+            .OnDelete(DeleteBehavior.Cascade)
             .HasConstraintName("fk_role_permissions_permission_id");
     }
 }

@@ -3,23 +3,18 @@ using ScrapGo.Core.Shared.Kernel.Paging;
 
 namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence;
 
-public sealed class AuthorizationQueries(IdentityDbContext dbContext, TimeProvider timeProvider) : IAuthorizationQueries
+public sealed class AuthorizationQueries(IdentityDbContext dbContext) : IAuthorizationQueries
 {
     /// <remarks>
-    /// The role is active, the grant is unexpired, and retired permissions
-    /// never resolve. Grants with a <see cref="LegacyScope"/> (the old schema's
-    /// organization-scoped ones) never resolve either.
+    /// Every permission any of the user's roles grants. Feature toggles aren't
+    /// applied here yet: the access context (B7) replaces this resolution.
     /// </remarks>
     public async Task<IReadOnlySet<string>> GetPermissionNamesAsync(int userId, CancellationToken cancellationToken)
     {
-        var now = timeProvider.GetUtcNow();
         var retired = Permissions.Retired;
         var names = await dbContext.UserRoles.AsNoTracking()
-            .Where(ur => ur.UserId == userId
-                && EF.Property<int?>(ur, LegacyScope.Property) == null
-                && ur.Role.Status == RoleStatus.Active
-                && (ur.ExpiresAt == null || ur.ExpiresAt > now))
-            .SelectMany(ur => ur.Role.RolePermissions.Select(rp => rp.Permission.Name))
+            .Where(ur => ur.UserId == userId)
+            .SelectMany(ur => ur.Role.RolePermissions.Select(rp => rp.Permission.Key))
             // Retired permissions never resolve, even if a stale grant survives.
             .Where(name => !retired.Contains(name))
             .Distinct()
@@ -59,8 +54,8 @@ public sealed class AuthorizationQueries(IdentityDbContext dbContext, TimeProvid
     public async Task<IReadOnlyList<string>> ListPermissionNamesAsync(CancellationToken cancellationToken) =>
         await dbContext.Permissions
             .AsNoTracking()
-            .Where(p => !Permissions.Retired.Contains(p.Name))
-            .OrderBy(p => p.Name)
-            .Select(p => p.Name)
+            .Where(p => !Permissions.Retired.Contains(p.Key))
+            .OrderBy(p => p.Key)
+            .Select(p => p.Key)
             .ToListAsync(cancellationToken);
 }

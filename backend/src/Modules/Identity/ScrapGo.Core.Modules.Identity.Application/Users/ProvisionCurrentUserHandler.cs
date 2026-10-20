@@ -22,13 +22,13 @@ public sealed class ProvisionCurrentUserHandler(
     public Task<CurrentUserDto> HandleAsync(ProvisionCurrentUserCommand command, CancellationToken cancellationToken)
     {
         // Only takes effect on the insert branch. If the UID already has a
-        // row, that row's classification wins, so a later change to the hd
+        // row, that row's user type wins, so a later change to the hd
         // claim never reclassifies an existing user.
-        var classification = hdAllowlist.Value.Contains(command.HostedDomain)
-            ? UserClassification.Internal
-            : UserClassification.External;
+        var userType = hdAllowlist.Value.Contains(command.HostedDomain)
+            ? UserType.Internal
+            : UserType.External;
 
-        var candidate = User.Provision(command.IdentityPlatformUid, command.Email, classification, timeProvider.GetUtcNow());
+        var candidate = User.Provision(command.IdentityPlatformUid, command.Email, userType, timeProvider.GetUtcNow());
 
         // In a transaction so the audit row commits or rolls back with the insert.
         return unitOfWork.ExecuteInTransactionAsync(async ct =>

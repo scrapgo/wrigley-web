@@ -18,11 +18,11 @@ public sealed record CurrentUserDto(
     string IdentityPlatformUid,
     string Email,
     string Status,
-    string Classification,
+    string UserType,
     IReadOnlyList<AssignedRoleDto> Roles,
     IReadOnlyList<string> Permissions,
     bool WorkspaceSignInRequired = false)
 {
     public static CurrentUserDto From(User user) =>
-        new(user.Id, user.IdentityPlatformUid, user.Email, user.Status.ToString(), user.Classification.ToString(), [], []);
+        new(user.Id, user.IdentityPlatformUid, user.Email, user.Status.ToString(), user.UserType.ToString(), [], []);
 }

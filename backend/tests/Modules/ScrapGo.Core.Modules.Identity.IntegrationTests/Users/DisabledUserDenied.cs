@@ -16,7 +16,7 @@ public class DisabledUserDenied
 
         public async Task InitializeAsync()
         {
-            fixture.DbContext.Users.Add(User.Provision(_uid, "active@example.com", UserClassification.External, DateTimeOffset.UtcNow));
+            fixture.DbContext.Users.Add(User.Provision(_uid, "active@example.com", UserType.External, DateTimeOffset.UtcNow));
             await fixture.DbContext.SaveChangesAsync();
 
             _response = await fixture.SendUsersMeAsync(fixture.CreateToken(_uid));
@@ -64,7 +64,7 @@ public class DisabledUserDenied
         public async Task InitializeAsync()
         {
             var now = DateTimeOffset.UtcNow;
-            var user = User.Provision(_uid, "disabled@example.com", UserClassification.External, now);
+            var user = User.Provision(_uid, "disabled@example.com", UserType.External, now);
             user.Disable(now);
             fixture.DbContext.Users.Add(user);
             await fixture.DbContext.SaveChangesAsync();

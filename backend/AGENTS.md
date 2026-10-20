@@ -123,9 +123,9 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 
 ## Authorization Model (Identity module)
 
-This section describes an interim model, being replaced by [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md) task by task (`docs/ACCESS-MODEL-TASKS.md`). Applications, modules and the catalog are gone (B2), and so are organizations, memberships and organization invitations (B3). Until B6 resets the Identity migrations:
-- `IdentityDbContext` ignores EF's pending-model-changes warning, and the old migrations still create the now-unmapped tables and rows.
-- `roles` and `user_roles` still have the old `organization_id` column. It is mapped only as the shadow property `LegacyScope`, and every role query skips rows where it is set, so leftover organization-scoped roles and grants never resolve, list or get assigned.
+This section describes an interim model, being replaced by [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md) task by task (`docs/ACCESS-MODEL-TASKS.md`). Applications, modules and the catalog are gone (B2), and so are organizations, memberships and organization invitations (B3).
+
+**The EF model is the new one (B5), but the migrations are still the old ones until B6.** The entities and configurations match section 5 of `ACCESS-MODEL.md`: `User` (with `UserType`), `Role`, `UserRole`, `Feature`, `FeatureTarget`, `Permission`, `RolePermission`, `UserSupplier` and `Invitation`. The old migrations don't create that schema, so the Testcontainers integration tests fail until B6 generates `InitialAccessModel`. `IdentityDbContext` ignores EF's pending-model-changes warning until then.
 
 ### Permissions and resolution
 

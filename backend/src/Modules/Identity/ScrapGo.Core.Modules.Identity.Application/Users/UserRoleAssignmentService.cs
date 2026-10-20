@@ -90,7 +90,7 @@ public sealed class UserRoleAssignmentService(
             return new(AssignRoleOutcome.UserNotFound);
         }
 
-        if (target.Classification == UserClassification.External)
+        if (target.UserType == UserType.External)
         {
             return new(AssignRoleOutcome.ExternalUserNotAllowed);
         }
@@ -179,7 +179,7 @@ public sealed class UserRoleAssignmentService(
                     return AssignRoleOutcome.AlreadyAssigned;
                 }
 
-                roles.AddUserRole(UserRole.Assign(userId, role.Id, timeProvider.GetUtcNow()));
+                roles.AddUserRole(UserRole.Assign(userId, role.Id, role.UserType, actorUserId, timeProvider.GetUtcNow()));
                 auditLog.Record(new AuditEvent(
                     IdentityAuditEventTypes.RoleAssigned,
                     UserId: actorUserId,

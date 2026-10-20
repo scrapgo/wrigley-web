@@ -53,50 +53,10 @@ public class RequirePermission
         [Fact]
         public async Task The_claim_is_ignored()
         {
-            var (uid, _) = await fixture.SeedUserAsync(classification: UserClassification.Internal);
+            var (uid, _) = await fixture.SeedUserAsync(userType: UserType.Internal);
 
             var token = fixture.CreateToken(uid, extraClaims: [("permissions", SpecPermissions.Alpha)]);
             var response = await fixture.SendAsync(HttpMethod.Get, PermissionScopedPath, token);
-
-            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        }
-    }
-
-    public class Given_a_permission_whose_role_was_soft_deleted(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
-    {
-        [Fact]
-        public async Task The_request_is_denied()
-        {
-            var (uid, userId) = await fixture.SeedUserAsync();
-            var roleId = await fixture.GrantPermissionsAsync(userId, SpecPermissions.Alpha);
-            var role = await fixture.DbContext.Roles.SingleAsync(r => r.Id == roleId);
-            role.MarkDeleted(DateTimeOffset.UtcNow);
-            await fixture.DbContext.SaveChangesAsync();
-
-            var response = await fixture.SendAsync(HttpMethod.Get, PermissionScopedPath, fixture.CreateToken(uid));
-
-            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        }
-    }
-
-    // Until B6 resets the schema, the old tables can still hold an
-    // organization-scoped grant. Roles are global now, so it must never resolve.
-    public class Given_a_leftover_organization_scoped_grant(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
-    {
-        [Fact]
-        public async Task It_grants_nothing()
-        {
-            var (uid, userId) = await fixture.SeedUserAsync();
-            var roleId = await fixture.GrantPermissionsAsync(userId, SpecPermissions.Alpha);
-            var legacyScopeId = (await fixture.DbContext.Database.SqlQuery<int>($"""
-                INSERT INTO identity.organizations (name, slug, status, created_at, updated_at)
-                VALUES ('Legacy', {"legacy-" + Guid.NewGuid().ToString("N")}, 'Active', now(), now())
-                RETURNING id AS "Value"
-                """).ToListAsync()).Single();
-            await fixture.DbContext.Database.ExecuteSqlAsync(
-                $"UPDATE identity.user_roles SET organization_id = {legacyScopeId} WHERE user_id = {userId} AND role_id = {roleId}");
-
-            var response = await fixture.SendAsync(HttpMethod.Get, PermissionScopedPath, fixture.CreateToken(uid));
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }

@@ -51,7 +51,7 @@ public sealed class BootstrapPlatformAdministratorHandler(
             return BootstrapPlatformAdministratorOutcome.UserNotProvisioned;
         }
 
-        if (await users.GetByIdAsync(userId, cancellationToken) is { Classification: UserClassification.External })
+        if (await users.GetByIdAsync(userId, cancellationToken) is { UserType: UserType.External })
         {
             return BootstrapPlatformAdministratorOutcome.ExternalUserNotAllowed;
         }
@@ -76,7 +76,7 @@ public sealed class BootstrapPlatformAdministratorHandler(
                     return BootstrapPlatformAdministratorOutcome.AnotherAdministratorExists;
                 }
 
-                roles.AddUserRole(UserRole.Assign(userId, roleId, timeProvider.GetUtcNow()));
+                roles.AddUserRole(UserRole.Assign(userId, roleId, UserType.Internal, assignedByUserId: null, timeProvider.GetUtcNow()));
                 auditLog.Record(new AuditEvent(
                     IdentityAuditEventTypes.PlatformAdministratorBootstrapped,
                     UserId: null,

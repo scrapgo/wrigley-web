@@ -19,8 +19,7 @@ public sealed class PermissionResolver(
     IRoleRepository roles,
     IAuthorizationQueries queries,
     IPermissionCache cache,
-    ICallerSignIn callerSignIn,
-    TimeProvider timeProvider)
+    ICallerSignIn callerSignIn)
 {
     public async Task<bool> HasPermissionAsync(string identityPlatformUid, string permissionName, CancellationToken cancellationToken) =>
         await users.GetIdByUidAsync(identityPlatformUid, cancellationToken) is { } userId
@@ -50,29 +49,25 @@ public sealed class PermissionResolver(
     }
 
     /// <summary>
-    /// What the user can actually do: their unexpired roles and the
-    /// permissions <see cref="HasPermissionAsync"/> would grant. Both are empty
-    /// without a Workspace sign-in.
+    /// What the user can actually do: their roles and the permissions
+    /// <see cref="HasPermissionAsync"/> would grant. Both are empty without a
+    /// Workspace sign-in.
     /// </summary>
     public async Task<EffectiveAccess> GetEffectiveAccessAsync(int userId, CancellationToken cancellationToken)
     {
-        var now = timeProvider.GetUtcNow();
-        var platformSignIn = callerSignIn.IsInternalWorkspaceSignIn;
-        var unexpiredRoles = (await roles.ListUserRolesAsync(userId, cancellationToken))
-            .Where(r => r.ExpiresAt is null || r.ExpiresAt > now)
-            .ToList();
+        var heldRoles = await roles.ListUserRolesAsync(userId, cancellationToken);
 
-        if (!platformSignIn)
+        if (!callerSignIn.IsInternalWorkspaceSignIn)
         {
-            return new EffectiveAccess([], [], WorkspaceSignInRequired: unexpiredRoles.Count > 0);
+            return new EffectiveAccess([], [], WorkspaceSignInRequired: heldRoles.Count > 0);
         }
 
         IReadOnlyList<string> permissions = [.. (await GetPermissionNamesAsync(userId, cancellationToken)).Order(StringComparer.Ordinal)];
-        return new EffectiveAccess(unexpiredRoles, permissions, WorkspaceSignInRequired: false);
+        return new EffectiveAccess(heldRoles, permissions, WorkspaceSignInRequired: false);
     }
 }
 
-/// <param name="Roles">The unexpired roles the user holds, by name.</param>
+/// <param name="Roles">The roles the user holds, by name.</param>
 /// <param name="Permissions">What those roles grant, ordered by name.</param>
 /// <param name="WorkspaceSignInRequired">
 /// The user holds a role, but this sign-in isn't a Google Workspace one, so

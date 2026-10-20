@@ -24,7 +24,7 @@ public class BuiltInRolePermissionSeed
             Assert.Equal(
                 1,
                 await fixture.DbContext.Roles.AsNoTracking().CountAsync(r =>
-                    r.Name == DefaultRoleNames.PlatformAdministrator && r.Status == RoleStatus.Active));
+                    r.Name == DefaultRoleNames.PlatformAdministrator));
 
         private async Task<IEnumerable<string>> PermissionNamesOfPlatformAdministratorAsync()
         {

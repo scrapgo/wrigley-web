@@ -1,5 +1,5 @@
 // Platform access requires a Google Workspace sign-in (hd on INTERNAL_HD_ALLOWLIST) on every request,
-// not just an Internal classification at provisioning.
+// not just an Internal user type at provisioning.
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -67,7 +67,7 @@ public class WorkspaceSignInForPlatformAccess
         public async Task An_in_service_platform_action_without_hd_is_refused()
         {
             var (uid, _) = await fixture.SeedPlatformAdministratorAsync();
-            var (_, targetId) = await fixture.SeedUserAsync("staff@scrapgo.example", UserClassification.Internal);
+            var (_, targetId) = await fixture.SeedUserAsync("staff@scrapgo.example", UserType.Internal);
             var platformAdminRoleId = await fixture.DbContext.Roles.AsNoTracking()
                 .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator)
                 .Select(r => r.Id)

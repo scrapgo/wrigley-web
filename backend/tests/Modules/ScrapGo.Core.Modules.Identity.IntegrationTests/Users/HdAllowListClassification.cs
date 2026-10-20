@@ -9,19 +9,19 @@ public class HdAllowListClassification
     {
         [Fact]
         public async Task A_uid_with_hd_example_dot_com_is_provisioned_as_internal() =>
-            Assert.Equal(UserClassification.Internal, await ProvisionAndReadClassificationAsync(fixture, hd: "example.com"));
+            Assert.Equal(UserType.Internal, await ProvisionAndReadUserTypeAsync(fixture, hd: "example.com"));
 
         [Fact]
         public async Task The_allow_list_comparison_is_case_insensitive() =>
-            Assert.Equal(UserClassification.Internal, await ProvisionAndReadClassificationAsync(fixture, hd: "EXAMPLE.COM"));
+            Assert.Equal(UserType.Internal, await ProvisionAndReadUserTypeAsync(fixture, hd: "EXAMPLE.COM"));
 
         [Fact]
         public async Task A_uid_with_hd_other_dot_com_is_provisioned_as_external() =>
-            Assert.Equal(UserClassification.External, await ProvisionAndReadClassificationAsync(fixture, hd: "other.com"));
+            Assert.Equal(UserType.External, await ProvisionAndReadUserTypeAsync(fixture, hd: "other.com"));
 
         [Fact]
         public async Task A_uid_with_no_hd_claim_is_provisioned_as_external() =>
-            Assert.Equal(UserClassification.External, await ProvisionAndReadClassificationAsync(fixture, hd: null));
+            Assert.Equal(UserType.External, await ProvisionAndReadUserTypeAsync(fixture, hd: null));
     }
 
     public class Given_a_user_already_provisioned_as_external(AllowlistedHdIdentitySpecFixture fixture)
@@ -35,16 +35,16 @@ public class HdAllowListClassification
 
         public Task DisposeAsync() => Task.CompletedTask;
 
-        // Classification is decided at first provisioning only, never re-evaluated.
+        // UserType is decided at first provisioning only, never re-evaluated.
         [Fact]
         public async Task A_repeat_request_carrying_an_allow_listed_hd_claim_does_not_reclassify_the_user()
         {
             (await fixture.SendUsersMeAsync(fixture.CreateToken(_uid, hd: "example.com"))).EnsureSuccessStatusCode();
 
-            var classification = await fixture.DbContext.Users.AsNoTracking()
-                .Where(u => u.IdentityPlatformUid == _uid).Select(u => u.Classification).SingleAsync();
+            var userType = await fixture.DbContext.Users.AsNoTracking()
+                .Where(u => u.IdentityPlatformUid == _uid).Select(u => u.UserType).SingleAsync();
 
-            Assert.Equal(UserClassification.External, classification);
+            Assert.Equal(UserType.External, userType);
         }
     }
 
@@ -52,16 +52,16 @@ public class HdAllowListClassification
     {
         [Fact]
         public async Task A_uid_with_an_hd_claim_is_still_provisioned_as_external() =>
-            Assert.Equal(UserClassification.External, await ProvisionAndReadClassificationAsync(fixture, hd: "example.com"));
+            Assert.Equal(UserType.External, await ProvisionAndReadUserTypeAsync(fixture, hd: "example.com"));
     }
 
-    private static async Task<UserClassification> ProvisionAndReadClassificationAsync(IdentitySpecFixture fixture, string? hd)
+    private static async Task<UserType> ProvisionAndReadUserTypeAsync(IdentitySpecFixture fixture, string? hd)
     {
         var uid = Guid.NewGuid().ToString();
 
         (await fixture.SendUsersMeAsync(fixture.CreateToken(uid, hd: hd))).EnsureSuccessStatusCode();
 
         return await fixture.DbContext.Users.AsNoTracking()
-            .Where(u => u.IdentityPlatformUid == uid).Select(u => u.Classification).SingleAsync();
+            .Where(u => u.IdentityPlatformUid == uid).Select(u => u.UserType).SingleAsync();
     }
 }

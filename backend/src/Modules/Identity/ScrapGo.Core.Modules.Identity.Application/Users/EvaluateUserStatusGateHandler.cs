@@ -47,7 +47,7 @@ public sealed class EvaluateUserStatusGateHandler(
         }
 
         if (mfaOptions.Value.RequireForExternalUsers
-            && snapshot is { Classification: UserClassification.External }
+            && snapshot is { UserType: UserType.External }
             && !hasSecondFactor)
         {
             return UserStatusGateDecision.DenyMfaRequired;

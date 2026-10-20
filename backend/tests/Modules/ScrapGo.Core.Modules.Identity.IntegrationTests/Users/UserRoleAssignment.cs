@@ -224,12 +224,12 @@ public class UserRoleAssignment
         fixture.SendAsync(HttpMethod.Delete, $"/api/users/{userId}/roles/{roleId}", fixture.CreateToken(actorUid));
 
     private static Task<(string Uid, int UserId)> SeedInternalUserAsync(IdentitySpecFixture fixture) =>
-        fixture.SeedUserAsync($"staff-{Guid.NewGuid():N}@scrapgo.example", UserClassification.Internal);
+        fixture.SeedUserAsync($"staff-{Guid.NewGuid():N}@scrapgo.example", UserType.Internal);
 
     /// <summary>A role granting <paramref name="permissions"/>, assigned to nobody.</summary>
     private static async Task<int> CreateRoleAsync(IdentitySpecFixture fixture, params string[] permissions)
     {
-        var role = Role.Create($"Role {Guid.NewGuid():N}", null, DateTimeOffset.UtcNow);
+        var role = Role.Create($"role_{Guid.NewGuid():N}", "Role", null, UserType.Internal, isSystem: false);
         fixture.DbContext.Roles.Add(role);
         await fixture.DbContext.SaveChangesAsync();
 

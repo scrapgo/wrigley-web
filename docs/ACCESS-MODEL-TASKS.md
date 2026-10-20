@@ -128,7 +128,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*B5 · New domain entities and EF configuration\*\*
+\- \[x] \*\*B5 · New domain entities and EF configuration\*\*
 
 &#x20; > Build the entities and EF configurations for every table in section 5 of `ACCESS-MODEL.md`, in the Identity module:
 

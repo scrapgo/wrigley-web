@@ -272,13 +272,6 @@ public sealed class UserRoleAssignmentService(
             return AssignRoleOutcome.RoleNotInOrganization;
         }
 
-        // Application roles are granted only through the application routes,
-        // by application or platform administrators (Decision 3).
-        if (role.IsApplicationRole)
-        {
-            return AssignRoleOutcome.RoleScopeMismatch;
-        }
-
         // Each built-in belongs to one kind of scope only.
         var builtInForOtherScope = organizationId is null
             ? DefaultRoleNames.OrganizationAdministrator

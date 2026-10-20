@@ -12,11 +12,11 @@ public class CallProspectStatusSpecs
         [Fact]
         public async Task Sends_the_call_status_query_and_maps_every_field()
         {
-            var (token, organizationId) = await fixture.SeedSupplierReaderAsync(DownstreamApplication.SuppliersModuleId);
+            var token = await fixture.SeedSupplierReaderAsync();
             fixture.Quickbase.RespondWith(SupplierResponses.CallProspectStatus);
 
             var response = await fixture.SendAsync(
-                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId, "/17511/call-prospect-status"), token);
+                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath("/17511/call-prospect-status"), token);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var query = fixture.Quickbase.Queries.Last();
@@ -38,11 +38,11 @@ public class CallProspectStatusSpecs
         [Fact]
         public async Task Unknown_dropdown_text_and_empty_dates_come_back_as_null()
         {
-            var (token, organizationId) = await fixture.SeedSupplierReaderAsync(DownstreamApplication.SuppliersModuleId);
+            var token = await fixture.SeedSupplierReaderAsync();
             fixture.Quickbase.RespondWith(SupplierResponses.CallProspectStatusUnknownChoices);
 
             var response = await fixture.SendAsync(
-                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId, "/9583/call-prospect-status"), token);
+                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath("/9583/call-prospect-status"), token);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var status = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("callProspectStatus");
@@ -54,52 +54,30 @@ public class CallProspectStatusSpecs
         [Fact]
         public async Task An_unknown_record_returns_four_hundred_four()
         {
-            var (token, organizationId) = await fixture.SeedSupplierReaderAsync(DownstreamApplication.SuppliersModuleId);
+            var token = await fixture.SeedSupplierReaderAsync();
             fixture.Quickbase.RespondWith(SupplierResponses.Empty);
 
             var response = await fixture.SendAsync(
-                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId, "/99999999/call-prospect-status"), token);
+                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath("/99999999/call-prospect-status"), token);
 
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
             Assert.Equal("supplier_not_found", await IdentitySpecFixture.ReadProblemReasonAsync(response));
-        }
-
-        [Fact]
-        public async Task Is_platform_wide_for_platform_administrators()
-        {
-            var (uid, _) = await fixture.SeedPlatformAdministratorAsync();
-            fixture.Quickbase.RespondWith(SupplierResponses.CallProspectStatus);
-
-            var response = await fixture.SendAsync(HttpMethod.Get, "/api/suppliers/17511/call-prospect-status", fixture.CreateToken(uid));
-
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
     }
 
     public class Given_a_caller_without_supplier_access(SuppliersSpecFixture fixture) : IClassFixture<SuppliersSpecFixture>
     {
         [Fact]
-        public async Task A_member_without_the_permission_gets_four_hundred_three_and_no_query_runs()
+        public async Task A_user_who_is_not_a_platform_administrator_gets_four_hundred_three_and_no_query_runs()
         {
-            var (uid, _, organizationId) = await fixture.SeedMemberAsync();
-            await fixture.EntitleAsync(organizationId, DownstreamApplication.Id, DownstreamApplication.SuppliersModuleId);
+            var (uid, _) = await fixture.SeedUserAsync();
             var before = fixture.Quickbase.Queries.Count;
 
             var response = await fixture.SendAsync(
-                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId, "/17511/call-prospect-status"), fixture.CreateToken(uid));
+                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath("/17511/call-prospect-status"), fixture.CreateToken(uid));
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
             Assert.Equal(before, fixture.Quickbase.Queries.Count);
-        }
-
-        [Fact]
-        public async Task An_organization_reader_gets_four_hundred_three_on_the_platform_route()
-        {
-            var (token, _) = await fixture.SeedSupplierReaderAsync(DownstreamApplication.SuppliersModuleId);
-
-            var response = await fixture.SendAsync(HttpMethod.Get, "/api/suppliers/17511/call-prospect-status", token);
-
-            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
     }
 

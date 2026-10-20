@@ -8,16 +8,17 @@ public static class InternalHdAllowlistConfiguration
 {
     /// <summary>
     /// A JSON array in appsettings (<c>["scrapgo.com"]</c>) binds as child keys
-    /// (<c>INTERNAL_HD_ALLOWLIST:0</c>), for which the plain indexer returns null,
-    /// so the children are read when there are any. Otherwise the value is the
-    /// comma-separated string the Cloud Run env var uses.
+    /// (<c>INTERNAL_HD_ALLOWLIST:0</c>), for which the plain indexer returns null.
+    /// The comma-separated string (the Cloud Run env var) sets the key's own
+    /// value. Both can be present at once, e.g. an env var over
+    /// <c>appsettings.Development.json</c>, so a non-blank string wins, as an
+    /// env var overrides appsettings; otherwise the array's items are read.
     /// </summary>
     public static HashSet<string> Read(IConfiguration configuration)
     {
         var section = configuration.GetSection(InternalHdAllowlistOptions.ConfigurationKey);
-        var children = section.GetChildren().ToList();
-        return children.Count > 0
-            ? InternalHdAllowlistOptions.Parse(children.Select(child => child.Value))
+        return string.IsNullOrWhiteSpace(section.Value)
+            ? InternalHdAllowlistOptions.Parse(section.GetChildren().Select(child => child.Value))
             : InternalHdAllowlistOptions.Parse(section.Value);
     }
 }

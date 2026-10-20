@@ -12,18 +12,14 @@ public sealed class SuppliersSpecFixture : IdentitySpecFixture
         services.Replace(ServiceDescriptor.Singleton<IQuickbaseQueryService>(Quickbase));
 
     /// <summary>
-    /// A member of a new organization that has Downstream with the given
-    /// modules enabled, holding "Downstream Viewer" there.
+    /// A token for someone who may read suppliers: a platform administrator
+    /// signed in with Google Workspace, until supplier scoping (B13) arrives.
     /// </summary>
-    public async Task<(string Token, int OrganizationId)> SeedSupplierReaderAsync(params int[] moduleIds)
+    public async Task<string> SeedSupplierReaderAsync()
     {
-        var (uid, userId, organizationId) = await this.SeedMemberAsync();
-        await this.EntitleAsync(organizationId, DownstreamApplication.Id, moduleIds);
-        await this.GrantApplicationRoleAsync(
-            userId, await this.ApplicationRoleIdAsync(DownstreamApplication.ViewerRole), organizationId, DownstreamApplication.Id);
-        return (CreateToken(uid), organizationId);
+        var (uid, _) = await this.SeedPlatformAdministratorAsync();
+        return CreateToken(uid);
     }
 
-    public static string SuppliersPath(int organizationId, string suffix = "") =>
-        $"/api/organizations/{organizationId}/applications/{DownstreamApplication.Id}/suppliers{suffix}";
+    public static string SuppliersPath(string suffix = "") => $"/api/suppliers{suffix}";
 }

@@ -6,8 +6,8 @@ using ScrapGo.Core.Modules.Identity.Application.Users;
 
 namespace ScrapGo.Core.Modules.Identity.Application.Organizations;
 
-/// <param name="ApplicationId">Set to pre-grant an application role (in that application); null for an organization-level role.</param>
-public sealed record InvitationGrantRequest(int RoleId, int? ApplicationId);
+/// <summary>An organization-level role to pre-grant.</summary>
+public sealed record InvitationGrantRequest(int RoleId);
 
 /// <param name="ActorUid">The inviting admin's UID.</param>
 /// <param name="ActingAsPlatformAdmin">A platform administrator creating an organization's first admin: no membership or escalation checks.</param>
@@ -30,13 +30,10 @@ public enum InvitationOutcome
     /// <summary>A pending invitation for this email already exists here.</summary>
     InvitationPending,
 
-    /// <summary>A pre-grant names a role that isn't usable here (unknown, deleted, another organization's or application's, or PlatformAdministrator).</summary>
+    /// <summary>A pre-grant names a role that isn't usable here (unknown, deleted, another organization's, or PlatformAdministrator).</summary>
     RoleNotFound,
 
-    /// <summary>A pre-grant names an application the organization doesn't have.</summary>
-    ApplicationNotAssigned,
-
-    /// <summary>The caller lacks <c>Role.Assign</c> (organization pre-grants) or <c>Application.ManageAccess</c> (application pre-grants).</summary>
+    /// <summary>The caller lacks <c>Role.Assign</c> in the organization.</summary>
     Forbidden,
 
     /// <summary>Escalation guard: a pre-granted role carries a permission the caller doesn't hold there.</summary>
@@ -66,19 +63,17 @@ public enum AcceptInvitationOutcome
     EmailMismatch,
 }
 
-/// <param name="SkippedGrants">Pre-grants no longer valid at acceptance (role deleted, application removed); audited and skipped.</param>
+/// <param name="SkippedGrants">Pre-grants no longer valid at acceptance (role deleted); audited and skipped.</param>
 public sealed record AcceptInvitationResult(AcceptInvitationOutcome Outcome, int? OrganizationId = null, int GrantedCount = 0, int SkippedGrants = 0);
 
 /// <summary>
 /// Invitations: granting access by email before the person's first sign-in
-/// (ORG-APP-MODULE-MODEL.md section 8.2).
+/// into an organization.
 /// </summary>
 /// <remarks>
 /// <para>
 /// Every pre-grant is validated at invite time with the same rules as a
-/// direct grant: <c>Role.Assign</c> and the escalation guard for
-/// organization-level roles, <c>Application.ManageAccess</c> and the
-/// escalation guard (in that application) for application roles. Inviting
+/// direct grant: <c>Role.Assign</c> and the escalation guard. Inviting
 /// itself needs <c>User.Update</c> on the route.
 /// </para>
 /// <para>
@@ -95,7 +90,6 @@ public sealed class InvitationService(
     IOrganizationRepository organizations,
     IRoleRepository roles,
     IUserRepository users,
-    IAuthorizationQueries queries,
     PermissionResolver permissionResolver,
     ProvisionCurrentUserHandler provisionCurrentUser,
     IPermissionCache permissionCache,
@@ -111,7 +105,7 @@ public sealed class InvitationService(
         if (string.IsNullOrWhiteSpace(command.Email)
             || !command.Email.Contains('@', StringComparison.Ordinal)
             || command.ExpiresInDays is < 1 or > MaxExpiryDays
-            || command.Grants.DistinctBy(g => (g.RoleId, g.ApplicationId)).Count() != command.Grants.Count)
+            || command.Grants.DistinctBy(g => g.RoleId).Count() != command.Grants.Count)
         {
             return new(InvitationOutcome.InvalidRequest);
         }
@@ -149,7 +143,7 @@ public sealed class InvitationService(
                 var invitation = Invitation.Create(command.OrganizationId, email, HashToken(token), expiresAt, actorUserId, now);
                 foreach (var grant in command.Grants)
                 {
-                    invitation.AddGrant(grant.RoleId, grant.ApplicationId);
+                    invitation.AddGrant(grant.RoleId);
                 }
 
                 invitations.Add(invitation);
@@ -183,7 +177,7 @@ public sealed class InvitationService(
             i.EmailNormalized,
             i.IsOpenAt(timeProvider.GetUtcNow()) ? InvitationStatus.Pending.ToString() : "Expired",
             i.ExpiresAt,
-            [.. i.Grants.Select(g => new InvitationGrantRequest(g.RoleId, g.ApplicationId))]))];
+            [.. i.Grants.Select(g => new InvitationGrantRequest(g.RoleId))]))];
 
     /// <returns>False when there is no such invitation in this organization.</returns>
     public async Task<bool> RevokeAsync(string actorUid, int organizationId, int invitationId, CancellationToken cancellationToken)
@@ -268,7 +262,7 @@ public sealed class InvitationService(
             var skipped = 0;
             foreach (var grant in invitation.Grants)
             {
-                if (!await IsStillGrantableAsync(organizationId, grant, ct))
+                if (!await IsStillGrantableAsync(grant, ct))
                 {
                     skipped++;
                     continue;
@@ -279,12 +273,10 @@ public sealed class InvitationService(
                     continue;
                 }
 
-                roles.AddUserRole(grant.ApplicationId is { } applicationId
-                    ? UserRole.AssignForApplication(user.Id, grant.RoleId, organizationId, applicationId, expiresAt: null, now)
-                    : UserRole.Assign(user.Id, grant.RoleId, organizationId, now));
-                granted.Add(new PermissionScope(user.Id, organizationId, grant.ApplicationId));
+                roles.AddUserRole(UserRole.Assign(user.Id, grant.RoleId, organizationId, now));
+                granted.Add(new PermissionScope(user.Id, organizationId));
                 auditLog.Record(new AuditEvent(
-                    grant.ApplicationId is null ? IdentityAuditEventTypes.RoleAssigned : IdentityAuditEventTypes.AccessGranted,
+                    IdentityAuditEventTypes.RoleAssigned,
                     UserId: invitation.InvitedByUserId,
                     OrganizationId: organizationId,
                     Metadata: JsonSerializer.Serialize(new
@@ -292,7 +284,6 @@ public sealed class InvitationService(
                         targetUserId = user.Id,
                         roleId = grant.RoleId,
                         organizationId,
-                        applicationId = grant.ApplicationId,
                         invitationId = invitation.Id,
                     })));
             }
@@ -329,25 +320,7 @@ public sealed class InvitationService(
     {
         var organizationId = command.OrganizationId;
 
-        if (grant.ApplicationId is { } applicationId)
-        {
-            if (!await queries.IsApplicationAvailableAsync(organizationId, applicationId, cancellationToken))
-            {
-                return InvitationOutcome.ApplicationNotAssigned;
-            }
-
-            if (await roles.FindApplicationRoleAsync(grant.RoleId, organizationId, applicationId, cancellationToken) is null)
-            {
-                return InvitationOutcome.RoleNotFound;
-            }
-
-            return command.ActingAsPlatformAdmin
-                ? null
-                : await CheckActorHoldsAsync(actorUserId, new PermissionScope(0, organizationId, applicationId),
-                    Permissions.ApplicationManageAccess, grant.RoleId, cancellationToken);
-        }
-
-        if (await roles.FindActiveRoleAsync(grant.RoleId, cancellationToken) is not { IsApplicationRole: false } role
+        if (await roles.FindActiveRoleAsync(grant.RoleId, cancellationToken) is not { } role
             || (role.OrganizationId is { } roleOrganizationId && roleOrganizationId != organizationId)
             || role.Id == await roles.GetPlatformRoleIdAsync(DefaultRoleNames.PlatformAdministrator, cancellationToken))
         {
@@ -379,12 +352,9 @@ public sealed class InvitationService(
             : InvitationOutcome.CannotGrantUnheldPermission;
     }
 
-    /// <summary>Acceptance re-check: the role is still active and, for an application grant, the application still assigned.</summary>
-    private async Task<bool> IsStillGrantableAsync(int organizationId, InvitationGrant grant, CancellationToken cancellationToken) =>
-        grant.ApplicationId is { } applicationId
-            ? await queries.IsApplicationAvailableAsync(organizationId, applicationId, cancellationToken)
-                && await roles.FindApplicationRoleAsync(grant.RoleId, organizationId, applicationId, cancellationToken) is not null
-            : await roles.FindActiveRoleAsync(grant.RoleId, cancellationToken) is { IsApplicationRole: false };
+    /// <summary>Acceptance re-check: the role is still active.</summary>
+    private async Task<bool> IsStillGrantableAsync(InvitationGrant grant, CancellationToken cancellationToken) =>
+        await roles.FindActiveRoleAsync(grant.RoleId, cancellationToken) is not null;
 
     private static string HashToken(string token) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));

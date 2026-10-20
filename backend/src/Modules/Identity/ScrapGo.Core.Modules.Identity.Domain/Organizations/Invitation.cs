@@ -73,7 +73,7 @@ public class Invitation
 
     public bool IsOpenAt(DateTimeOffset now) => Status == InvitationStatus.Pending && ExpiresAt > now;
 
-    public void AddGrant(int roleId, int? applicationId) => _grants.Add(InvitationGrant.Create(roleId, applicationId));
+    public void AddGrant(int roleId) => _grants.Add(InvitationGrant.Create(roleId));
 
     public void Accept(int userId, DateTimeOffset now)
     {
@@ -90,7 +90,7 @@ public class Invitation
     }
 }
 
-/// <summary>One role to grant when the invitation is accepted: organization-level, or for one application.</summary>
+/// <summary>One organization-level role to grant when the invitation is accepted.</summary>
 public class InvitationGrant
 {
     private InvitationGrant()
@@ -103,9 +103,5 @@ public class InvitationGrant
 
     public int RoleId { get; private set; }
 
-    /// <summary>Set for an application role grant.</summary>
-    public int? ApplicationId { get; private set; }
-
-    public static InvitationGrant Create(int roleId, int? applicationId) =>
-        new() { RoleId = roleId, ApplicationId = applicationId };
+    public static InvitationGrant Create(int roleId) => new() { RoleId = roleId };
 }

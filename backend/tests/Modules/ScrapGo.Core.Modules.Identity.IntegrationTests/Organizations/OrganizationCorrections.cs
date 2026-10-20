@@ -109,9 +109,7 @@ public class OrganizationCorrections
         {
             var (uid, _) = await fixture.SeedPlatformAdministratorAsync();
             var (_, memberId, organizationId) = await fixture.SeedMemberAsync();
-            await fixture.EntitleAsync(organizationId, SpecApplications.SpecAppId, SpecApplications.AlphaModuleId);
-            await fixture.GrantApplicationRoleAsync(
-                memberId, await fixture.ApplicationRoleIdAsync(SpecApplications.SpecAppViewer), organizationId, SpecApplications.SpecAppId);
+            await fixture.GrantPermissionsAsync(memberId, organizationId, SpecPermissions.Alpha);
             await fixture.SendAsync(
                 HttpMethod.Post, $"/api/organizations/{organizationId}/invitations", fixture.CreateToken(uid),
                 new { email = "later@example.com", grants = Array.Empty<object>() });

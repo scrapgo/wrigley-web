@@ -15,21 +15,18 @@ public sealed record DeleteRoleCommand(string ActorUid, int RoleId);
 public sealed record RolePermissionCommand(string ActorUid, int RoleId, string? PermissionName);
 
 /// <param name="OrganizationId">The owning organization, or null for a built-in platform-defined role.</param>
-/// <param name="ApplicationId">Set for an application role (template or custom).</param>
-public sealed record RoleDto(int Id, string Name, string Description, int? OrganizationId, int? ApplicationId = null)
+public sealed record RoleDto(int Id, string Name, string Description, int? OrganizationId)
 {
-    public static RoleDto From(Role role) => new(role.Id, role.Name, role.Description, role.OrganizationId, role.ApplicationId);
+    public static RoleDto From(Role role) => new(role.Id, role.Name, role.Description, role.OrganizationId);
 }
 
 /// <summary>A role plus the catalog permissions it grants, for role read-back.</summary>
 /// <param name="OrganizationId">The owning organization, or null for a built-in platform-defined role.</param>
 /// <param name="Permissions">Permission names, ordered by name.</param>
-/// <param name="ApplicationId">Set for an application role (template or custom).</param>
-public sealed record RoleDetailDto(
-    int Id, string Name, string Description, int? OrganizationId, IReadOnlyList<string> Permissions, int? ApplicationId = null)
+public sealed record RoleDetailDto(int Id, string Name, string Description, int? OrganizationId, IReadOnlyList<string> Permissions)
 {
     public static RoleDetailDto From(Role role, IReadOnlyList<string> permissions) =>
-        new(role.Id, role.Name, role.Description, role.OrganizationId, permissions, role.ApplicationId);
+        new(role.Id, role.Name, role.Description, role.OrganizationId, permissions);
 }
 
 public enum RoleMutationOutcome

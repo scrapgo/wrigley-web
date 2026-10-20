@@ -22,12 +22,6 @@ public static class IdentityUniqueConstraints
 
     public const string RoleNamePerOrganization = "ux_roles_organization_id_name";
 
-    /// <summary>An organization has a given application at most once.</summary>
-    public const string OrganizationApplication = "ux_organization_applications_organization_id_application_id";
-
-    /// <summary>A module has at most one enablement row per organization application.</summary>
-    public const string OrganizationApplicationModule = "ux_org_application_modules_org_application_id_module_id";
-
     /// <summary>At most one pending invitation per email per organization.</summary>
     public const string PendingInvitation = "ux_invitations_organization_id_email_pending";
 

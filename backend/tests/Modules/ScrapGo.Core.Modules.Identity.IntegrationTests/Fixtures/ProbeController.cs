@@ -36,11 +36,6 @@ public sealed class ProbeController : ControllerBase
     [HttpGet("platform-scoped")]
     public IActionResult PlatformScoped() => Ok(new { ok = true });
 
-    /// <summary>Application-scoped: SpecApp.Alpha.Read within the route's organization and application.</summary>
-    [RequirePermission(SpecApplications.AlphaRead)]
-    [HttpGet("app-scoped/{organizationId:int}/{applicationId:int}")]
-    public IActionResult AppScoped() => Ok(new { ok = true });
-
     /// <summary>No authorization attribute at all: only the fallback policy stands between it and an anonymous caller.</summary>
     [HttpGet("no-attribute")]
     public IActionResult NoAttribute() => Ok(new { ok = true });

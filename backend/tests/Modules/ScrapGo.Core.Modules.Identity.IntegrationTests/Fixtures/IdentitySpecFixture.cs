@@ -148,7 +148,6 @@ public class IdentitySpecFixture : IAsyncLifetime
         DbContext = _scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         await DbContext.Database.MigrateAsync();
         await SpecPermissions.SeedAsync(DbContext);
-        await SpecApplications.SeedAsync(DbContext);
 
         Client = _factory.CreateClient();
     }

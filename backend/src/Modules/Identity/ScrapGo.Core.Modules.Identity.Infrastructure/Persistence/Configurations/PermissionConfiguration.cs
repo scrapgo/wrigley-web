@@ -14,16 +14,6 @@ public sealed class PermissionConfiguration : IEntityTypeConfiguration<Permissio
             .HasColumnType("text")
             .IsRequired();
 
-        builder.Property(p => p.ModuleId).IsRequired(false);
-
-        builder.HasIndex(p => p.ModuleId).HasDatabaseName("ix_permissions_module_id");
-
-        builder.HasOne<CatalogModule>()
-            .WithMany()
-            .HasForeignKey(p => p.ModuleId)
-            .OnDelete(DeleteBehavior.Restrict)
-            .HasConstraintName("fk_permissions_module_id");
-
         builder.Property(p => p.CreatedAt)
             .HasColumnType("timestamptz")
             .IsRequired();
@@ -44,7 +34,6 @@ public sealed class PermissionConfiguration : IEntityTypeConfiguration<Permissio
         {
             Id = index + 1,
             Name = name,
-            ModuleId = ApplicationCatalog.ModuleIdOf(name),
             CreatedAt = seededAt,
             UpdatedAt = seededAt,
         }));

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using ScrapGo.Core.Shared.Infrastructure.Audit;
 using ScrapGo.Core.Shared.Infrastructure.Persistence;
 
@@ -30,17 +31,17 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
 
     public DbSet<UserRole> UserRoles => Set<UserRole>();
 
-    public DbSet<CatalogApplication> CatalogApplications => Set<CatalogApplication>();
-
-    public DbSet<CatalogModule> CatalogModules => Set<CatalogModule>();
-
-    public DbSet<OrganizationApplication> OrganizationApplications => Set<OrganizationApplication>();
-
-    public DbSet<OrganizationApplicationModule> OrganizationApplicationModules => Set<OrganizationApplicationModule>();
-
     public DbSet<Invitation> Invitations => Set<Invitation>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
+    /// <remarks>
+    /// Temporary, until B6 resets the migrations: the model has dropped the
+    /// application, module and catalog tables but the migrations still create
+    /// them, and EF refuses to migrate a model that differs from its snapshot.
+    /// </remarks>
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
+        optionsBuilder.ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

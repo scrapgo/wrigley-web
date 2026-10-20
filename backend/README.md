@@ -11,14 +11,13 @@ For detailed implementation status, see [Backend Implementation Status](BACKEND-
 
 - Architecture, rules and conventions: [`AGENTS.md`](AGENTS.md)
 - GCP infrastructure and deployment: [`infra/terraform/README.md`](infra/terraform/README.md)
-- Organizations, applications and modules, on the site and in code: [`../CATALOG-AND-ADMIN-GUIDE.md`](../CATALOG-AND-ADMIN-GUIDE.md)
 - Workspace sign-in hook for platform admins: [`infra/gcip-blocking-function/README.md`](infra/gcip-blocking-function/README.md)
 
 Modules (`src/Modules/`):
 
 | Module              | What it does                                                                                                                                           |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Identity**        | Sign-in, users, organizations, roles and permissions, applications and modules, invitations                                                            |
+| **Identity**        | Sign-in, users, organizations, roles and permissions, invitations                                                                                      |
 | **QuickbaseEngine** | The only path to Quickbase: `IQuickbaseQueryService`, cached in Postgres (`quickbase.query_caches`) and resilient (retries, timeouts, circuit breaker) |
 | **Suppliers**       | Read endpoints over the Quickbase Suppliers table (`bqrcgnatz`): list, details, call & prospect status, yard capabilities, Target Pricing — Progress Rail, and dropdown options. See [Suppliers](#suppliers) |
 
@@ -299,12 +298,9 @@ To run tests while the local API is running, build them into a separate folder
 so the API's locked DLLs aren't touched:
 
 ```bash
-dotnet test tests/Modules/ScrapGo.Core.Modules.Identity.IntegrationTests -o "$TEMP/scrapgo-testout" --filter "FullyQualifiedName~DownstreamWalkthrough"
+dotnet test tests/Modules/ScrapGo.Core.Modules.Identity.IntegrationTests -o "$TEMP/scrapgo-testout" --filter "FullyQualifiedName~InvitationSpecs"
 ```
 
-`Applications/DownstreamWalkthrough.cs` runs the guide's whole test scenario
-against the real Downstream catalog: create organizations, assign, enable,
-appoint, grant, disable, deactivate and remove.
 
 ## Running in Docker
 
@@ -340,23 +336,17 @@ Inside the container, the proxy on your machine is `host.docker.internal:5434`
 
 ## Access model
 
-Access is scoped by organization, then application, then module:
+The model is being replaced by [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md), one task at a time (`../docs/ACCESS-MODEL-TASKS.md`). Applications, modules and the catalog are already gone. Until the rest lands, access is scoped by organization:
 
-- **Catalog (code):** applications and modules are defined in code and seeded by migration.
-  - The first one is **Downstream** (`Domain/Applications/DownstreamApplication.cs`).
-  - Adding one is described in [`../CATALOG-AND-ADMIN-GUIDE.md`](../CATALOG-AND-ADMIN-GUIDE.md), Part 2.
 - **Platform administrators** (Google Workspace sign-in):
   - create organizations, naming the first administrator by user id or email (an unknown email gets an invitation)
   - rename them (the slug follows the name)
   - set an administrator (which revokes pending invitations)
   - deactivate and reactivate them
   - **delete** a deactivated one permanently; its audit history is kept
-  - assign applications, enable licensed modules, and appoint each application's first administrator
-- **Application administrators** grant and revoke application roles in their organization, optionally with expiry. Organization administrators can't.
-- **Effective permissions:** a permission resolves only while its module is enabled for that organization's application.
-- **Nothing is automatic:** nobody gets anything at sign-in, by joining an organization, or when an application is assigned.
+- **Nothing is automatic:** nobody gets anything at sign-in or by joining an organization.
 
-The design and its decisions are in [`../ORG-APP-MODULE-MODEL.md`](../ORG-APP-MODULE-MODEL.md), the rules in [`AGENTS.md`](AGENTS.md) ("Authorization Model"), and the admin API history in [`ADMIN-API-GAPS-v2.md`](ADMIN-API-GAPS-v2.md).
+The rules in [`AGENTS.md`](AGENTS.md) ("Authorization Model"), and the admin API history in [`ADMIN-API-GAPS-v2.md`](ADMIN-API-GAPS-v2.md).
 
 Platform admin endpoints (all `[PlatformAdministration]`, no membership needed):
 
@@ -367,11 +357,6 @@ Platform admin endpoints (all `[PlatformAdministration]`, no membership needed):
 | `PUT /api/admin/organizations/{id}/administrators/{userId}`         | Make member + OrganizationAdministrator; revokes pending invitations                    |
 | `POST /api/admin/organizations/{id}/deactivate` · `/reactivate`     | Block / restore all access                                                              |
 | `DELETE /api/admin/organizations/{id}`                              | Permanently delete a **deactivated** organization (409 `organization_active` otherwise) |
-| `GET /api/admin/organizations/{id}/applications`                    | Its applications and enabled modules                                                    |
-| `PUT/DELETE /api/admin/organizations/{id}/applications/{appId}`     | Assign / remove (removal revokes every grant for it)                                    |
-| `PUT/DELETE …/applications/{appId}/modules/{moduleId}`              | Enable / disable a module                                                               |
-| `GET …/applications/{appId}/roles`                                  | The application's roles (templates first)                                               |
-| `PUT/DELETE …/applications/{appId}/members/{userId}/roles/{roleId}` | Grant / revoke an application role, e.g. the first application administrator            |
 
 Invitations are accepted with `POST /api/invitations/accept` `{ token }`. It needs a verified email matching the invitation's; a Google sign-in counts as verified.
 
@@ -386,15 +371,12 @@ Every endpoint checks the caller before any Quickbase data is read. A caller wit
 
 | Route form | Who |
 | --- | --- |
-| `/api/organizations/{organizationId}/applications/{applicationId}/suppliers…` | Holders of `Downstream.Suppliers.Read` in that organization's application (Downstream is application `1`), with its Suppliers module enabled |
-| `/api/suppliers…` | **Platform administrators only** (`Admin.Access` at platform scope, Google Workspace sign-in). The Suppliers table is ScrapGo-wide |
+| `/api/suppliers…` | **Platform administrators only** for now (`Admin.Access` at platform scope, Google Workspace sign-in). Supplier scoping replaces this in a later task |
 | `/api/suppliers/<dropdown>` options | Any signed-in user (fixed lists, not Quickbase data) |
 
 ### Endpoints
 
-Each record endpoint exists in both route forms. For example,
-`GET /api/organizations/{id}/applications/1/suppliers/{recordId}/yard-capabilities` and
-`GET /api/suppliers/{recordId}/yard-capabilities`.
+For example, `GET /api/suppliers/{recordId}/yard-capabilities`.
 
 | Endpoint (after `…/suppliers`) | Returns |
 | --- | --- |

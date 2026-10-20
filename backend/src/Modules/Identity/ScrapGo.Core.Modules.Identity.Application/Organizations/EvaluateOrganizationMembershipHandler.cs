@@ -55,27 +55,4 @@ public sealed class EvaluateOrganizationMembershipHandler(
 
         return decision;
     }
-
-    /// <summary>
-    /// For an application-scoped route, after membership was allowed: true when
-    /// the organization has the application (assigned, and active in the
-    /// catalog). A denial is audited.
-    /// </summary>
-    public async Task<bool> HandleApplicationAsync(
-        string identityPlatformUid, int organizationId, int applicationId, CancellationToken cancellationToken)
-    {
-        if (await queries.IsApplicationAvailableAsync(organizationId, applicationId, cancellationToken))
-        {
-            return true;
-        }
-
-        auditLog.Record(new AuditEvent(
-            IdentityAuditEventTypes.DeniedApplicationAccess,
-            UserId: await users.GetIdByUidAsync(identityPlatformUid, cancellationToken),
-            OrganizationId: organizationId,
-            Metadata: JsonSerializer.Serialize(new { applicationId })));
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return false;
-    }
 }

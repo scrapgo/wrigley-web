@@ -109,7 +109,7 @@ public sealed class CreateOrganizationHandler(
                             ActingAsPlatformAdmin: true,
                             organization.Id,
                             command.FirstAdminEmail,
-                            [new InvitationGrantRequest(organizationAdministratorRoleId, ApplicationId: null)]),
+                            [new InvitationGrantRequest(organizationAdministratorRoleId)]),
                         ct);
 
                     return invited.Invitation is { } invitation

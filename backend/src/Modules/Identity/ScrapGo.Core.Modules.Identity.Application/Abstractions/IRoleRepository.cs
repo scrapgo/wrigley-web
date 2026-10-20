@@ -6,38 +6,10 @@ public interface IRoleRepository
 {
     /// <summary>
     /// A tracked, active, organization-level custom role, or null. Built-in
-    /// roles, application roles and soft-deleted roles are deliberately not
+    /// roles and soft-deleted roles are deliberately not
     /// editable through this path.
     /// </summary>
     Task<Role?> FindEditableOrganizationRoleAsync(int roleId, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// An active application role usable in (organization, application): the
-    /// application's templates or the organization's own custom roles for it.
-    /// Untracked; null for anything else, including another organization's role.
-    /// </summary>
-    Task<Role?> FindApplicationRoleAsync(int roleId, int organizationId, int applicationId, CancellationToken cancellationToken);
-
-    /// <summary>A tracked, active custom application role of exactly this organization and application (templates aren't editable), or null.</summary>
-    Task<Role?> FindEditableApplicationRoleAsync(int roleId, int organizationId, int applicationId, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// The catalog id of a permission an application role of
-    /// <paramref name="applicationId"/> may hold: one of that application's
-    /// module permissions, or an application-scope identity permission
-    /// (<c>Application.ManageAccess</c>). Null otherwise, including retired ones.
-    /// </summary>
-    Task<int?> FindApplicationPermissionIdAsync(string permissionName, int applicationId, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// How many other active members hold <c>Application.ManageAccess</c> in
-    /// (organization, application) through an unexpired grant.
-    /// </summary>
-    Task<int> CountOtherApplicationAdministratorsAsync(
-        int organizationId, int applicationId, int excludingUserId, DateTimeOffset now, CancellationToken cancellationToken);
-
-    /// <summary>Every grant for (organization, application), tracked, for the application-removal cascade.</summary>
-    Task<IReadOnlyList<UserRole>> ListApplicationGrantsAsync(int organizationId, int applicationId, CancellationToken cancellationToken);
 
     /// <summary>An active role in any scope (organization or built-in), untracked, or null.</summary>
     Task<Role?> FindActiveRoleAsync(int roleId, CancellationToken cancellationToken);
@@ -82,9 +54,8 @@ public interface IRoleRepository
     Task<IReadOnlyList<PermissionScope>> GetAssignmentScopesAsync(int roleId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// The catalog id of a permission an <em>organization-level</em> role may
-    /// hold, or null: unknown names, module permissions (they belong in
-    /// application roles) and application-scope-only permissions all return null.
+    /// The id of a permission by name, or null when there is none. Callers
+    /// refuse retired permissions themselves.
     /// </summary>
     Task<int?> FindPermissionIdAsync(string permissionName, CancellationToken cancellationToken);
 

@@ -18,7 +18,7 @@ While Quickbase remains the System of Record for core business entities (Supplie
 
 ## Postgres Database Scope (Stored Locally)
 
-- **Identity & Access:** Users, Roles, Permissions, Quickbase Application Access, Quickbase Table Access.
+- **Identity & Access:** Users, Roles, Permissions, Quickbase Table Access.
 
 - **Audit & Governance:** QuickBase Action History, System Audit Logs.
 
@@ -78,8 +78,8 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 
 **QuickbaseEngine**: implements `IQuickbaseQueryService`, cache-aside over the Quickbase REST API, backed by `quickbase.query_caches`. Its Api project has no controllers.
 
-**Suppliers** (Application, Infrastructure, Api; no Domain or database, since Quickbase owns the data): read endpoints over the Quickbase Suppliers table `bqrcgnatz`.
-- `GET /api/organizations/{organizationId}/applications/{applicationId}/suppliers` returns names sorted by name, with `search`, `skip` and `top` (1–1000, default 100).
+**Suppliers** (Application, Infrastructure, Api; no Domain or database, since Quickbase owns the data): read endpoints over the Quickbase Suppliers table `bqrcgnatz`, under `/api/suppliers`, for **platform administrators only** for now (`Admin.Access` at platform scope, which needs a Workspace sign-in). Supplier scoping (B13 in `docs/ACCESS-MODEL-TASKS.md`) replaces this.
+- `GET /api/suppliers` returns names sorted by name, with `search`, `skip` and `top` (1–1000, default 100).
 - `GET …/suppliers/{recordId}` returns one supplier's details.
 - `GET …/suppliers/{recordId}/call-prospect-status` returns call & prospect status (fields 197, 192, 193, 236, 181, 238, 97).
 - `GET …/suppliers/{recordId}/yard-capabilities` returns yard capabilities (13 checkboxes).
@@ -90,8 +90,6 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 - `GET …/suppliers/{recordId}/linked-its-dispatch-records` returns the ITS dispatch records linked to the supplier from table `bspsb9kpm` (`{366.EX.'<recordId>'}`), newest ship date first; `consumer` is "Consumer - City, State". An empty list, never 404.
 - `GET …/suppliers/{recordId}/other-prospect-information` returns Other Prospect Information (Documents & Other): Suppliers fields 77, 152, 175, 157 (text) and 215 (checkbox), plus `latestActivity` from the **Call Notes** table `br8tgw3tp` (`{19.EX.'<recordId>'}`, field 1 descending, top 1; fields 3, 19, 57, 1), or `null` when there is none. This is two queries, because Quickbase can't join: an unknown supplier gives 404 without the second query, and `freshness` is the less fresh of the two.
 - All of them share `SupplierService.ReadRecordAsync`: the access check, then 404 / 502.
-- `GET /api/suppliers…` (every endpoint above) does the same without an organization or application, for **platform administrators only** (`Admin.Access` at platform scope, which needs a Workspace sign-in). The Suppliers table is ScrapGo-wide.
-- Both require `Downstream.Suppliers.Read` at application scope, which also needs the Suppliers module enabled.
 - `ISupplierSource` (Application) is implemented by `QuickbaseSupplierSource` (Infrastructure), which holds the field ids (`SuppliersTable`) and the JSON mapping.
 - Errors: 403 `missing_permission`, 404 `supplier_not_found`, 502 `quickbase_unavailable`.
 - **Every supplier dropdown is sent and accepted as its exact text.** Each enum member carries the text in `[JsonStringEnumMemberName("…")]`, which is the single source for the JSON value, the label (`DropdownCatalog<TEnum>.FromJsonNames()`) and the Quickbase text.
@@ -111,8 +109,8 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 
 **Proxy modules** (Suppliers, and later Freight and others) follow the Suppliers shape:
 - They reach Quickbase only through `IQuickbaseQueryService` and check the caller through `IUserContext`. Both contracts live in **Shared.Kernel** (`Shared.Kernel.Quickbase`, `Shared.Kernel.Security`), so no module references QuickbaseEngine's or Identity's projects.
-- They check application-scope permissions with `IUserContext.HasApplicationPermissionAsync`.
-- They name catalog permissions by string, with a spec pinning that string to Identity's catalog.
+- They check permissions with `IUserContext.HasPermissionAsync`.
+- They name Identity's permissions by string, with a spec pinning that string to Identity's `Permissions`.
 
 ## Quickbase Query Cache (QuickbaseEngine module)
 
@@ -125,59 +123,38 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 
 ## Authorization Model (Identity module)
 
-The full design, its decisions and the implementation record are in [`../ORG-APP-MODULE-MODEL.md`](../ORG-APP-MODULE-MODEL.md).
+This section describes the model being replaced by [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md), task by task (`docs/ACCESS-MODEL-TASKS.md`). Applications, modules and the catalog are gone (B2); organizations go next (B3). Until B6 resets the Identity migrations, `IdentityDbContext` ignores EF's pending-model-changes warning, and the old migrations still create (now unmapped) application, module and catalog tables and rows.
 
 ### Scopes and route conventions
 
-- **Three scopes:**
+- **Two scopes:**
   - **platform:** no organization
   - **organization:** `{organizationId}`
-  - **application:** `{organizationId}` and `{applicationId}`, within one organization
 
-  A grant in one scope never satisfies another: not across organizations, not across applications, and not between levels.
+  A grant in one scope never satisfies another: not across organizations, and not between levels.
 - **Context comes from the route, never the token.**
   - Any route with `{organizationId}` is covered by `OrganizationMembershipGuardMiddleware`:
     - 403 `no_active_membership` without an active membership
     - 403 `organization_deactivated` for a member of a deactivated organization
-  - Adding `{applicationId}` makes the route application-scoped: the guard answers 404 `application_not_found` unless the organization has that application, assigned and active in the catalog.
-  - Name the segments exactly `organizationId` / `applicationId`: `{orgId}` or `{appId}` silently get none of this.
+  - Name the segment exactly `organizationId`: `{orgId}` silently gets none of this.
 - **Platform administration** routes act on an organization from outside it. They live under `/api/admin/…`, carry `[PlatformAdministration]` (which skips the membership guard), and must have a platform-scoped `[RequirePermission]`. A route-table spec (`PlatformAdministrationRoutes`) fails if one doesn't.
-- **Protect endpoints with permissions, not role names:** `[RequirePermission(Permissions.X)]` resolves in the route's organization, or in its application when the route has `{applicationId}`. `[RequirePermission(Permissions.X, PlatformScope = true)]` is satisfied only by platform-scoped assignments. The only role-name literals allowed are in `DefaultRoleNames`.
+- **Protect endpoints with permissions, not role names:** `[RequirePermission(Permissions.X)]` resolves in the route's organization. `[RequirePermission(Permissions.X, PlatformScope = true)]` is satisfied only by platform-scoped assignments. The only role-name literals allowed are in `DefaultRoleNames`.
 - **A FallbackPolicy** requires an authenticated caller on any endpoint without authorization metadata. Only `/healthz` and `/healthz/ready` are `AllowAnonymous`.
 
-### Catalog, entitlements and resolution
+### Permissions and resolution
 
-- **Catalog (code, Decision 2):** applications and modules are defined in `Domain/Applications/ApplicationCatalog.cs`, and their permissions in `Permissions.All`. Both are seeded by migration. Permission names are global: `{App}.{Module}.{Action}`.
-  - The catalog is **empty today** (Decision 7, blank slate).
-  - To add an application, follow the steps in `ApplicationCatalog`'s remarks: definition, permissions appended, "{App} Administrator" template, migration.
-  - Runtime catalog changes are status-only: retire or reactivate, with `Catalog.Manage`.
-- **Entitlements (tenant data):**
-  - `organization_applications`: a platform admin assigns them (`Application.Assign`).
-  - `organization_application_modules`: a platform admin enables them (`Module.Manage`, licensed).
-  - Assigning or enabling grants nobody anything.
-- **Resolution** (`AuthorizationQueries.GetPermissionNamesAsync`): roles must be active and grants unexpired (`user_roles.expires_at`), and retired permissions never resolve. Application scope additionally requires:
-  - an active membership in an active organization
-  - the application assigned and active
-  - each module permission's module active and enabled for that organization's application
-
-  **A disabled module resolves to deny**, whatever the role grants.
+- **Permissions (code):** `Permissions.All`, seeded by migration (ids are positions in the list; append, never reorder).
+- **Resolution** (`AuthorizationQueries.GetPermissionNamesAsync`): roles must be active and grants unexpired (`user_roles.expires_at`), and retired permissions never resolve. Organization scope also needs the organization active.
 
 ### Roles and who grants what
 
-- **Kinds**, by (`organization_id`, `application_id`):
-  - built-ins (null, null)
-  - organization custom roles (org, null)
-  - application templates (null, app)
-  - organization custom application roles (org, app)
-
-  An application role holds only its own application's module permissions and `Application.ManageAccess`. Organization-level roles hold no module permissions.
-- **Organization roles** (`RoleService`, `/api/roles…`, `/api/users/{id}/roles`) need an active membership plus `Role.Create` / `Role.Update` / `Role.Delete` / `Role.Assign` there. Application roles are refused on these paths (`role_scope_mismatch`).
-- **Application access** (`ApplicationAccessService`, `/api/organizations/{organizationId}/applications/{applicationId}/…`) is granted **only by application administrators** (`Application.ManageAccess` at application scope) **or platform admins** (`/api/admin/…`). This is Decision 3: organization admins can't grant application roles. Grants may carry `expiresAt`.
-- **Escalation guard:** a caller may only attach or grant permissions they hold in that scope (403 `cannot_grant_unheld_permission`). They may never edit, delete or recompose a role they hold (403 `cannot_modify_own_role`). A disabled module's permissions aren't held, so they can't be granted. Platform admins acting through `/api/admin/…` are exempt. Keep the guard on any new write path.
-- **Last-administrator protection** (409, under a row lock): the last active PlatformAdministrator; an organization's last active OrganizationAdministrator; an application's last active administrator in an organization. The last one applies to app admins, not platform admins.
+- **Kinds**, by `organization_id`: built-ins (null) and organization custom roles (org).
+- **Organization roles** (`RoleService`, `/api/roles…`, `/api/users/{id}/roles`) need an active membership plus `Role.Create` / `Role.Update` / `Role.Delete` / `Role.Assign` there. A built-in in the wrong kind of scope is refused (`role_scope_mismatch`).
+- **Escalation guard:** a caller may only attach or grant permissions they hold in that scope (403 `cannot_grant_unheld_permission`). They may never edit, delete or recompose a role they hold (403 `cannot_modify_own_role`). Platform admins acting through `/api/admin/…` are exempt. Keep the guard on any new write path.
+- **Last-administrator protection** (409, under a row lock): the last active PlatformAdministrator, and an organization's last active OrganizationAdministrator.
 - **Built-in roles** (`DefaultRoleNames`, not editable over HTTP):
   - `OrganizationAdministrator` (id 1): every live organization-level permission (identity administration, `Organization.Update`).
-  - `PlatformAdministrator`: `User.*`, `Role.*`, `Admin.Access`, plus the platform administration permissions `Organization.Create`, `Organization.Deactivate`, `Application.Assign`, `Module.Manage` and `Catalog.Manage`.
+  - `PlatformAdministrator`: `User.*`, `Role.*`, `Admin.Access`, plus the platform administration permissions `Organization.Create` and `Organization.Deactivate`. (The old migration also grants it the removed `Application.Assign`, `Module.Manage` and `Catalog.Manage`; nothing checks them.)
   - Retired: `Invoice.*` / `Report.*` (ids 10–16) can't be attached and never resolve. Their rows stay because ids are positional.
 
 ### Lifecycle rules
@@ -189,26 +166,24 @@ The full design, its decisions and the implementation record are in [`../ORG-APP
 - **Platform access needs a Google Workspace sign-in on every request** (Decision 12).
   - Platform-scoped permissions resolve only when the current token's `hd` claim is on `INTERNAL_HD_ALLOWLIST`. The check is `ICallerSignIn` in `PermissionResolver`, before the cache.
   - Otherwise `[RequirePermission(..., PlatformScope = true)]` answers 403 `workspace_sign_in_required`, in-service platform checks refuse, and `/me` shows no platform roles or permissions.
-  - Organization and application access are unaffected.
+  - Organization access is unaffected.
   - **`INTERNAL_HD_ALLOWLIST` must be set in every environment** (Terraform default `scrapgo.com`); when it's blank, nobody has platform access. It is a JSON array in appsettings (`["scrapgo.com"]`, as in `appsettings.Development.json`) or a comma-separated string as an env var (`InternalHdAllowlistConfiguration.Read`).
   - GCIP tokens only carry `hd` because of the `beforeSignIn` blocking function in `infra/gcip-blocking-function/`, which copies it from Google's token for Google sign-ins. Without it deployed and registered, nobody has platform access.
 - **External users** (`users.classification`, the database being the only source; Decision 8):
-  - They may be organization or application administrators.
+  - They may be organization administrators.
   - They may never hold a platform role (`external_user_not_allowed`, also enforced by the bootstrap command).
   - MFA for them is reserved behind `Identity:RequireMfaForExternalUsers`, off until MFA is enabled in GCIP. When it's on, a token without `firebase.sign_in_second_factor` gets 403 `mfa_required`.
 - **Invitations** (`InvitationService`):
   - Pre-grants are validated at invite time like direct grants.
   - Acceptance needs the token's `email_verified` and the same email.
-  - A pre-grant whose role or application is gone by then is skipped and audited.
+  - Pre-grants are organization roles only. One whose role is gone by then is skipped and audited.
   - Only the token's SHA-256 is stored.
 - **Cascades:**
-  - Removing an application hard-revokes its grants in that organization, each audited `access_revoked` (Decision 5).
-  - Disabling a module keeps grants.
   - Removing a member revokes all their grants in that organization.
   - Deactivating an organization blocks everything and deletes nothing.
   - **Deleting** is platform-admin only (`DELETE /api/admin/organizations/{id}`). It works only on a deactivated organization (otherwise 409 `organization_active`), hard-deletes everything in it, and keeps its audit history plus `organization_deleted`.
   - Platform admins can also rename (`PUT /api/admin/organizations/{id}`) and set an administrator (`PUT …/administrators/{userId}`, which revokes pending invitations) without being members.
-- **Permission cache:** `IPermissionCache` is a pass-through until Redis is migrated. Every mutation must invalidate the affected scopes; organization- and application-wide changes call `InvalidateOrganizationAsync` / `InvalidateOrganizationApplicationAsync`, which a real cache should implement as generation keys.
+- **Permission cache:** `IPermissionCache` is a pass-through until Redis is migrated. Every mutation must invalidate the affected scopes; organization-wide changes call `InvalidateOrganizationAsync`, which a real cache should implement as a generation key.
 
 ## Rules
 

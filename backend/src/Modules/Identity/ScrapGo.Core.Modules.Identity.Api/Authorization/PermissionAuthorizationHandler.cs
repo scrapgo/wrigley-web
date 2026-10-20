@@ -39,7 +39,6 @@ public sealed class PermissionAuthorizationHandler(PermissionResolver permission
         }
 
         int? organizationId = null;
-        int? applicationId = null;
         if (!requirement.PlatformScope)
         {
             if (!OrganizationRouteValues.TryGetOrganizationId(httpContext, out var routeOrganizationId))
@@ -49,17 +48,9 @@ public sealed class PermissionAuthorizationHandler(PermissionResolver permission
             }
 
             organizationId = routeOrganizationId;
-
-            // An application in the route makes the check application-scoped:
-            // only that application's grants, and only its enabled modules.
-            if (OrganizationRouteValues.TryGetApplicationId(httpContext, out var routeApplicationId))
-            {
-                applicationId = routeApplicationId;
-            }
         }
 
-        if (await permissionResolver.HasPermissionAsync(
-                uid, organizationId, applicationId, requirement.PermissionName, httpContext.RequestAborted))
+        if (await permissionResolver.HasPermissionAsync(uid, organizationId, requirement.PermissionName, httpContext.RequestAborted))
         {
             context.Succeed(requirement);
         }

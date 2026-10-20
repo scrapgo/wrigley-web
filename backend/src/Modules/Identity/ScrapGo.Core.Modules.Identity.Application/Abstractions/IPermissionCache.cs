@@ -4,16 +4,12 @@ namespace ScrapGo.Core.Modules.Identity.Application.Abstractions;
 /// The scope a permission set is resolved in, for one user:
 /// <list type="bullet">
 /// <item>platform-wide when <see cref="OrganizationId"/> is null;</item>
-/// <item>one organization when only <see cref="OrganizationId"/> is set;</item>
-/// <item>one application in one organization when both are set: only that
-/// application's grants, and only its enabled modules' permissions.</item>
+/// <item>one organization when <see cref="OrganizationId"/> is set.</item>
 /// </list>
 /// </summary>
-public readonly record struct PermissionScope(int UserId, int? OrganizationId, int? ApplicationId = null)
+public readonly record struct PermissionScope(int UserId, int? OrganizationId)
 {
     public bool IsPlatform => OrganizationId is null;
-
-    public bool IsApplication => ApplicationId is not null;
 }
 
 /// <summary>
@@ -46,12 +42,4 @@ public interface IPermissionCache
     /// holders in O(1) without enumerating them.
     /// </remarks>
     Task InvalidateOrganizationAsync(int organizationId, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Invalidates every cached (organization, application) scope for every
-    /// user: used when the application is removed from the organization or a
-    /// module is enabled or disabled. Same generation-number advice as
-    /// <see cref="InvalidateOrganizationAsync"/>.
-    /// </summary>
-    Task InvalidateOrganizationApplicationAsync(int organizationId, int applicationId, CancellationToken cancellationToken);
 }

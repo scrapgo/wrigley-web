@@ -6,7 +6,7 @@ public enum SupplierOutcome
 {
     Success,
 
-    /// <summary>The caller lacks <see cref="SupplierPermissions.Read"/> for this organization's application.</summary>
+    /// <summary>The caller lacks <see cref="SupplierPermissions.PlatformRead"/> at platform scope.</summary>
     Forbidden,
 
     NotFound,
@@ -44,42 +44,24 @@ public sealed record SupplierOtherProspectInformationResult(
 public sealed record SupplierCallProspectStatusResult(
     SupplierOutcome Outcome, SupplierCallProspectStatusResponse? CallProspectStatus = null);
 
-/// <summary>
-/// Whose supplier access to check: an organization's application
-/// (<see cref="SupplierPermissions.Read"/>), or the platform when both are null
-/// (<see cref="SupplierPermissions.PlatformRead"/>).
-/// </summary>
-public sealed record SupplierScope(int? OrganizationId, int? ApplicationId)
-{
-    public static readonly SupplierScope Platform = new(null, null);
-
-    public static SupplierScope ForApplication(int organizationId, int applicationId) => new(organizationId, applicationId);
-}
-
 /// <param name="Search">Optional name substring (case-insensitive in Quickbase).</param>
-public sealed record ListSuppliersQuery(SupplierScope Scope, string? Search, int? Skip, int? Top);
+public sealed record ListSuppliersQuery(string? Search, int? Skip, int? Top);
 
 /// <summary>
 /// Supplier reads for the portal. Every call checks the caller through
 /// <see cref="IUserContext"/> before any Quickbase data is touched:
-/// <see cref="SupplierPermissions.Read"/> at application scope, or
-/// <see cref="SupplierPermissions.PlatformRead"/> at platform scope.
+/// <see cref="SupplierPermissions.PlatformRead"/> at platform scope, until
+/// supplier scoping (B13) arrives.
 /// </summary>
-/// <remarks>
-/// On application routes the membership guard has already validated the
-/// organization and application (membership, organization active, application
-/// assigned); the permission check adds the grant and the Suppliers module
-/// being enabled.
-/// </remarks>
 public sealed class SupplierService(IUserContext userContext, ISupplierSource source, ILogger<SupplierService> logger)
 {
     public const int DefaultTop = 100;
 
     public const int MaxTop = 1000;
 
-    public async Task<SupplierResult> GetAsync(SupplierScope scope, int recordId, CancellationToken cancellationToken)
+    public async Task<SupplierResult> GetAsync(int recordId, CancellationToken cancellationToken)
     {
-        var (outcome, found) = await ReadRecordAsync(scope, recordId, source.FindByRecordIdAsync, cancellationToken);
+        var (outcome, found) = await ReadRecordAsync(recordId, source.FindByRecordIdAsync, cancellationToken);
         return found is { Value: { } supplier }
             ? new(outcome, new SupplierResponse(supplier, found.Freshness))
             : new(outcome);
@@ -87,9 +69,9 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
 
     /// <summary>The supplier's call and prospect status: last call result, objection, call back date, notes.</summary>
     public async Task<SupplierCallProspectStatusResult> GetCallProspectStatusAsync(
-        SupplierScope scope, int recordId, CancellationToken cancellationToken)
+        int recordId, CancellationToken cancellationToken)
     {
-        var (outcome, found) = await ReadRecordAsync(scope, recordId, source.FindCallProspectStatusAsync, cancellationToken);
+        var (outcome, found) = await ReadRecordAsync(recordId, source.FindCallProspectStatusAsync, cancellationToken);
         return found is { Value: { } status }
             ? new(outcome, new SupplierCallProspectStatusResponse(status, found.Freshness))
             : new(outcome);
@@ -97,9 +79,9 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
 
     /// <summary>The supplier's yard capabilities: crusher, baler, scale, loading options and so on.</summary>
     public async Task<SupplierYardCapabilitiesResult> GetYardCapabilitiesAsync(
-        SupplierScope scope, int recordId, CancellationToken cancellationToken)
+        int recordId, CancellationToken cancellationToken)
     {
-        var (outcome, found) = await ReadRecordAsync(scope, recordId, source.FindYardCapabilitiesAsync, cancellationToken);
+        var (outcome, found) = await ReadRecordAsync(recordId, source.FindYardCapabilitiesAsync, cancellationToken);
         return found is { Value: { } capabilities }
             ? new(outcome, new SupplierYardCapabilitiesResponse(capabilities, found.Freshness))
             : new(outcome);
@@ -107,9 +89,9 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
 
     /// <summary>The supplier's Target Pricing — Progress Rail: target material, offer, freight, prices per unit, PO number.</summary>
     public async Task<SupplierTargetPricingProgressRailResult> GetTargetPricingProgressRailAsync(
-        SupplierScope scope, int recordId, CancellationToken cancellationToken)
+        int recordId, CancellationToken cancellationToken)
     {
-        var (outcome, found) = await ReadRecordAsync(scope, recordId, source.FindTargetPricingProgressRailAsync, cancellationToken);
+        var (outcome, found) = await ReadRecordAsync(recordId, source.FindTargetPricingProgressRailAsync, cancellationToken);
         return found is { Value: { } pricing }
             ? new(outcome, new SupplierTargetPricingProgressRailResponse(pricing, found.Freshness))
             : new(outcome);
@@ -120,9 +102,9 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
     /// reassignment, office, out of business, and its most recent activity.
     /// </summary>
     public async Task<SupplierOtherProspectInformationResult> GetOtherProspectInformationAsync(
-        SupplierScope scope, int recordId, CancellationToken cancellationToken)
+        int recordId, CancellationToken cancellationToken)
     {
-        var (outcome, found) = await ReadRecordAsync(scope, recordId, source.FindOtherProspectInformationAsync, cancellationToken);
+        var (outcome, found) = await ReadRecordAsync(recordId, source.FindOtherProspectInformationAsync, cancellationToken);
         return found is { Value: { } information }
             ? new(outcome, new SupplierOtherProspectInformationResponse(information, found.Freshness))
             : new(outcome);
@@ -134,9 +116,9 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
     /// the two apart.
     /// </summary>
     public async Task<SupplierInStockItemsResult> GetInStockItemsAsync(
-        SupplierScope scope, int recordId, CancellationToken cancellationToken)
+        int recordId, CancellationToken cancellationToken)
     {
-        var (outcome, found) = await ReadRecordAsync(scope, recordId, source.ListInStockItemsAsync, cancellationToken);
+        var (outcome, found) = await ReadRecordAsync(recordId, source.ListInStockItemsAsync, cancellationToken);
         return found is { Value: { } items }
             ? new(outcome, new SupplierInStockItemsResponse(recordId, items, found.Freshness))
             : new(outcome);
@@ -146,9 +128,9 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
     /// The supplier's contacts, main contact first. A supplier with none (or an
     /// unknown supplier id) returns an empty list, not 404.
     /// </summary>
-    public async Task<SupplierContactsResult> GetContactsAsync(SupplierScope scope, int recordId, CancellationToken cancellationToken)
+    public async Task<SupplierContactsResult> GetContactsAsync(int recordId, CancellationToken cancellationToken)
     {
-        var (outcome, found) = await ReadRecordAsync(scope, recordId, source.ListContactsAsync, cancellationToken);
+        var (outcome, found) = await ReadRecordAsync(recordId, source.ListContactsAsync, cancellationToken);
         return found is { Value: { } contacts }
             ? new(outcome, new SupplierContactsResponse(recordId, contacts, found.Freshness))
             : new(outcome);
@@ -159,9 +141,9 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
     /// an unknown supplier id) returns an empty list, not 404.
     /// </summary>
     public async Task<SupplierCallNotesHistoryResult> GetCallNotesHistoryAsync(
-        SupplierScope scope, int recordId, CancellationToken cancellationToken)
+        int recordId, CancellationToken cancellationToken)
     {
-        var (outcome, found) = await ReadRecordAsync(scope, recordId, source.ListCallNotesAsync, cancellationToken);
+        var (outcome, found) = await ReadRecordAsync(recordId, source.ListCallNotesAsync, cancellationToken);
         return found is { Value: { } notes }
             ? new(outcome, new SupplierCallNotesHistoryResponse(recordId, notes, found.Freshness))
             : new(outcome);
@@ -173,9 +155,9 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
     /// list, not 404.
     /// </summary>
     public async Task<SupplierDispatchRecordsResult> GetDispatchRecordsAsync(
-        SupplierScope scope, int recordId, CancellationToken cancellationToken)
+        int recordId, CancellationToken cancellationToken)
     {
-        var (outcome, found) = await ReadRecordAsync(scope, recordId, source.ListDispatchRecordsAsync, cancellationToken);
+        var (outcome, found) = await ReadRecordAsync(recordId, source.ListDispatchRecordsAsync, cancellationToken);
         return found is { Value: { } records }
             ? new(outcome, new SupplierDispatchRecordsResponse(recordId, records, found.Freshness))
             : new(outcome);
@@ -183,13 +165,12 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
 
     /// <summary>Checks access, then reads one supplier record; NotFound for a missing record.</summary>
     private async Task<(SupplierOutcome Outcome, Sourced<T?>? Found)> ReadRecordAsync<T>(
-        SupplierScope scope,
         int recordId,
         Func<int, CancellationToken, Task<Sourced<T?>>> read,
         CancellationToken cancellationToken)
         where T : class
     {
-        if (!await CanReadAsync(scope, cancellationToken))
+        if (!await CanReadAsync(cancellationToken))
         {
             return (SupplierOutcome.Forbidden, null);
         }
@@ -213,7 +194,7 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
 
     public async Task<SupplierListResult> ListAsync(ListSuppliersQuery query, CancellationToken cancellationToken)
     {
-        if (!await CanReadAsync(query.Scope, cancellationToken))
+        if (!await CanReadAsync(cancellationToken))
         {
             return new(SupplierOutcome.Forbidden);
         }
@@ -240,8 +221,6 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
         }
     }
 
-    private Task<bool> CanReadAsync(SupplierScope scope, CancellationToken cancellationToken) =>
-        scope is { OrganizationId: { } organizationId, ApplicationId: { } applicationId }
-            ? userContext.HasApplicationPermissionAsync(SupplierPermissions.Read, organizationId, applicationId, cancellationToken)
-            : userContext.HasPermissionAsync(SupplierPermissions.PlatformRead, organizationId: null, cancellationToken);
+    private Task<bool> CanReadAsync(CancellationToken cancellationToken) =>
+        userContext.HasPermissionAsync(SupplierPermissions.PlatformRead, organizationId: null, cancellationToken);
 }

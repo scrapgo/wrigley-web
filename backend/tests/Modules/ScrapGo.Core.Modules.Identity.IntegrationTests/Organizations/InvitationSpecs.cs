@@ -101,24 +101,20 @@ public class InvitationSpecs
         }
     }
 
-    public class Given_an_app_pre_grant_whose_application_was_removed_before_acceptance(IdentitySpecFixture fixture)
+    public class Given_a_pre_grant_whose_role_was_deleted_before_acceptance(IdentitySpecFixture fixture)
         : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
         public async Task The_pre_grant_is_skipped_and_the_membership_still_created()
         {
-            // Inviting adds a member (an organization action, User.Update); pre-granting an
-            // application role also needs Application.ManageAccess there: org admin and app admin.
-            var (adminUid, adminId, organizationId) = await fixture.SeedOrganizationAdministratorAsync();
-            await fixture.EntitleAsync(organizationId, SpecApplications.SpecAppId, SpecApplications.AlphaModuleId);
-            await fixture.GrantApplicationRoleAsync(
-                adminId, await fixture.ApplicationRoleIdAsync(SpecApplications.SpecAppAdministrator), organizationId, SpecApplications.SpecAppId);
-            var viewerId = await fixture.ApplicationRoleIdAsync(SpecApplications.SpecAppViewer);
+            var (adminUid, _, organizationId) = await fixture.SeedOrganizationAdministratorAsync();
+            var role = Role.CreateForOrganization(organizationId, $"Stale {Guid.NewGuid():N}", null, DateTimeOffset.UtcNow);
+            fixture.DbContext.Roles.Add(role);
+            await fixture.DbContext.SaveChangesAsync();
             var email = $"stale-{Guid.NewGuid():N}@acme.example";
-            var token = await InviteForTokenAsync(fixture, adminUid, organizationId, email, new { roleId = viewerId, applicationId = SpecApplications.SpecAppId });
-            var (platformUid, _) = await fixture.SeedPlatformAdministratorAsync();
-            (await fixture.SendAsync(HttpMethod.Delete, $"/api/admin/organizations/{organizationId}/applications/{SpecApplications.SpecAppId}",
-                fixture.CreateToken(platformUid))).EnsureSuccessStatusCode();
+            var token = await InviteForTokenAsync(fixture, adminUid, organizationId, email, new { roleId = role.Id });
+            role.MarkDeleted(DateTimeOffset.UtcNow);
+            await fixture.DbContext.SaveChangesAsync();
 
             var accepted = await AcceptAsync(fixture, Guid.NewGuid().ToString(), email, token, emailVerified: true);
 
@@ -186,20 +182,6 @@ public class InvitationSpecs
 
             Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
             Assert.Equal("invitation_pending", await IdentitySpecFixture.ReadProblemReasonAsync(response));
-        }
-
-        // Decision 3: an org admin can't pre-grant application roles either.
-        [Fact]
-        public async Task An_org_admin_pre_granting_an_app_role_returns_four_hundred_three()
-        {
-            var (adminUid, _, organizationId) = await fixture.SeedOrganizationAdministratorAsync();
-            await fixture.EntitleAsync(organizationId, SpecApplications.SpecAppId, SpecApplications.AlphaModuleId);
-            var viewerId = await fixture.ApplicationRoleIdAsync(SpecApplications.SpecAppViewer);
-
-            var response = await InviteAsync(fixture, adminUid, organizationId, $"app-{Guid.NewGuid():N}@acme.example",
-                new { roleId = viewerId, applicationId = SpecApplications.SpecAppId });
-
-            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
 
         [Fact]

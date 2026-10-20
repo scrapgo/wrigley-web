@@ -40,8 +40,7 @@ public sealed class OrganizationReadService(IAuthorizationQueries authorization)
             : new(OrganizationReadOutcome.NotFound);
 
     /// <summary>
-    /// Every role one member holds in this organization: organization-level
-    /// roles and application grants, with expiry. Null (NotFound) if they
+    /// Every role one member holds in this organization, with expiry. Null (NotFound) if they
     /// aren't a member, so other users can't be probed.
     /// </summary>
     public Task<IReadOnlyList<AssignedRoleDto>?> ListMemberGrantsAsync(int organizationId, int userId, CancellationToken cancellationToken) =>

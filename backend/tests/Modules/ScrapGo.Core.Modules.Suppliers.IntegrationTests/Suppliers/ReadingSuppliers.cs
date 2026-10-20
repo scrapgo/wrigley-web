@@ -1,28 +1,20 @@
 // Suppliers come from Quickbase (bqrcgnatz) through the shared query service,
-// only for callers holding Downstream.Suppliers.Read in that organization.
+// only for platform administrators (Admin.Access at platform scope) for now.
 using ScrapGo.Core.Modules.Suppliers.Application.Suppliers;
 
 namespace ScrapGo.Core.Modules.Suppliers.IntegrationTests.Suppliers;
 
 public class ReadingSuppliers
 {
-    private static readonly int[] AllDownstreamModules =
-    [
-        DownstreamApplication.PricingModuleId,
-        DownstreamApplication.OpportunitiesModuleId,
-        DownstreamApplication.LoadsModuleId,
-        DownstreamApplication.SuppliersModuleId,
-    ];
-
     public class Given_a_supplier_reader(SuppliersSpecFixture fixture) : IClassFixture<SuppliersSpecFixture>
     {
         [Fact]
         public async Task Get_by_record_id_sends_the_detail_query_and_maps_every_field()
         {
-            var (token, organizationId) = await fixture.SeedSupplierReaderAsync(AllDownstreamModules);
+            var token = await fixture.SeedSupplierReaderAsync();
             fixture.Quickbase.RespondWith(SupplierResponses.FirstClassAutoSalvage);
 
-            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId, "/17511"), token);
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath("/17511"), token);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var query = fixture.Quickbase.Queries.Last();
@@ -58,10 +50,10 @@ public class ReadingSuppliers
         [Fact]
         public async Task Unknown_payment_terms_come_back_as_null()
         {
-            var (token, organizationId) = await fixture.SeedSupplierReaderAsync(AllDownstreamModules);
+            var token = await fixture.SeedSupplierReaderAsync();
             fixture.Quickbase.RespondWith(SupplierResponses.UnknownPaymentTerms);
 
-            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId, "/9583"), token);
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath("/9583"), token);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var supplier = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("supplier");
@@ -71,10 +63,10 @@ public class ReadingSuppliers
         [Fact]
         public async Task An_unchecked_dead_freight_box_is_exempt()
         {
-            var (token, organizationId) = await fixture.SeedSupplierReaderAsync(AllDownstreamModules);
+            var token = await fixture.SeedSupplierReaderAsync();
             fixture.Quickbase.RespondWith(SupplierResponses.DeadFreightUnchecked);
 
-            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId, "/9583"), token);
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath("/9583"), token);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var supplier = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("supplier");
@@ -84,10 +76,10 @@ public class ReadingSuppliers
         [Fact]
         public async Task An_unknown_record_returns_four_hundred_four()
         {
-            var (token, organizationId) = await fixture.SeedSupplierReaderAsync(AllDownstreamModules);
+            var token = await fixture.SeedSupplierReaderAsync();
             fixture.Quickbase.RespondWith(SupplierResponses.Empty);
 
-            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId, "/99999999"), token);
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath("/99999999"), token);
 
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
             Assert.Equal("supplier_not_found", await IdentitySpecFixture.ReadProblemReasonAsync(response));
@@ -96,10 +88,10 @@ public class ReadingSuppliers
         [Fact]
         public async Task The_list_sends_the_name_query_sorted_by_name_and_pages()
         {
-            var (token, organizationId) = await fixture.SeedSupplierReaderAsync(AllDownstreamModules);
+            var token = await fixture.SeedSupplierReaderAsync();
             fixture.Quickbase.RespondWith(SupplierResponses.NameList);
 
-            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId), token);
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(), token);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var query = fixture.Quickbase.Queries.Last();
@@ -124,11 +116,11 @@ public class ReadingSuppliers
         [Fact]
         public async Task Search_adds_an_escaped_contains_filter()
         {
-            var (token, organizationId) = await fixture.SeedSupplierReaderAsync(AllDownstreamModules);
+            var token = await fixture.SeedSupplierReaderAsync();
             fixture.Quickbase.RespondWith(SupplierResponses.NameList);
 
             var response = await fixture.SendAsync(
-                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId, "?search=Michael%27s&skip=50&top=25"), token);
+                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath("?search=Michael%27s&skip=50&top=25"), token);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var query = fixture.Quickbase.Queries.Last();
@@ -143,9 +135,9 @@ public class ReadingSuppliers
         [InlineData("?skip=-1")]
         public async Task Out_of_range_paging_returns_four_hundred(string queryString)
         {
-            var (token, organizationId) = await fixture.SeedSupplierReaderAsync(AllDownstreamModules);
+            var token = await fixture.SeedSupplierReaderAsync();
 
-            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId, queryString), token);
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(queryString), token);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Equal("invalid_request", await IdentitySpecFixture.ReadProblemReasonAsync(response));
@@ -154,10 +146,10 @@ public class ReadingSuppliers
         [Fact]
         public async Task A_quickbase_failure_returns_five_hundred_two()
         {
-            var (token, organizationId) = await fixture.SeedSupplierReaderAsync(AllDownstreamModules);
+            var token = await fixture.SeedSupplierReaderAsync();
             fixture.Quickbase.FailWith(503);
 
-            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId, "/17511"), token);
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath("/17511"), token);
 
             Assert.Equal(HttpStatusCode.BadGateway, response.StatusCode);
             Assert.Equal("quickbase_unavailable", await IdentitySpecFixture.ReadProblemReasonAsync(response));
@@ -166,63 +158,24 @@ public class ReadingSuppliers
 
     public class Given_a_caller_without_supplier_access(SuppliersSpecFixture fixture) : IClassFixture<SuppliersSpecFixture>
     {
-        // A member with no Downstream grant: denied before Quickbase is touched.
+        // Denied before Quickbase is touched.
         [Fact]
-        public async Task A_member_without_the_permission_gets_four_hundred_three_and_no_query_runs()
+        public async Task A_user_who_is_not_a_platform_administrator_gets_four_hundred_three_and_no_query_runs()
         {
-            var (uid, _, organizationId) = await fixture.SeedMemberAsync();
-            await fixture.EntitleAsync(organizationId, DownstreamApplication.Id, AllDownstreamModules);
+            var (uid, _) = await fixture.SeedUserAsync();
             var before = fixture.Quickbase.Queries.Count;
 
-            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId, "/17511"), fixture.CreateToken(uid));
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath("/17511"), fixture.CreateToken(uid));
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
             Assert.Equal("missing_permission", await IdentitySpecFixture.ReadProblemReasonAsync(response));
             Assert.Equal(before, fixture.Quickbase.Queries.Count);
         }
 
-        // Decision: a disabled module resolves to deny, whatever the role grants.
-        [Fact]
-        public async Task A_viewer_gets_four_hundred_three_while_the_suppliers_module_is_disabled()
-        {
-            var (token, organizationId) = await fixture.SeedSupplierReaderAsync(
-                DownstreamApplication.PricingModuleId, DownstreamApplication.LoadsModuleId);
-
-            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId), token);
-
-            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-            Assert.Equal("missing_permission", await IdentitySpecFixture.ReadProblemReasonAsync(response));
-        }
-
-        // The membership guard runs first for routes with {organizationId}.
-        [Fact]
-        public async Task A_viewer_of_another_organization_gets_four_hundred_three()
-        {
-            var (token, _) = await fixture.SeedSupplierReaderAsync(AllDownstreamModules);
-            var otherOrganizationId = await fixture.SeedOrganizationAsync();
-            await fixture.EntitleAsync(otherOrganizationId, DownstreamApplication.Id, AllDownstreamModules);
-
-            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(otherOrganizationId), token);
-
-            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-            Assert.Equal("no_active_membership", await IdentitySpecFixture.ReadProblemReasonAsync(response));
-        }
-
-        [Fact]
-        public async Task An_organization_without_downstream_gets_four_hundred_four()
-        {
-            var (uid, _, organizationId) = await fixture.SeedMemberAsync();
-
-            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId), fixture.CreateToken(uid));
-
-            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-            Assert.Equal("application_not_found", await IdentitySpecFixture.ReadProblemReasonAsync(response));
-        }
-
         [Fact]
         public async Task An_anonymous_caller_gets_four_hundred_one()
         {
-            var response = await fixture.Client.GetAsync(SuppliersSpecFixture.SuppliersPath(1));
+            var response = await fixture.Client.GetAsync(SuppliersSpecFixture.SuppliersPath());
 
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         }
@@ -232,9 +185,9 @@ public class ReadingSuppliers
     {
         // Modules can't reference each other, so the string is pinned to Identity's catalog here.
         [Fact]
-        public void Supplier_read_is_the_downstream_suppliers_read_permission()
+        public void Supplier_read_is_the_admin_access_permission()
         {
-            Assert.Equal(DownstreamApplication.SuppliersRead, SupplierPermissions.Read);
+            Assert.Equal(ScrapGo.Core.Modules.Identity.Domain.Authorization.Permissions.AdminAccess, SupplierPermissions.PlatformRead);
         }
     }
 }

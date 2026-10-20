@@ -61,6 +61,26 @@ public class InternalHdAllowlistSpecs
             Assert.True(FromJson("""{ "INTERNAL_HD_ALLOWLIST": "example.com,scrapgo.com" }""").Contains("scrapgo.com"));
     }
 
+    public class Given_an_env_var_over_an_appsettings_array
+    {
+        private static InternalHdAllowlistOptions Layered(string envValue)
+        {
+            var configuration = new ConfigurationBuilder()
+                .AddJsonStream(new MemoryStream(Encoding.UTF8.GetBytes("""{ "INTERNAL_HD_ALLOWLIST": ["scrapgo.com"] }""")))
+                .AddInMemoryCollection([new(InternalHdAllowlistOptions.ConfigurationKey, envValue)])
+                .Build();
+            return new InternalHdAllowlistOptions { HostedDomains = InternalHdAllowlistConfiguration.Read(configuration) };
+        }
+
+        [Fact]
+        public void The_env_var_wins() =>
+            Assert.Equal(["example.com"], Layered("example.com").HostedDomains);
+
+        [Fact]
+        public void A_blank_env_var_leaves_the_array() =>
+            Assert.True(Layered("").Contains("scrapgo.com"));
+    }
+
     public class Given_a_blank_allowlist
     {
         [Theory]

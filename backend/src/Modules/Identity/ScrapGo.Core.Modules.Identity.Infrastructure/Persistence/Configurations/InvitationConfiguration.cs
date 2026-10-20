@@ -72,11 +72,5 @@ public sealed class InvitationGrantConfiguration : IEntityTypeConfiguration<Invi
             .HasForeignKey(g => g.RoleId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_invitation_grants_role_id");
-
-        builder.HasOne<CatalogApplication>()
-            .WithMany()
-            .HasForeignKey(g => g.ApplicationId)
-            .OnDelete(DeleteBehavior.Restrict)
-            .HasConstraintName("fk_invitation_grants_application_id");
     }
 }

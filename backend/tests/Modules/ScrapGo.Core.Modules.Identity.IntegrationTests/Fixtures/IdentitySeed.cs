@@ -122,33 +122,6 @@ public static class IdentitySeed
         return role.Id;
     }
 
-    /// <summary>Assigns the application to the organization and enables the given modules, as a platform admin would.</summary>
-    public static async Task EntitleAsync(this IdentitySpecFixture fixture, int organizationId, int applicationId, params int[] moduleIds)
-    {
-        var now = DateTimeOffset.UtcNow;
-        var organizationApplication = OrganizationApplication.Assign(organizationId, applicationId, now);
-        fixture.DbContext.OrganizationApplications.Add(organizationApplication);
-        await fixture.DbContext.SaveChangesAsync();
-
-        fixture.DbContext.OrganizationApplicationModules.AddRange(
-            moduleIds.Select(moduleId => OrganizationApplicationModule.Enable(organizationApplication.Id, applicationId, moduleId, now)));
-        await fixture.DbContext.SaveChangesAsync();
-    }
-
-    public static Task<int> ApplicationRoleIdAsync(this IdentitySpecFixture fixture, string templateName) =>
-        fixture.DbContext.Roles.AsNoTracking()
-            .Where(r => r.Name == templateName && r.OrganizationId == null && r.ApplicationId != null)
-            .Select(r => r.Id)
-            .SingleAsync();
-
-    /// <summary>Grants an application role at (organization, application) scope directly in the database.</summary>
-    public static async Task GrantApplicationRoleAsync(
-        this IdentitySpecFixture fixture, int userId, int roleId, int organizationId, int applicationId, DateTimeOffset? expiresAt = null)
-    {
-        fixture.DbContext.UserRoles.Add(UserRole.AssignForApplication(userId, roleId, organizationId, applicationId, expiresAt, DateTimeOffset.UtcNow));
-        await fixture.DbContext.SaveChangesAsync();
-    }
-
     public static async Task AssignRoleAsync(this IdentitySpecFixture fixture, int userId, int roleId, int? organizationId)
     {
         if (organizationId is null)

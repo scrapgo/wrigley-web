@@ -10,10 +10,10 @@ public class ContactsSpecs
         [Fact]
         public async Task Sends_the_contacts_query_and_returns_the_main_contact_first()
         {
-            var (token, organizationId) = await fixture.SeedSupplierReaderAsync(DownstreamApplication.SuppliersModuleId);
+            var token = await fixture.SeedSupplierReaderAsync();
             fixture.Quickbase.RespondWith(SupplierResponses.Contacts);
 
-            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId, Path), token);
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(Path), token);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var query = fixture.Quickbase.Queries.Last();
@@ -49,51 +49,29 @@ public class ContactsSpecs
         [Fact]
         public async Task A_supplier_without_contacts_returns_an_empty_list()
         {
-            var (token, organizationId) = await fixture.SeedSupplierReaderAsync(DownstreamApplication.SuppliersModuleId);
+            var token = await fixture.SeedSupplierReaderAsync();
             fixture.Quickbase.RespondWith(SupplierResponses.Empty);
 
-            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId, Path), token);
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(Path), token);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal(0, (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("contacts").GetArrayLength());
-        }
-
-        [Fact]
-        public async Task Is_platform_wide_for_platform_administrators()
-        {
-            var (uid, _) = await fixture.SeedPlatformAdministratorAsync();
-            fixture.Quickbase.RespondWith(SupplierResponses.Contacts);
-
-            var response = await fixture.SendAsync(HttpMethod.Get, "/api/suppliers" + Path, fixture.CreateToken(uid));
-
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
     }
 
     public class Given_a_caller_without_supplier_access(SuppliersSpecFixture fixture) : IClassFixture<SuppliersSpecFixture>
     {
         [Fact]
-        public async Task A_member_without_the_permission_gets_four_hundred_three_and_no_query_runs()
+        public async Task A_user_who_is_not_a_platform_administrator_gets_four_hundred_three_and_no_query_runs()
         {
-            var (uid, _, organizationId) = await fixture.SeedMemberAsync();
-            await fixture.EntitleAsync(organizationId, DownstreamApplication.Id, DownstreamApplication.SuppliersModuleId);
+            var (uid, _) = await fixture.SeedUserAsync();
             var before = fixture.Quickbase.Queries.Count;
 
             var response = await fixture.SendAsync(
-                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(organizationId, Path), fixture.CreateToken(uid));
+                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(Path), fixture.CreateToken(uid));
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
             Assert.Equal(before, fixture.Quickbase.Queries.Count);
-        }
-
-        [Fact]
-        public async Task An_organization_reader_gets_four_hundred_three_on_the_platform_route()
-        {
-            var (token, _) = await fixture.SeedSupplierReaderAsync(DownstreamApplication.SuppliersModuleId);
-
-            var response = await fixture.SendAsync(HttpMethod.Get, "/api/suppliers" + Path, token);
-
-            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
     }
 }

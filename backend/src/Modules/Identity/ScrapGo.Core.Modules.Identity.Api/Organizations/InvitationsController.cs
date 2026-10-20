@@ -7,7 +7,7 @@ using PermissionCatalog = ScrapGo.Core.Modules.Identity.Domain.Authorization.Per
 
 namespace ScrapGo.Core.Modules.Identity.Api.Organizations;
 
-/// <param name="Grants">Roles to grant on acceptance; <c>applicationId</c> set for an application role.</param>
+/// <param name="Grants">Organization roles to grant on acceptance.</param>
 /// <param name="ExpiresInDays">1 to 30; 7 when omitted.</param>
 public sealed record CreateInvitationRequest(string? Email, IReadOnlyList<InvitationGrantRequest>? Grants, int? ExpiresInDays);
 
@@ -19,8 +19,7 @@ public sealed record AcceptedInvitationResponse(int OrganizationId, int GrantedC
 /// Invitations into one organization: invite by email with pre-grants, list
 /// pending, revoke. Under the membership guard; inviting needs
 /// <c>User.Update</c>, and each pre-grant is checked like a direct grant
-/// (organization roles: <c>Role.Assign</c>; application roles:
-/// <c>Application.ManageAccess</c>; the escalation guard for both).
+/// (<c>Role.Assign</c> and the escalation guard).
 /// </summary>
 [ApiController]
 [Authorize]
@@ -59,11 +58,8 @@ public sealed class InvitationsController(InvitationService invitationService) :
                 "This email already has a pending invitation here. Revoke it first.", "invitation_pending").ToActionResult(),
             { Outcome: InvitationOutcome.RoleNotFound } => ProblemResults.Create(
                 StatusCodes.Status404NotFound, "Role not found", "A pre-granted role isn't available here.", "role_not_found").ToActionResult(),
-            { Outcome: InvitationOutcome.ApplicationNotAssigned } => ProblemResults.Create(
-                StatusCodes.Status404NotFound, "Application not found",
-                "This organization doesn't have a pre-granted role's application.", "application_not_found").ToActionResult(),
             { Outcome: InvitationOutcome.Forbidden } => ControllerProblems.MissingPermission(
-                "Pre-granting needs Role.Assign (organization roles) or Application.ManageAccess (application roles)."),
+                "Pre-granting needs Role.Assign in this organization."),
             { Outcome: InvitationOutcome.CannotGrantUnheldPermission } => ProblemResults.Create(
                 StatusCodes.Status403Forbidden, "Cannot grant unheld permission",
                 "A pre-granted role carries a permission you don't hold there.", "cannot_grant_unheld_permission").ToActionResult(),

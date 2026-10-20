@@ -12,9 +12,6 @@ namespace ScrapGo.Core.Modules.Identity.Api.Middleware;
 /// <item><c>no_active_membership</c>: not a member (or no such organization).</item>
 /// <item><c>organization_deactivated</c>: a member of a deactivated organization.</item>
 /// </list>
-/// A route that also carries <c>{applicationId}</c> then needs the organization
-/// to have that application: 404 <c>application_not_found</c> otherwise, so a
-/// member can't tell an unassigned application from a nonexistent one.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -36,8 +33,6 @@ public sealed class OrganizationMembershipGuardMiddleware(RequestDelegate next)
 
     public const string OrganizationDeactivatedReason = "organization_deactivated";
 
-    public const string ApplicationNotFoundReason = "application_not_found";
-
     public async Task InvokeAsync(HttpContext context, EvaluateOrganizationMembershipHandler membershipGuard)
     {
         if (context.User.Identity?.IsAuthenticated != true
@@ -56,18 +51,6 @@ public sealed class OrganizationMembershipGuardMiddleware(RequestDelegate next)
         switch (decision)
         {
             case OrganizationAccessDecision.Allow:
-                if (OrganizationRouteValues.HasApplicationId(context)
-                    && !(OrganizationRouteValues.TryGetApplicationId(context, out var applicationId)
-                        && await membershipGuard.HandleApplicationAsync(uid, organizationId, applicationId, context.RequestAborted)))
-                {
-                    await ProblemResults.WriteAsync(context.Response, ProblemResults.Create(
-                        StatusCodes.Status404NotFound,
-                        "Application not found",
-                        "This organization doesn't have that application.",
-                        ApplicationNotFoundReason));
-                    return;
-                }
-
                 await next(context);
                 return;
 

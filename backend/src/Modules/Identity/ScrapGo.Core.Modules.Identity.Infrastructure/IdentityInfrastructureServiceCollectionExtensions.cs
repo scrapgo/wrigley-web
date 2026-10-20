@@ -45,7 +45,6 @@ public static class IdentityInfrastructureServiceCollectionExtensions
         services.AddScoped<ILinkedCredentialRepository, LinkedCredentialRepository>();
         services.AddScoped<IOrganizationRepository, OrganizationRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
-        services.AddScoped<IApplicationRepository, ApplicationRepository>();
         services.AddScoped<IInvitationRepository, InvitationRepository>();
         services.AddScoped<IAuthorizationQueries, AuthorizationQueries>();
         services.AddScoped<IUnitOfWork, IdentityUnitOfWork>();

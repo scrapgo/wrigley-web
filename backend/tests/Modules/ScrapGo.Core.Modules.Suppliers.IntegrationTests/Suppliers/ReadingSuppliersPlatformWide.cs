@@ -1,5 +1,5 @@
-// /api/suppliers: the same reads without an organization or application,
-// for platform administrators only (Admin.Access at platform scope).
+// /api/suppliers: supplier reads for platform administrators only
+// (Admin.Access at platform scope, with a Google Workspace sign-in).
 using ScrapGo.Core.Modules.Suppliers.Application.Suppliers;
 
 namespace ScrapGo.Core.Modules.Suppliers.IntegrationTests.Suppliers;
@@ -66,12 +66,12 @@ public class ReadingSuppliersPlatformWide
 
     public class Given_a_caller_who_is_not_a_platform_administrator(SuppliersSpecFixture fixture) : IClassFixture<SuppliersSpecFixture>
     {
-        // Even holding Downstream.Suppliers.Read in an organization: that grant is
-        // scoped to the organization's application route, not the platform one.
+        // An organization's own administrator holds nothing at platform scope.
         [Fact]
-        public async Task An_organization_supplier_reader_gets_four_hundred_three_and_no_query_runs()
+        public async Task An_organization_administrator_gets_four_hundred_three_and_no_query_runs()
         {
-            var (token, _) = await fixture.SeedSupplierReaderAsync(DownstreamApplication.SuppliersModuleId);
+            var (uid, _, _) = await fixture.SeedOrganizationAdministratorAsync();
+            var token = fixture.CreateToken(uid);
             var before = fixture.Quickbase.Queries.Count;
 
             var list = await fixture.SendAsync(HttpMethod.Get, "/api/suppliers", token);

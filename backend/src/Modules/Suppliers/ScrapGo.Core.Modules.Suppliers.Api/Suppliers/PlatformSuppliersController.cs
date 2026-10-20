@@ -4,10 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 namespace ScrapGo.Core.Modules.Suppliers.Api.Suppliers;
 
 /// <summary>
-/// The same supplier reads as <see cref="SuppliersController"/>, without an
-/// organization or application in the route: for platform administrators
-/// (<c>Admin.Access</c> at platform scope, which requires a Google Workspace
-/// sign-in). The Quickbase Suppliers table is ScrapGo-wide.
+/// Suppliers (Quickbase table <c>bqrcgnatz</c>), read-only, for platform
+/// administrators (<c>Admin.Access</c> at platform scope, which requires a
+/// Google Workspace sign-in). The Quickbase Suppliers table is ScrapGo-wide.
 /// </summary>
 [ApiController]
 [Authorize]
@@ -30,11 +29,11 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
         [FromQuery] int? top,
         CancellationToken cancellationToken)
     {
-        var result = await suppliers.ListAsync(new ListSuppliersQuery(SupplierScope.Platform, search, skip, top), cancellationToken);
+        var result = await suppliers.ListAsync(new ListSuppliersQuery(search, skip, top), cancellationToken);
 
         return result is { Outcome: SupplierOutcome.Success, Page: { } page }
             ? Ok(page)
-            : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
+            : SupplierProblems.For(result.Outcome);
     }
 
     /// <summary>One supplier by its Quickbase Record ID#.</summary>
@@ -45,11 +44,11 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
     public async Task<IActionResult> Get(int recordId, CancellationToken cancellationToken)
     {
-        var result = await suppliers.GetAsync(SupplierScope.Platform, recordId, cancellationToken);
+        var result = await suppliers.GetAsync(recordId, cancellationToken);
 
         return result is { Outcome: SupplierOutcome.Success, Supplier: { } supplier }
             ? Ok(supplier)
-            : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
+            : SupplierProblems.For(result.Outcome);
     }
 
     /// <summary>One supplier's Target Pricing — Progress Rail: target material, offer, freight, prices per unit, PO number.</summary>
@@ -60,11 +59,11 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
     public async Task<IActionResult> GetTargetPricingProgressRail(int recordId, CancellationToken cancellationToken)
     {
-        var result = await suppliers.GetTargetPricingProgressRailAsync(SupplierScope.Platform, recordId, cancellationToken);
+        var result = await suppliers.GetTargetPricingProgressRailAsync(recordId, cancellationToken);
 
         return result is { Outcome: SupplierOutcome.Success, TargetPricingProgressRail: { } pricing }
             ? Ok(pricing)
-            : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
+            : SupplierProblems.For(result.Outcome);
     }
 
     /// <summary>
@@ -77,11 +76,11 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
     public async Task<IActionResult> GetInStockItems(int recordId, CancellationToken cancellationToken)
     {
-        var result = await suppliers.GetInStockItemsAsync(SupplierScope.Platform, recordId, cancellationToken);
+        var result = await suppliers.GetInStockItemsAsync(recordId, cancellationToken);
 
         return result is { Outcome: SupplierOutcome.Success, InStockItems: { } items }
             ? Ok(items)
-            : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
+            : SupplierProblems.For(result.Outcome);
     }
 
     /// <summary>The supplier's contacts (Quickbase Contacts table), main contact first. An empty list when it has none.</summary>
@@ -91,11 +90,11 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
     public async Task<IActionResult> GetContacts(int recordId, CancellationToken cancellationToken)
     {
-        var result = await suppliers.GetContactsAsync(SupplierScope.Platform, recordId, cancellationToken);
+        var result = await suppliers.GetContactsAsync(recordId, cancellationToken);
 
         return result is { Outcome: SupplierOutcome.Success, Contacts: { } contacts }
             ? Ok(contacts)
-            : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
+            : SupplierProblems.For(result.Outcome);
     }
 
     /// <summary>The supplier's call notes history (Quickbase Call Notes table), newest first. An empty list when it has none.</summary>
@@ -105,11 +104,11 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
     public async Task<IActionResult> GetCallNotesHistory(int recordId, CancellationToken cancellationToken)
     {
-        var result = await suppliers.GetCallNotesHistoryAsync(SupplierScope.Platform, recordId, cancellationToken);
+        var result = await suppliers.GetCallNotesHistoryAsync(recordId, cancellationToken);
 
         return result is { Outcome: SupplierOutcome.Success, CallNotesHistory: { } history }
             ? Ok(history)
-            : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
+            : SupplierProblems.For(result.Outcome);
     }
 
     /// <summary>
@@ -122,11 +121,11 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
     public async Task<IActionResult> GetLinkedDispatchRecords(int recordId, CancellationToken cancellationToken)
     {
-        var result = await suppliers.GetDispatchRecordsAsync(SupplierScope.Platform, recordId, cancellationToken);
+        var result = await suppliers.GetDispatchRecordsAsync(recordId, cancellationToken);
 
         return result is { Outcome: SupplierOutcome.Success, DispatchRecords: { } records }
             ? Ok(records)
-            : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
+            : SupplierProblems.For(result.Outcome);
     }
 
     /// <summary>One supplier's yard capabilities: crusher, baler, scale, loading options and so on (all yes/no).</summary>
@@ -137,11 +136,11 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
     public async Task<IActionResult> GetYardCapabilities(int recordId, CancellationToken cancellationToken)
     {
-        var result = await suppliers.GetYardCapabilitiesAsync(SupplierScope.Platform, recordId, cancellationToken);
+        var result = await suppliers.GetYardCapabilitiesAsync(recordId, cancellationToken);
 
         return result is { Outcome: SupplierOutcome.Success, YardCapabilities: { } capabilities }
             ? Ok(capabilities)
-            : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
+            : SupplierProblems.For(result.Outcome);
     }
 
     /// <summary>
@@ -155,11 +154,11 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
     public async Task<IActionResult> GetOtherProspectInformation(int recordId, CancellationToken cancellationToken)
     {
-        var result = await suppliers.GetOtherProspectInformationAsync(SupplierScope.Platform, recordId, cancellationToken);
+        var result = await suppliers.GetOtherProspectInformationAsync(recordId, cancellationToken);
 
         return result is { Outcome: SupplierOutcome.Success, OtherProspectInformation: { } information }
             ? Ok(information)
-            : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
+            : SupplierProblems.For(result.Outcome);
     }
 
     /// <summary>One supplier's call and prospect status: last call result, objection, call back date, notes.</summary>
@@ -170,10 +169,10 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
     public async Task<IActionResult> GetCallProspectStatus(int recordId, CancellationToken cancellationToken)
     {
-        var result = await suppliers.GetCallProspectStatusAsync(SupplierScope.Platform, recordId, cancellationToken);
+        var result = await suppliers.GetCallProspectStatusAsync(recordId, cancellationToken);
 
         return result is { Outcome: SupplierOutcome.Success, CallProspectStatus: { } status }
             ? Ok(status)
-            : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
+            : SupplierProblems.For(result.Outcome);
     }
 }

@@ -3,8 +3,7 @@ using ScrapGo.Core.Modules.Identity.Infrastructure.Persistence;
 namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Fixtures;
 
 /// <summary>
-/// Test-only sample permissions. Production seeds no business permissions
-/// (ORG-APP-MODULE-MODEL.md, Decision 7, blank slate) and the generic
+/// Test-only sample permissions. Production seeds no business permissions and the generic
 /// <c>Invoice.*</c> / <c>Report.*</c> are retired. Specs that need "some
 /// permission no endpoint gates on" use these instead.
 /// </summary>
@@ -26,18 +25,15 @@ public static class SpecPermissions
     public static readonly string[] All = [Alpha, Beta, Gamma];
 
     /// <summary>Every row in the test database's catalog: production (retired included) plus these.</summary>
-    public static IEnumerable<string> CatalogRows => Permissions.All.Concat(All).Concat(SpecApplications.Permissions);
+    public static IEnumerable<string> CatalogRows => Permissions.All.Concat(All);
 
     /// <summary>What <c>GET /api/permissions</c> lists: the live production catalog plus these.</summary>
-    public static IEnumerable<string> Listed => Permissions.Active.Concat(All).Concat(SpecApplications.Permissions);
+    public static IEnumerable<string> Listed => Permissions.Active.Concat(All);
 
     /// <summary>The built-in OrganizationAdministrator's grants in the test database.</summary>
     public static IEnumerable<string> OrganizationAdministratorGrants =>
         Permissions.Active
             .Except(Permissions.PlatformOnly)
-            .Except(Permissions.ApplicationScopeOnly)
-            // Module permissions are held only through application roles.
-            .Where(p => ApplicationCatalog.ModuleIdOf(p) is null)
             .Concat(All);
 
     /// <summary>Far above the positional production ids, so they never collide.</summary>

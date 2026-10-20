@@ -1,5 +1,3 @@
-using ScrapGo.Core.Modules.Identity.Application.Applications;
-
 namespace ScrapGo.Core.Modules.Identity.Application.Users;
 
 /// <summary>The wire shape of the caller's own user record. Entities never leave this layer.</summary>
@@ -9,12 +7,10 @@ namespace ScrapGo.Core.Modules.Identity.Application.Users;
 /// anything in. Permissions are never flattened across scopes: holding
 /// <c>Role.Update</c> in one organization grants nothing at platform scope or
 /// in another organization, and a client gate must check the right scope.
-/// Application scopes carry both <c>organizationId</c> and <c>applicationId</c>.
 /// </param>
 /// <param name="Organizations">
-/// The same access as a tree for UI gating: each active organization →
-/// applications the caller holds something in → the enabled modules they hold
-/// something in → permissions.
+/// Each active organization the caller is a member of, with the permissions
+/// they hold there, for UI gating.
 /// </param>
 /// <param name="WorkspaceSignInRequired">
 /// True when the caller holds a platform role that this sign-in can't use
@@ -41,3 +37,7 @@ public sealed record CurrentUserDto(
     public static CurrentUserDto From(User user) =>
         new(user.Id, user.IdentityPlatformUid, user.Email, user.Status.ToString(), user.Classification.ToString(), [], [], []);
 }
+
+/// <summary>A user's access within one organization, for UI gating on <c>/me</c>.</summary>
+/// <param name="Permissions">Organization-level permissions (identity administration).</param>
+public sealed record OrganizationAccessDto(int OrganizationId, string Name, IReadOnlyList<string> Permissions);

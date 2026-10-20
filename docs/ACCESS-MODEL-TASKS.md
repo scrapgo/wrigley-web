@@ -78,7 +78,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*B2 · Remove applications, modules and the catalog\*\*
+\- \[x] \*\*B2 · Remove applications, modules and the catalog\*\*
 
 &#x20; > Delete the application catalog, organization applications, modules, `DownstreamApplication` and everything that serves them: `CatalogController`, `OrganizationApplicationsController`, `PlatformApplicationsController`, `ApplicationAccessService`, `ApplicationCatalogService`, `OrganizationApplicationService`, `ApplicationContracts`, the `Domain/Applications` folder, their EF configurations and repository, and the matching tests under `IntegrationTests/Applications`.
 

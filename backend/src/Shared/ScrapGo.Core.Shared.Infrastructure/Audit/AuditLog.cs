@@ -21,9 +21,6 @@ public class AuditLog
     /// <summary>Only populated for <see cref="AuditActorType.Service"/> events.</summary>
     public int? ServicePrincipalId { get; set; }
 
-    /// <summary>The organization the event is scoped to; null for platform-scoped events.</summary>
-    public int? OrganizationId { get; set; }
-
     /// <summary>Event-specific structured detail, stored as <c>jsonb</c>.</summary>
     public string? Metadata { get; set; }
 

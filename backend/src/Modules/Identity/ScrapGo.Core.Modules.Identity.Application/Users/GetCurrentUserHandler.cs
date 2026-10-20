@@ -18,7 +18,6 @@ public sealed class GetCurrentUserHandler(ProvisionCurrentUserHandler provisionC
         {
             Roles = access.Roles,
             Permissions = access.Permissions,
-            Organizations = access.Organizations,
             WorkspaceSignInRequired = access.WorkspaceSignInRequired,
         };
     }

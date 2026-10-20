@@ -49,11 +49,11 @@ public class AdminUserReads
         }
 
         [Fact]
-        public async Task Get_user_returns_the_detail_with_roles_and_their_organization()
+        public async Task Get_user_returns_the_detail_with_roles()
         {
             var token = await PlatformReaderTokenAsync(fixture);
-            var (_, userId, organizationId) = await fixture.SeedMemberAsync();
-            var orgRoleId = await fixture.GrantPermissionsAsync(userId, organizationId, SpecPermissions.Alpha);
+            var (_, userId) = await fixture.SeedUserAsync();
+            var roleId = await fixture.GrantPermissionsAsync(userId, SpecPermissions.Alpha);
 
             var response = await fixture.SendAsync(HttpMethod.Get, $"/api/users/{userId}", token);
 
@@ -61,8 +61,7 @@ public class AdminUserReads
             var body = await response.Content.ReadFromJsonAsync<JsonElement>();
             Assert.Equal(userId, body.GetProperty("id").GetInt32());
             var role = Assert.Single(body.GetProperty("roles").EnumerateArray());
-            Assert.Equal(orgRoleId, role.GetProperty("roleId").GetInt32());
-            Assert.Equal(organizationId, role.GetProperty("organizationId").GetInt32());
+            Assert.Equal(roleId, role.GetProperty("roleId").GetInt32());
         }
 
         [Fact]
@@ -95,10 +94,10 @@ public class AdminUserReads
         {
             var (uid, userId) = await fixture.SeedUserAsync();
             var roleId = await fixture.DbContext.Roles
-                .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator && r.OrganizationId == null)
+                .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator)
                 .Select(r => r.Id)
                 .SingleAsync();
-            await fixture.AssignRoleAsync(userId, roleId, organizationId: null);
+            await fixture.AssignRoleAsync(userId, roleId);
 
             var response = await fixture.SendAsync(HttpMethod.Get, "/api/users", fixture.CreateToken(uid));
 
@@ -123,26 +122,6 @@ public class AdminUserReads
         }
     }
 
-    // Org isolation: User.Read held inside an organization (every org admin
-    // has it) is not platform-wide user access.
-    public class Given_an_org_admin_holding_user_read_only_in_their_org(IdentitySpecFixture fixture)
-        : IClassFixture<IdentitySpecFixture>
-    {
-        [Theory]
-        [InlineData("/api/users")]
-        [InlineData("/api/users/{0}")]
-        public async Task The_platform_reads_return_four_hundred_three(string pathFormat)
-        {
-            var (uid, _, organizationId) = await fixture.SeedOrganizationAdministratorAsync();
-            var (_, colleagueId) = await fixture.SeedUserAsync();
-            await fixture.SeedMembershipAsync(colleagueId, organizationId);
-
-            var response = await fixture.SendAsync(HttpMethod.Get, string.Format(pathFormat, colleagueId), fixture.CreateToken(uid));
-
-            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        }
-    }
-
     public class Given_an_unauthenticated_request(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Theory]
@@ -156,11 +135,11 @@ public class AdminUserReads
         }
     }
 
-    /// <summary>A fresh user holding User.Read at platform scope.</summary>
+    /// <summary>A fresh user holding User.Read.</summary>
     private static async Task<string> PlatformReaderTokenAsync(IdentitySpecFixture fixture)
     {
         var (uid, userId) = await fixture.SeedUserAsync("reader@platform.example");
-        await fixture.GrantPermissionsAsync(userId, organizationId: null, Permissions.UserRead);
+        await fixture.GrantPermissionsAsync(userId, Permissions.UserRead);
 
         return fixture.CreateToken(uid);
     }

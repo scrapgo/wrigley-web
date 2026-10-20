@@ -10,9 +10,8 @@ public sealed class UserRoleConfiguration : IEntityTypeConfiguration<UserRole>
 
         builder.HasKey(ur => ur.Id);
 
-        // Null for a platform-scoped assignment.
-        builder.Property(ur => ur.OrganizationId)
-            .IsRequired(false);
+        // Only to filter out the old schema's organization-scoped grants until B6.
+        builder.Property<int?>(LegacyScope.Property).HasColumnName(LegacyScope.Column);
 
         builder.Property(ur => ur.ExpiresAt)
             .HasColumnType("timestamptz")
@@ -28,19 +27,11 @@ public sealed class UserRoleConfiguration : IEntityTypeConfiguration<UserRole>
 
         builder.HasIndex(ur => ur.UserId).HasDatabaseName("ix_user_roles_user_id");
         builder.HasIndex(ur => ur.RoleId).HasDatabaseName("ix_user_roles_role_id");
-        builder.HasIndex(ur => ur.OrganizationId).HasDatabaseName("ix_user_roles_organization_id");
 
-        // A role is held at most once per scope. The partial index covers the
-        // platform scope, since NULL organization ids never collide in the
-        // composite one.
-        builder.HasIndex(ur => new { ur.UserId, ur.RoleId, ur.OrganizationId })
-            .IsUnique()
-            .HasDatabaseName(IdentityUniqueConstraints.OrganizationRoleAssignment);
-
+        // A role is held at most once.
         builder.HasIndex(ur => new { ur.UserId, ur.RoleId })
             .IsUnique()
-            .HasDatabaseName(IdentityUniqueConstraints.PlatformRoleAssignment)
-            .HasFilter("organization_id IS NULL");
+            .HasDatabaseName(IdentityUniqueConstraints.RoleAssignment);
 
         builder.HasOne<User>()
             .WithMany()
@@ -53,11 +44,5 @@ public sealed class UserRoleConfiguration : IEntityTypeConfiguration<UserRole>
             .HasForeignKey(ur => ur.RoleId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_user_roles_role_id");
-
-        builder.HasOne<Organization>()
-            .WithMany()
-            .HasForeignKey(ur => ur.OrganizationId)
-            .OnDelete(DeleteBehavior.Restrict)
-            .HasConstraintName("fk_user_roles_organization_id");
     }
 }

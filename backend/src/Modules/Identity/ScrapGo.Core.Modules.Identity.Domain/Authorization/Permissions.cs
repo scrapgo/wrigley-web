@@ -33,16 +33,6 @@ public static class Permissions
 
     public const string AdminAccess = "Admin.Access";
 
-    /// <summary>Rename and otherwise edit an organization's own details. Permission id 18.</summary>
-    public const string OrganizationUpdate = "Organization.Update";
-
-    /// <summary>Create organizations (platform scope). Permission id 19.</summary>
-    public const string OrganizationCreate = "Organization.Create";
-
-    /// <summary>Deactivate and reactivate organizations (platform scope). Permission id 20.</summary>
-    public const string OrganizationDeactivate = "Organization.Deactivate";
-
-
     public static readonly IReadOnlyList<string> All =
     [
         UserRead, UserCreate, UserUpdate, UserDelete,
@@ -50,8 +40,6 @@ public static class Permissions
         InvoiceRead, InvoiceCreate, InvoiceUpdate, InvoiceDelete, InvoiceApprove,
         ReportRead, ReportExport,
         AdminAccess,
-        OrganizationUpdate,
-        OrganizationCreate, OrganizationDeactivate,
     ];
 
     /// <summary>
@@ -64,14 +52,6 @@ public static class Permissions
         InvoiceRead, InvoiceCreate, InvoiceUpdate, InvoiceDelete, InvoiceApprove,
         ReportRead, ReportExport,
     ];
-
-    /// <summary>
-    /// Permissions only meaningful at platform scope, held by
-    /// <see cref="DefaultRoleNames.PlatformAdministrator"/> and never by an
-    /// organization-level role.
-    /// </summary>
-    public static readonly string[] PlatformOnly =
-        [AdminAccess, OrganizationCreate, OrganizationDeactivate];
 
     public static bool IsRetired(string permissionName) => Retired.Contains(permissionName, StringComparer.Ordinal);
 

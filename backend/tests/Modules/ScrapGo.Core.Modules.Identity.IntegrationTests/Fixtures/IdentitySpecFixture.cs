@@ -250,7 +250,7 @@ public class IdentitySpecFixture : IAsyncLifetime
                 JsonClaimValueTypes.Json));
         }
 
-        // Lets a spec mint an attacker-shaped claim (e.g. a forged organizationId)
+        // Lets a spec mint an attacker-shaped claim (e.g. a forged role claim)
         // and prove production code never reads it.
         foreach (var (type, value) in extraClaims ?? [])
         {

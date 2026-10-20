@@ -41,7 +41,6 @@ public sealed class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
             .IsRequired()
             .HasDefaultValue(false);
 
-        builder.HasIndex(a => a.OrganizationId).HasDatabaseName("ix_audit_logs_organization_id");
         builder.HasIndex(a => a.UserId).HasDatabaseName("ix_audit_logs_user_id");
         builder.HasIndex(a => a.EventTime).HasDatabaseName("ix_audit_logs_event_time");
         builder.HasIndex(a => a.EventType).HasDatabaseName("ix_audit_logs_event_type");

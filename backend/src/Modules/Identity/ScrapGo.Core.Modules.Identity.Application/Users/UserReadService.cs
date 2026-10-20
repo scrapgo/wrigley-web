@@ -24,9 +24,8 @@ public sealed record UserDetailResult(UserReadOutcome Outcome, UserDetailDto? Us
 /// </summary>
 /// <remarks>
 /// Every user on the platform is visible here, so the routes require
-/// <c>User.Read</c> at platform scope (<c>[RequirePermission(..., PlatformScope = true)]</c>),
-/// checked before these methods run. Organization admins see their own
-/// organization's people through the organization member routes, never here.
+/// <c>User.Read</c> at platform scope (<c>[RequirePermission(...)]</c>),
+/// checked before these methods run.
 /// </remarks>
 public sealed class UserReadService(IAuthorizationQueries authorization, IUserRepository users, IRoleRepository roles)
 {

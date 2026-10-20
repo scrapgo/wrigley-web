@@ -39,23 +39,20 @@ public class DenyByDefault
         }
     }
 
-    // Signing in, and joining an organization, grant nothing.
-    public class Given_a_user_who_signed_in_and_was_added_to_an_org(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    // Signing in grants nothing.
+    public class Given_a_user_who_signed_in(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
         public async Task They_hold_no_role_and_every_permission_check_denies()
         {
-            var (adminUid, _, organizationId) = await fixture.SeedOrganizationAdministratorAsync();
             var uid = Guid.NewGuid().ToString();
             var token = fixture.CreateToken(uid, email: "joiner@example.com");
             (await fixture.SendUsersMeAsync(token)).EnsureSuccessStatusCode();
             var userId = await fixture.DbContext.Users.AsNoTracking().Where(u => u.IdentityPlatformUid == uid).Select(u => u.Id).SingleAsync();
-            (await fixture.SendAsync(HttpMethod.Post, $"/api/organizations/{organizationId}/members/{userId}", fixture.CreateToken(adminUid)))
-                .EnsureSuccessStatusCode();
 
             Assert.False(await fixture.DbContext.UserRoles.AsNoTracking().AnyAsync(ur => ur.UserId == userId));
             Assert.Equal(HttpStatusCode.Forbidden,
-                (await fixture.SendAsync(HttpMethod.Get, $"/api/_test/permission-scoped/{organizationId}", token)).StatusCode);
+                (await fixture.SendAsync(HttpMethod.Get, "/api/_test/permission-scoped", token)).StatusCode);
             Assert.Equal(HttpStatusCode.Forbidden,
                 (await fixture.SendAsync(HttpMethod.Get, "/api/_test/platform-scoped", token)).StatusCode);
         }

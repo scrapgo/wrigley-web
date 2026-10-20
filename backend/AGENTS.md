@@ -14,7 +14,7 @@ While Quickbase remains the System of Record for core business entities (Supplie
 
 3. **Smart Caching & Query Builder:** To combat Quickbase latency, the Query Builder service caches query metadata and results in Postgres, serving cached data unless a configurable Time-To-Live (TTL) expires.
 
-4. **Security-First:** Stateless JWT authentication (Google Cloud Identity Platform) with organization-scoped Role-Based Access Control (RBAC) enforced before any request hits Quickbase.
+4. **Security-First:** Stateless JWT authentication (Google Cloud Identity Platform) with Role-Based Access Control (RBAC) enforced before any request hits Quickbase.
 
 ## Postgres Database Scope (Stored Locally)
 
@@ -74,7 +74,7 @@ Naming: folder name == project name == assembly name == root namespace, always p
 
 Composition: `Program.cs` only calls `AddScrapGoModules(config)`, `AddScrapGoHosting()` and `RunScrapGoAsync(args)` (in `src/ScrapGo.Core.Api/Composition/`). `RunScrapGoAsync` runs a one-shot operator command when `args` names one (`ScrapGoCommands`, e.g. `bootstrap-platform-admin`), and otherwise applies `UseScrapGoPipeline()` and serves HTTP. To add a module, add one private `Add{Module}Module` call in `ScrapGoModulesServiceCollectionExtensions`; each module keeps its own `Add{Module}Application`/`Add{Module}Infrastructure` extensions.
 
-Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user gate, account linking, organizations and memberships, custom roles and the permission catalog, the `[RequirePermission]` engine, and the cross-tenant membership guard.
+Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user gate, account linking, global roles and the permission catalog, and the `[RequirePermission]` engine.
 
 **QuickbaseEngine**: implements `IQuickbaseQueryService`, cache-aside over the Quickbase REST API, backed by `quickbase.query_caches`. Its Api project has no controllers.
 
@@ -123,67 +123,27 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 
 ## Authorization Model (Identity module)
 
-This section describes the model being replaced by [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md), task by task (`docs/ACCESS-MODEL-TASKS.md`). Applications, modules and the catalog are gone (B2); organizations go next (B3). Until B6 resets the Identity migrations, `IdentityDbContext` ignores EF's pending-model-changes warning, and the old migrations still create (now unmapped) application, module and catalog tables and rows.
-
-### Scopes and route conventions
-
-- **Two scopes:**
-  - **platform:** no organization
-  - **organization:** `{organizationId}`
-
-  A grant in one scope never satisfies another: not across organizations, and not between levels.
-- **Context comes from the route, never the token.**
-  - Any route with `{organizationId}` is covered by `OrganizationMembershipGuardMiddleware`:
-    - 403 `no_active_membership` without an active membership
-    - 403 `organization_deactivated` for a member of a deactivated organization
-  - Name the segment exactly `organizationId`: `{orgId}` silently gets none of this.
-- **Platform administration** routes act on an organization from outside it. They live under `/api/admin/…`, carry `[PlatformAdministration]` (which skips the membership guard), and must have a platform-scoped `[RequirePermission]`. A route-table spec (`PlatformAdministrationRoutes`) fails if one doesn't.
-- **Protect endpoints with permissions, not role names:** `[RequirePermission(Permissions.X)]` resolves in the route's organization. `[RequirePermission(Permissions.X, PlatformScope = true)]` is satisfied only by platform-scoped assignments. The only role-name literals allowed are in `DefaultRoleNames`.
-- **A FallbackPolicy** requires an authenticated caller on any endpoint without authorization metadata. Only `/healthz` and `/healthz/ready` are `AllowAnonymous`.
+This section describes an interim model, being replaced by [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md) task by task (`docs/ACCESS-MODEL-TASKS.md`). Applications, modules and the catalog are gone (B2), and so are organizations, memberships and organization invitations (B3). Until B6 resets the Identity migrations:
+- `IdentityDbContext` ignores EF's pending-model-changes warning, and the old migrations still create the now-unmapped tables and rows.
+- `roles` and `user_roles` still have the old `organization_id` column. It is mapped only as the shadow property `LegacyScope`, and every role query skips rows where it is set, so leftover organization-scoped roles and grants never resolve, list or get assigned.
 
 ### Permissions and resolution
 
-- **Permissions (code):** `Permissions.All`, seeded by migration (ids are positions in the list; append, never reorder).
-- **Resolution** (`AuthorizationQueries.GetPermissionNamesAsync`): roles must be active and grants unexpired (`user_roles.expires_at`), and retired permissions never resolve. Organization scope also needs the organization active.
+- **Roles are global:** no scope, no route conventions. `[RequirePermission(Permissions.X)]` checks that the caller holds `X`. The only role-name literals allowed are in `DefaultRoleNames`.
+- **Every permission check needs a Google Workspace sign-in on the request** (Decision 12): the token's `hd` claim must be on `INTERNAL_HD_ALLOWLIST`. The check is `ICallerSignIn` in `PermissionResolver`, before the cache. Otherwise `[RequirePermission]` answers 403 `workspace_sign_in_required`, in-service checks refuse, and `/me` shows no roles or permissions (with `workspaceSignInRequired: true` when the user holds a role).
+- **`INTERNAL_HD_ALLOWLIST` must be set in every environment** (Terraform default `scrapgo.com`); when it's blank, nobody has any access. It is a JSON array in appsettings (`["scrapgo.com"]`, as in `appsettings.Development.json`) or a comma-separated string as an env var (`InternalHdAllowlistConfiguration.Read`). GCIP tokens only carry `hd` because of the `beforeSignIn` blocking function in `infra/gcip-blocking-function/`.
+- **Permissions (code):** `Permissions.All`, seeded by migration (ids are positions in the list; append, never reorder). Retired `Invoice.*` / `Report.*` (ids 10–16) never resolve.
+- **Resolution** (`AuthorizationQueries.GetPermissionNamesAsync`): roles must be active and grants unexpired (`user_roles.expires_at`).
+- **A FallbackPolicy** requires an authenticated caller on any endpoint without authorization metadata. Only `/healthz` and `/healthz/ready` are `AllowAnonymous`.
 
-### Roles and who grants what
+### Roles
 
-- **Kinds**, by `organization_id`: built-ins (null) and organization custom roles (org).
-- **Organization roles** (`RoleService`, `/api/roles…`, `/api/users/{id}/roles`) need an active membership plus `Role.Create` / `Role.Update` / `Role.Delete` / `Role.Assign` there. A built-in in the wrong kind of scope is refused (`role_scope_mismatch`).
-- **Escalation guard:** a caller may only attach or grant permissions they hold in that scope (403 `cannot_grant_unheld_permission`). They may never edit, delete or recompose a role they hold (403 `cannot_modify_own_role`). Platform admins acting through `/api/admin/…` are exempt. Keep the guard on any new write path.
-- **Last-administrator protection** (409, under a row lock): the last active PlatformAdministrator, and an organization's last active OrganizationAdministrator.
-- **Built-in roles** (`DefaultRoleNames`, not editable over HTTP):
-  - `OrganizationAdministrator` (id 1): every live organization-level permission (identity administration, `Organization.Update`).
-  - `PlatformAdministrator`: `User.*`, `Role.*`, `Admin.Access`, plus the platform administration permissions `Organization.Create` and `Organization.Deactivate`. (The old migration also grants it the removed `Application.Assign`, `Module.Manage` and `Catalog.Manage`; nothing checks them.)
-  - Retired: `Invoice.*` / `Report.*` (ids 10–16) can't be attached and never resolve. Their rows stay because ids are positional.
-
-### Lifecycle rules
-
-- **Deny-by-default; no role is ever assigned at sign-in.**
-  - The first `PlatformAdministrator` comes only from the one-time, audited `bootstrap-platform-admin` host command.
-  - Organizations are created **only by platform admins** (`POST /api/admin/organizations`), naming the first OrganizationAdministrator: an existing user id, or an email invitation.
-  - Membership grants nothing.
-- **Platform access needs a Google Workspace sign-in on every request** (Decision 12).
-  - Platform-scoped permissions resolve only when the current token's `hd` claim is on `INTERNAL_HD_ALLOWLIST`. The check is `ICallerSignIn` in `PermissionResolver`, before the cache.
-  - Otherwise `[RequirePermission(..., PlatformScope = true)]` answers 403 `workspace_sign_in_required`, in-service platform checks refuse, and `/me` shows no platform roles or permissions.
-  - Organization access is unaffected.
-  - **`INTERNAL_HD_ALLOWLIST` must be set in every environment** (Terraform default `scrapgo.com`); when it's blank, nobody has platform access. It is a JSON array in appsettings (`["scrapgo.com"]`, as in `appsettings.Development.json`) or a comma-separated string as an env var (`InternalHdAllowlistConfiguration.Read`).
-  - GCIP tokens only carry `hd` because of the `beforeSignIn` blocking function in `infra/gcip-blocking-function/`, which copies it from Google's token for Google sign-ins. Without it deployed and registered, nobody has platform access.
-- **External users** (`users.classification`, the database being the only source; Decision 8):
-  - They may be organization administrators.
-  - They may never hold a platform role (`external_user_not_allowed`, also enforced by the bootstrap command).
-  - MFA for them is reserved behind `Identity:RequireMfaForExternalUsers`, off until MFA is enabled in GCIP. When it's on, a token without `firebase.sign_in_second_factor` gets 403 `mfa_required`.
-- **Invitations** (`InvitationService`):
-  - Pre-grants are validated at invite time like direct grants.
-  - Acceptance needs the token's `email_verified` and the same email.
-  - Pre-grants are organization roles only. One whose role is gone by then is skipped and audited.
-  - Only the token's SHA-256 is stored.
-- **Cascades:**
-  - Removing a member revokes all their grants in that organization.
-  - Deactivating an organization blocks everything and deletes nothing.
-  - **Deleting** is platform-admin only (`DELETE /api/admin/organizations/{id}`). It works only on a deactivated organization (otherwise 409 `organization_active`), hard-deletes everything in it, and keeps its audit history plus `organization_deleted`.
-  - Platform admins can also rename (`PUT /api/admin/organizations/{id}`) and set an administrator (`PUT …/administrators/{userId}`, which revokes pending invitations) without being members.
-- **Permission cache:** `IPermissionCache` is a pass-through until Redis is migrated. Every mutation must invalidate the affected scopes; organization-wide changes call `InvalidateOrganizationAsync`, which a real cache should implement as a generation key.
+- **The only built-in role is `PlatformAdministrator`** (`User.*`, `Role.*`, `Admin.Access`). The old migration also grants it removed permissions that nothing checks. There is no role create or delete; B15 builds the roles API.
+- **Assigning and revoking** (`UserRoleAssignmentService`, `/api/users/{id}/roles`) needs `Admin.Access` and `Role.Assign` (403 `platform_admin_required` otherwise). The escalation guard refuses a role with a permission the caller doesn't hold (403 `cannot_grant_unheld_permission`). External users can't hold roles (`external_user_not_allowed`).
+- **Last-administrator protection** (409 `last_platform_administrator`, under a row lock): the last active PlatformAdministrator can't be revoked or disabled.
+- **Deny-by-default; no role is ever assigned at sign-in.** The first `PlatformAdministrator` comes only from the one-time, audited `bootstrap-platform-admin` host command.
+- **External users** (`users.classification`, the database being the only source): MFA for them is reserved behind `Identity:RequireMfaForExternalUsers`, off until MFA is enabled in GCIP. When it's on, a token without `firebase.sign_in_second_factor` gets 403 `mfa_required`.
+- **Permission cache:** `IPermissionCache` (keyed by user) is a pass-through until Redis is migrated. Every mutation must invalidate the affected user.
 
 ## Rules
 
@@ -204,12 +164,12 @@ The host-level setup ported from identity-platform's `Program.cs`, in pipeline o
 2. Secure headers (`nosniff`, `no-referrer`, a deny-all CSP except on `/swagger`, HSTS outside Development)
 3. Swagger UI at `/swagger` when `Swagger:Enabled` (on in Development; off by default in Cloud Run)
 4. Routing, CORS allow-list (no HTTPS redirection: Cloud Run terminates TLS at its edge and the container only listens on HTTP)
-5. Authentication, the Identity gates (disabled user, cross-tenant membership), authorization
+5. Authentication, the Identity gate (disabled user), authorization
 6. `/healthz` (liveness, no dependencies; Cloud Run's probes) and `/healthz/ready` (Postgres checks for every module DbContext), then controllers
 
 Not ported yet, because their modules or Redis aren't migrated: rate limiting, the audit export job, and the invitations, join-request, member-admin, platform-role, audit-log and enterprise-SSO endpoints.
 
-The admin-portal API surface (user listing, role listing/read-back, role assignment, user status, organization/membership management) is also not migrated; see [`ADMIN-API-GAPS.md`](ADMIN-API-GAPS.md) for the full list and implementation order.
+The admin-portal API surface (user listing, role listing/read-back, role assignment, user status) is also not migrated; see [`ADMIN-API-GAPS.md`](ADMIN-API-GAPS.md) for the full list and implementation order.
 
 ## Running Locally (against Cloud SQL, no local database)
 

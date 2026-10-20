@@ -18,12 +18,12 @@ public static class IdentityModuleServiceCollectionExtensions
     {
         // Scoped: it resolves permissions through the per-request DbContext.
         services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
-        services.AddSingleton<IAuthorizationMiddlewareResultHandler, OrganizationContextAuthorizationResultHandler>();
+        services.AddSingleton<IAuthorizationMiddlewareResultHandler, PermissionAuthorizationResultHandler>();
 
         services.AddHttpContextAccessor();
         services.AddScoped<IUserContext, HttpUserContext>();
 
-        // Platform-scoped permissions need a Workspace sign-in on the current request.
+        // Permissions need a Workspace sign-in on the current request.
         services.AddScoped<ICallerSignIn, HttpCallerSignIn>();
 
         return services;

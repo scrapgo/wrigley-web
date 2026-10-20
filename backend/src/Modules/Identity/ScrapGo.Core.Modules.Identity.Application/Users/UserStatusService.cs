@@ -84,21 +84,20 @@ public sealed class UserStatusService(
     }
 
     /// <summary>
-    /// True when the user holds PlatformAdministrator at platform scope and no
-    /// other active user does. The role row is locked first (as revoking it
-    /// does), so concurrent disables and revocations can't remove the last two
-    /// administrators together.
+    /// True when the user holds PlatformAdministrator and no other active user
+    /// does. The role row is locked first (as revoking it does), so concurrent
+    /// disables and revocations can't remove the last two administrators together.
     /// </summary>
     private async Task<bool> IsLastActivePlatformAdministratorAsync(int userId, CancellationToken cancellationToken)
     {
         var roleId = await roles.GetPlatformRoleIdAsync(DefaultRoleNames.PlatformAdministrator, cancellationToken);
-        if (!await roles.IsHeldByAsync(userId, roleId, organizationId: null, cancellationToken))
+        if (!await roles.IsHeldByAsync(userId, roleId, cancellationToken))
         {
             return false;
         }
 
         await roles.LockRoleAsync(roleId, cancellationToken);
 
-        return await roles.CountActivePlatformHoldersAsync(roleId, excludingUserId: userId, cancellationToken) == 0;
+        return await roles.CountActiveHoldersAsync(roleId, excludingUserId: userId, cancellationToken) == 0;
     }
 }

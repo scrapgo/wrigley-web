@@ -24,7 +24,6 @@ public interface IAuditLog<TModule>
 public sealed record AuditEvent(
     string EventType,
     int? UserId = null,
-    int? OrganizationId = null,
     string? Metadata = null,
     AuditActorType ActorType = AuditActorType.Human,
     int? ServicePrincipalId = null);

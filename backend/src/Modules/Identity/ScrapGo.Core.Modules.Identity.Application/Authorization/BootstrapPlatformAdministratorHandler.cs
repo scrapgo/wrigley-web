@@ -64,26 +64,22 @@ public sealed class BootstrapPlatformAdministratorHandler(
                 var roleId = await roles.GetPlatformRoleIdAsync(DefaultRoleNames.PlatformAdministrator, ct);
                 await roles.LockRoleAsync(roleId, ct);
 
-                var platformHolders = (await roles.GetAssignmentScopesAsync(roleId, ct))
-                    .Where(s => s.IsPlatform)
-                    .Select(s => s.UserId)
-                    .ToList();
+                var holders = await roles.ListHolderIdsAsync(roleId, ct);
 
-                if (platformHolders.Contains(userId))
+                if (holders.Contains(userId))
                 {
                     return BootstrapPlatformAdministratorOutcome.AlreadyGranted;
                 }
 
-                if (platformHolders.Count > 0)
+                if (holders.Count > 0)
                 {
                     return BootstrapPlatformAdministratorOutcome.AnotherAdministratorExists;
                 }
 
-                roles.AddUserRole(UserRole.Assign(userId, roleId, organizationId: null, timeProvider.GetUtcNow()));
+                roles.AddUserRole(UserRole.Assign(userId, roleId, timeProvider.GetUtcNow()));
                 auditLog.Record(new AuditEvent(
                     IdentityAuditEventTypes.PlatformAdministratorBootstrapped,
                     UserId: null,
-                    OrganizationId: null,
                     Metadata: JsonSerializer.Serialize(new { grantedUserId = userId, identityPlatformUid = command.IdentityPlatformUid }),
                     ActorType: AuditActorType.System));
 
@@ -92,14 +88,14 @@ public sealed class BootstrapPlatformAdministratorHandler(
                 return BootstrapPlatformAdministratorOutcome.Granted;
             }, cancellationToken);
         }
-        catch (UniqueConstraintViolationException ex) when (ex.ConstraintName == IdentityUniqueConstraints.PlatformRoleAssignment)
+        catch (UniqueConstraintViolationException ex) when (ex.ConstraintName == IdentityUniqueConstraints.RoleAssignment)
         {
             return BootstrapPlatformAdministratorOutcome.AlreadyGranted;
         }
 
         if (outcome == BootstrapPlatformAdministratorOutcome.Granted)
         {
-            await permissionCache.InvalidateAsync(new PermissionScope(userId, null), cancellationToken);
+            await permissionCache.InvalidateAsync(userId, cancellationToken);
         }
 
         return outcome;

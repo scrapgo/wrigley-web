@@ -1,5 +1,4 @@
-// ORG-APP-MODULE-MODEL Task 10: external (customer) users may administer their own organization and
-// applications (Decision 4a) but never hold platform roles; MFA for them is reserved behind a flag (4b).
+// External (customer) users never hold administration roles; MFA for them is reserved behind a flag.
 using Microsoft.Extensions.DependencyInjection;
 using ScrapGo.Core.Modules.Identity.Application.Authorization;
 
@@ -10,25 +9,12 @@ public class ExternalUserRules
     public class Given_an_external_user(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
-        public async Task They_may_be_made_their_organizations_administrator()
-        {
-            var (orgAdminUid, _, organizationId) = await fixture.SeedOrganizationAdministratorAsync();
-            var (_, externalId) = await fixture.SeedUserAsync("customer@acme.example");
-            await fixture.SeedMembershipAsync(externalId, organizationId);
-
-            var response = await fixture.SendAsync(
-                HttpMethod.Post, $"/api/users/{externalId}/roles", fixture.CreateToken(orgAdminUid), new { roleId = 1, organizationId });
-
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        }
-
-        [Fact]
         public async Task Assigning_them_a_platform_role_returns_four_hundred_with_reason_external_user_not_allowed()
         {
             var (platformUid, _) = await fixture.SeedPlatformAdministratorAsync();
             var (_, externalId) = await fixture.SeedUserAsync("customer@acme.example");
             var platformAdminRoleId = await fixture.DbContext.Roles.AsNoTracking()
-                .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator && r.OrganizationId == null)
+                .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator)
                 .Select(r => r.Id)
                 .SingleAsync();
 

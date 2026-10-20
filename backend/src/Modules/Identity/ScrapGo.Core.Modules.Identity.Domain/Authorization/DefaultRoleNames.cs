@@ -9,16 +9,8 @@ namespace ScrapGo.Core.Modules.Identity.Domain.Authorization;
 public static class DefaultRoleNames
 {
     /// <summary>
-    /// Granted, per organization, to whoever creates that organization. It
-    /// holds every catalog permission except <see cref="Permissions.AdminAccess"/>,
-    /// always scoped to that one organization.
-    /// </summary>
-    public const string OrganizationAdministrator = "OrganizationAdministrator";
-
-    /// <summary>
-    /// ScrapGo staff with platform-wide administration: Admin.Access, User.*
-    /// and Role.*. It is only ever assigned at platform scope (no
-    /// organization): first through the explicit <c>bootstrap-platform-admin</c>
+    /// ScrapGo staff with administration: Admin.Access, User.* and Role.*.
+    /// The first one comes only from the explicit <c>bootstrap-platform-admin</c>
     /// command, never at sign-in.
     /// </summary>
     public const string PlatformAdministrator = "PlatformAdministrator";

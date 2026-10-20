@@ -22,8 +22,7 @@ public sealed class IdentityUnitOfWork(IdentityDbContext dbContext) : IUnitOfWor
     public async Task<T> ExecuteInTransactionAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken cancellationToken)
     {
         // Npgsql/EF Core doesn't support nested transactions on one
-        // connection. If a caller already opened one (e.g.
-        // CreateOrganizationHandler provisioning its creator), join it, so
+        // connection. If a caller already opened one, join it, so
         // everything, audit rows included, commits or rolls back together.
         if (dbContext.Database.CurrentTransaction is not null)
         {

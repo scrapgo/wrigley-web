@@ -60,10 +60,6 @@ namespace ScrapGo.Core.Shared.Infrastructure.Audit.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("metadata");
 
-                    b.Property<int?>("OrganizationId")
-                        .HasColumnType("integer")
-                        .HasColumnName("organization_id");
-
                     b.Property<int?>("ServicePrincipalId")
                         .HasColumnType("integer")
                         .HasColumnName("service_principal_id");
@@ -80,9 +76,6 @@ namespace ScrapGo.Core.Shared.Infrastructure.Audit.Migrations
 
                     b.HasIndex("EventType")
                         .HasDatabaseName("ix_audit_logs_event_type");
-
-                    b.HasIndex("OrganizationId")
-                        .HasDatabaseName("ix_audit_logs_organization_id");
 
                     b.HasIndex("ServicePrincipalId")
                         .HasDatabaseName("ix_audit_logs_service_principal_id");

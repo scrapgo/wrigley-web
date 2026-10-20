@@ -222,5 +222,5 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
     }
 
     private Task<bool> CanReadAsync(CancellationToken cancellationToken) =>
-        userContext.HasPermissionAsync(SupplierPermissions.PlatformRead, organizationId: null, cancellationToken);
+        userContext.HasPermissionAsync(SupplierPermissions.PlatformRead, cancellationToken);
 }

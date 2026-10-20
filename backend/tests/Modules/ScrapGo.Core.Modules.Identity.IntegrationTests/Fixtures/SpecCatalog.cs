@@ -9,10 +9,7 @@ namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Fixtures;
 /// </summary>
 /// <remarks>
 /// Inserted by <see cref="IdentitySpecFixture"/> after the migrations run, never
-/// by a production migration. They are also granted to the built-in
-/// OrganizationAdministrator **in the test database only**, so an org admin
-/// can compose roles with them through the API, as they could with the
-/// retired permissions before.
+/// by a production migration.
 /// </remarks>
 public static class SpecPermissions
 {
@@ -30,12 +27,6 @@ public static class SpecPermissions
     /// <summary>What <c>GET /api/permissions</c> lists: the live production catalog plus these.</summary>
     public static IEnumerable<string> Listed => Permissions.Active.Concat(All);
 
-    /// <summary>The built-in OrganizationAdministrator's grants in the test database.</summary>
-    public static IEnumerable<string> OrganizationAdministratorGrants =>
-        Permissions.Active
-            .Except(Permissions.PlatformOnly)
-            .Concat(All);
-
     /// <summary>Far above the positional production ids, so they never collide.</summary>
     private const int FirstId = 1001;
 
@@ -46,9 +37,6 @@ public static class SpecPermissions
             await dbContext.Database.ExecuteSqlAsync($"""
                 INSERT INTO identity.permissions (id, name, created_at, updated_at)
                 VALUES ({FirstId + i}, {All[i]}, now(), now());
-                """);
-            await dbContext.Database.ExecuteSqlAsync($"""
-                INSERT INTO identity.role_permissions (role_id, permission_id) VALUES (1, {FirstId + i});
                 """);
         }
     }

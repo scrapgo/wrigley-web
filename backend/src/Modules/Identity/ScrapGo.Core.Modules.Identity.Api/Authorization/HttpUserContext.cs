@@ -26,10 +26,10 @@ public sealed class HttpUserContext(
     public Task<bool> IsActiveUserAsync(CancellationToken cancellationToken) =>
         _isActiveUser ??= LoadIsActiveUserAsync(cancellationToken);
 
-    public async Task<bool> HasPermissionAsync(string permissionName, int? organizationId, CancellationToken cancellationToken) =>
+    public async Task<bool> HasPermissionAsync(string permissionName, CancellationToken cancellationToken) =>
         IdentityPlatformUid is { } uid
         && await IsActiveUserAsync(cancellationToken)
-        && await permissionResolver.HasPermissionAsync(uid, organizationId, permissionName, cancellationToken);
+        && await permissionResolver.HasPermissionAsync(uid, permissionName, cancellationToken);
 
     private async Task<bool> LoadIsActiveUserAsync(CancellationToken cancellationToken) =>
         IdentityPlatformUid is { } uid

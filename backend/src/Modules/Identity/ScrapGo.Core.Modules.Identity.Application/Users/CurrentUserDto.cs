@@ -1,27 +1,17 @@
 namespace ScrapGo.Core.Modules.Identity.Application.Users;
 
 /// <summary>The wire shape of the caller's own user record. Entities never leave this layer.</summary>
-/// <param name="Roles">Every active role the caller holds, platform-scoped and per organization.</param>
-/// <param name="Permissions">
-/// The caller's effective permission names, one entry per scope they hold
-/// anything in. Permissions are never flattened across scopes: holding
-/// <c>Role.Update</c> in one organization grants nothing at platform scope or
-/// in another organization, and a client gate must check the right scope.
-/// </param>
-/// <param name="Organizations">
-/// Each active organization the caller is a member of, with the permissions
-/// they hold there, for UI gating.
-/// </param>
+/// <param name="Roles">Every unexpired role the caller holds.</param>
+/// <param name="Permissions">The caller's effective permission names, ordered by name.</param>
 /// <param name="WorkspaceSignInRequired">
-/// True when the caller holds a platform role that this sign-in can't use
-/// because it isn't a Google Workspace sign-in (Decision 12). The UI should
-/// prompt "Sign in with Google". Grants nothing.
+/// True when the caller holds a role that this sign-in can't use because it
+/// isn't a Google Workspace sign-in (Decision 12). The UI should prompt
+/// "Sign in with Google". Grants nothing.
 /// </param>
 /// <remarks>
 /// <see cref="From"/> leaves <see cref="Roles"/> and <see cref="Permissions"/>
 /// empty; <see cref="GetCurrentUserHandler"/> fills them from
-/// <c>PermissionResolver.GetEffectiveAccessAsync</c>. Organization scopes
-/// appear only where the caller has an active membership.
+/// <c>PermissionResolver.GetEffectiveAccessAsync</c>.
 /// </remarks>
 public sealed record CurrentUserDto(
     int Id,
@@ -30,14 +20,9 @@ public sealed record CurrentUserDto(
     string Status,
     string Classification,
     IReadOnlyList<AssignedRoleDto> Roles,
-    IReadOnlyList<ScopedPermissionsDto> Permissions,
-    IReadOnlyList<OrganizationAccessDto> Organizations,
+    IReadOnlyList<string> Permissions,
     bool WorkspaceSignInRequired = false)
 {
     public static CurrentUserDto From(User user) =>
-        new(user.Id, user.IdentityPlatformUid, user.Email, user.Status.ToString(), user.Classification.ToString(), [], [], []);
+        new(user.Id, user.IdentityPlatformUid, user.Email, user.Status.ToString(), user.Classification.ToString(), [], []);
 }
-
-/// <summary>A user's access within one organization, for UI gating on <c>/me</c>.</summary>
-/// <param name="Permissions">Organization-level permissions (identity administration).</param>
-public sealed record OrganizationAccessDto(int OrganizationId, string Name, IReadOnlyList<string> Permissions);

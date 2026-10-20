@@ -13,7 +13,6 @@ public sealed class AuditLogRecorder<TModule, TContext>(TContext dbContext) : IA
         {
             EventType = auditEvent.EventType,
             UserId = auditEvent.UserId,
-            OrganizationId = auditEvent.OrganizationId,
             Metadata = auditEvent.Metadata,
             ActorType = auditEvent.ActorType,
             ServicePrincipalId = auditEvent.ServicePrincipalId,

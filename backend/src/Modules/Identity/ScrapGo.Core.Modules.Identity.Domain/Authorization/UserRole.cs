@@ -1,13 +1,7 @@
 namespace ScrapGo.Core.Modules.Identity.Domain.Authorization;
 
 /// <summary>
-/// Assigns a <see cref="Role"/> to a user, in one scope:
-/// <list type="bullet">
-/// <item><see cref="OrganizationId"/> null: a platform-scoped assignment.</item>
-/// <item><see cref="OrganizationId"/> set: the role applies only inside that organization.</item>
-/// </list>
-/// Permissions never leak across scopes: a grant in organization A says
-/// nothing about organization B.
+/// Assigns a <see cref="Role"/> to a user. Roles are global, so the grant applies everywhere.
 /// </summary>
 public class UserRole
 {
@@ -23,9 +17,6 @@ public class UserRole
 
     public Role Role { get; private set; } = null!;
 
-    /// <summary>Null for a platform-scoped assignment.</summary>
-    public int? OrganizationId { get; private set; }
-
     /// <summary>When the grant stops resolving (time-boxed access, Decision 9). Null never expires.</summary>
     public DateTimeOffset? ExpiresAt { get; private set; }
 
@@ -33,12 +24,11 @@ public class UserRole
 
     public DateTimeOffset UpdatedAt { get; private set; }
 
-    public static UserRole Assign(int userId, int roleId, int? organizationId, DateTimeOffset now) =>
+    public static UserRole Assign(int userId, int roleId, DateTimeOffset now) =>
         new()
         {
             UserId = userId,
             RoleId = roleId,
-            OrganizationId = organizationId,
             CreatedAt = now,
             UpdatedAt = now,
         };

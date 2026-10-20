@@ -17,10 +17,8 @@ namespace ScrapGo.Core.Modules.Identity.Api.Users;
 /// </summary>
 /// <remarks>
 /// <c>me</c> is open to any authenticated caller the disabled-user gate lets
-/// through. The admin reads need <c>User.Read</c> at platform scope. Role
-/// assignment carries its scope in the body or query (no
-/// <c>{organizationId}</c> route value), so <see cref="UserRoleAssignmentService"/>
-/// authorizes it per scope.
+/// through. The admin reads need <c>User.Read</c>. Role assignment is
+/// authorized inside <see cref="UserRoleAssignmentService"/>.
 /// </remarks>
 [ApiController]
 [Authorize]
@@ -30,7 +28,7 @@ public sealed class UsersController : ControllerBase
 {
     /// <summary>Every user on the platform, paged by id. Filters: <c>search</c> (email substring), <c>status</c>.</summary>
     [HttpGet]
-    [RequirePermission(PermissionCatalog.UserRead, PlatformScope = true)]
+    [RequirePermission(PermissionCatalog.UserRead)]
     [ProducesResponseType<PagedResult<UserSummaryDto>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
@@ -56,9 +54,9 @@ public sealed class UsersController : ControllerBase
         };
     }
 
-    /// <summary>One user and every role they hold, in every scope.</summary>
+    /// <summary>One user and every role they hold.</summary>
     [HttpGet("{id:int}")]
-    [RequirePermission(PermissionCatalog.UserRead, PlatformScope = true)]
+    [RequirePermission(PermissionCatalog.UserRead)]
     [ProducesResponseType<UserDetailDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -71,9 +69,8 @@ public sealed class UsersController : ControllerBase
         };
 
     /// <summary>
-    /// Assigns a role to the user in one scope: <c>organizationId</c> in the
-    /// body, or none for platform scope. Idempotent: assigning a role the user
-    /// already holds there returns 200 without writing anything.
+    /// Assigns a role to the user. Idempotent: assigning a role the user
+    /// already holds returns 200 without writing anything.
     /// </summary>
     [HttpPost("{id:int}/roles")]
     [ProducesResponseType<AssignedRoleDto>(StatusCodes.Status200OK)]
@@ -92,44 +89,31 @@ public sealed class UsersController : ControllerBase
         }
 
         var result = await assignments.AssignAsync(
-            new AssignRoleCommand(uid, id, request.RoleId, request.OrganizationId), cancellationToken);
+            new AssignRoleCommand(uid, id, request.RoleId), cancellationToken);
 
         return result switch
         {
             { Outcome: AssignRoleOutcome.Assigned or AssignRoleOutcome.AlreadyAssigned, Role: { } role } => Ok(role),
             { Outcome: AssignRoleOutcome.InvalidRequest } => ProblemResults.Create(
                 StatusCodes.Status400BadRequest, "Invalid role assignment",
-                "roleId is required, and organizationId, if given, must be a positive id.", "invalid_request").ToActionResult(),
-            { Outcome: AssignRoleOutcome.Forbidden } => ControllerProblems.MissingPermission(
-                "Assigning a role in an organization requires membership and Role.Assign there."),
+                "roleId is required and must be a positive id.", "invalid_request").ToActionResult(),
             { Outcome: AssignRoleOutcome.PlatformAdminRequired } => PlatformAdminRequired(),
             { Outcome: AssignRoleOutcome.UserNotFound } => ControllerProblems.NotFound(),
-            // Deliberately identical: a role id from another organization is indistinguishable from an unknown one.
-            { Outcome: AssignRoleOutcome.RoleNotFound or AssignRoleOutcome.RoleNotInOrganization } => ProblemResults.Create(
-                StatusCodes.Status404NotFound, "Role not found",
-                "No such role is available in this scope.", "role_not_found").ToActionResult(),
-            { Outcome: AssignRoleOutcome.RoleScopeMismatch } => ProblemResults.Create(
-                StatusCodes.Status400BadRequest, "Role not assignable in this scope",
-                "PlatformAdministrator is assigned only at platform scope, and OrganizationAdministrator only within an organization.",
-                "role_scope_mismatch").ToActionResult(),
-            { Outcome: AssignRoleOutcome.TargetNotMember } => ProblemResults.Create(
-                StatusCodes.Status400BadRequest, "User is not a member",
-                "The user has no active membership in this organization.", "user_not_a_member").ToActionResult(),
+            { Outcome: AssignRoleOutcome.RoleNotFound } => ProblemResults.Create(
+                StatusCodes.Status404NotFound, "Role not found", "No such role.", "role_not_found").ToActionResult(),
             { Outcome: AssignRoleOutcome.ExternalUserNotAllowed } => ProblemResults.Create(
                 StatusCodes.Status400BadRequest, "External user not allowed",
-                "External users can't hold platform roles. They may administer their own organization and applications.",
-                "external_user_not_allowed").ToActionResult(),
+                "External users can't hold administration roles.", "external_user_not_allowed").ToActionResult(),
             { Outcome: AssignRoleOutcome.CannotGrantUnheldPermission } => ProblemResults.Create(
                 StatusCodes.Status403Forbidden, "Cannot grant unheld permission",
-                "The role grants a permission you do not hold in this scope.", "cannot_grant_unheld_permission").ToActionResult(),
+                "The role grants a permission you do not hold.", "cannot_grant_unheld_permission").ToActionResult(),
             _ => throw new InvalidOperationException($"Unhandled {nameof(AssignRoleOutcome)}: {result.Outcome}."),
         };
     }
 
     /// <summary>
-    /// Revokes a role from the user in one scope: <c>?organizationId=</c>, or
-    /// none for platform scope. Idempotent: revoking a role the user does not
-    /// hold there returns 204 without writing anything.
+    /// Revokes a role from the user. Idempotent: revoking a role the user does
+    /// not hold returns 204 without writing anything.
     /// </summary>
     [HttpDelete("{id:int}/roles/{roleId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -140,7 +124,6 @@ public sealed class UsersController : ControllerBase
     public async Task<IActionResult> RevokeRole(
         int id,
         int roleId,
-        [FromQuery] int? organizationId,
         [FromServices] UserRoleAssignmentService assignments,
         CancellationToken cancellationToken)
     {
@@ -149,23 +132,20 @@ public sealed class UsersController : ControllerBase
             return ControllerProblems.MissingSubjectClaim();
         }
 
-        var outcome = await assignments.RevokeAsync(new RevokeRoleCommand(uid, id, roleId, organizationId), cancellationToken);
+        var outcome = await assignments.RevokeAsync(new RevokeRoleCommand(uid, id, roleId), cancellationToken);
 
         return outcome switch
         {
             RevokeRoleOutcome.Revoked or RevokeRoleOutcome.NotAssigned => NoContent(),
             RevokeRoleOutcome.InvalidRequest => ProblemResults.Create(
                 StatusCodes.Status400BadRequest, "Invalid role revocation",
-                "roleId and organizationId, if given, must be positive ids.", "invalid_request").ToActionResult(),
-            RevokeRoleOutcome.Forbidden => ControllerProblems.MissingPermission(
-                "Revoking a role in an organization requires membership and Role.Assign there."),
+                "roleId must be a positive id.", "invalid_request").ToActionResult(),
             RevokeRoleOutcome.PlatformAdminRequired => PlatformAdminRequired(),
             RevokeRoleOutcome.UserNotFound => ControllerProblems.NotFound(),
             RevokeRoleOutcome.LastPlatformAdministrator => ProblemResults.Create(
                 StatusCodes.Status409Conflict, "Last platform administrator",
                 "This user is the only PlatformAdministrator. Assign another before revoking this one.",
                 "last_platform_administrator").ToActionResult(),
-            RevokeRoleOutcome.LastOrganizationAdministrator => ControllerProblems.LastOrganizationAdministrator(),
             _ => throw new InvalidOperationException($"Unhandled {nameof(RevokeRoleOutcome)}: {outcome}."),
         };
     }
@@ -175,7 +155,7 @@ public sealed class UsersController : ControllerBase
     /// disabled-user gate, starting with the next one. Idempotent.
     /// </summary>
     [HttpPost("{id:int}/disable")]
-    [RequirePermission(PermissionCatalog.UserUpdate, PlatformScope = true)]
+    [RequirePermission(PermissionCatalog.UserUpdate)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -185,7 +165,7 @@ public sealed class UsersController : ControllerBase
 
     /// <summary>Re-enables a disabled user. Idempotent.</summary>
     [HttpPost("{id:int}/enable")]
-    [RequirePermission(PermissionCatalog.UserUpdate, PlatformScope = true)]
+    [RequirePermission(PermissionCatalog.UserUpdate)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -194,8 +174,7 @@ public sealed class UsersController : ControllerBase
 
     /// <summary>
     /// First-request auto-provisioning: returns the caller's user record,
-    /// creating it on first sight, with their effective roles and permissions
-    /// per scope.
+    /// creating it on first sight, with their effective roles and permissions.
     /// </summary>
     [HttpGet("me")]
     [ProducesResponseType<CurrentUserDto>(StatusCodes.Status200OK)]
@@ -308,6 +287,6 @@ public sealed class UsersController : ControllerBase
         ProblemResults.Create(
             StatusCodes.Status403Forbidden,
             "Platform administrator required",
-            "Platform-scoped roles can only be assigned or revoked by a platform administrator.",
+            "Roles can only be assigned or revoked by a platform administrator.",
             "platform_admin_required").ToActionResult();
 }

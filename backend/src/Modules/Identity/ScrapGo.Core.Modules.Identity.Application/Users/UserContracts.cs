@@ -1,14 +1,8 @@
 namespace ScrapGo.Core.Modules.Identity.Application.Users;
 
-/// <summary>One role a user holds, in one scope.</summary>
-/// <param name="OrganizationId">The organization the assignment is scoped to, or null for a platform-scoped assignment.</param>
+/// <summary>One role a user holds.</summary>
 /// <param name="ExpiresAt">When the grant stops resolving; null never expires.</param>
-public sealed record AssignedRoleDto(int RoleId, string Name, int? OrganizationId, DateTimeOffset? ExpiresAt = null);
-
-/// <summary>A user's effective permissions in exactly one scope.</summary>
-/// <param name="OrganizationId">The organization, or null for platform scope.</param>
-/// <param name="Permissions">Permission names, ordered by name.</param>
-public sealed record ScopedPermissionsDto(int? OrganizationId, IReadOnlyList<string> Permissions);
+public sealed record AssignedRoleDto(int RoleId, string Name, DateTimeOffset? ExpiresAt = null);
 
 /// <summary>Filters for the admin user list. Every filter is optional; omitted means "any".</summary>
 /// <param name="Search">Case-insensitive substring of the email (the only name-like field stored today).</param>
@@ -27,7 +21,7 @@ public sealed record UserSummaryDto(int Id, string Email, string? DisplayName, s
 
 /// <summary>The admin view of one user: the summary fields plus every role they hold.</summary>
 /// <param name="DisplayName">Always null for now; see <see cref="UserSummaryDto"/>.</param>
-/// <param name="Roles">Active role assignments in every scope.</param>
+/// <param name="Roles">Active role assignments.</param>
 public sealed record UserDetailDto(
     int Id,
     string Email,
@@ -43,12 +37,8 @@ public sealed record UserDetailDto(
 /// <param name="ActorUid">The caller's UID from the validated token's <c>sub</c> claim.</param>
 /// <param name="UserId">The user receiving the role, from the route.</param>
 /// <param name="RoleId">From the request body. Required.</param>
-/// <param name="OrganizationId">
-/// From the request body. Null assigns the role at platform scope. It is
-/// never trusted: the handler re-checks the caller's rights in that scope.
-/// </param>
-public sealed record AssignRoleCommand(string ActorUid, int UserId, int? RoleId, int? OrganizationId)
+public sealed record AssignRoleCommand(string ActorUid, int UserId, int? RoleId)
 {
-    /// <summary>The InvalidRequest check a handler runs before anything else: a positive role id and, if given, a positive organization id.</summary>
-    public bool IsWellFormed => RoleId is > 0 && OrganizationId is null or > 0;
+    /// <summary>The InvalidRequest check a handler runs before anything else: a positive role id.</summary>
+    public bool IsWellFormed => RoleId is > 0;
 }

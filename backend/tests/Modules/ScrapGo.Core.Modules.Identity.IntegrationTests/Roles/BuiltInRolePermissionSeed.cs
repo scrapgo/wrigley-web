@@ -1,44 +1,35 @@
-// ADMIN-API-STATUS Task 1: the built-in roles' permissions are seeded by migration.
+// ADMIN-API-STATUS Task 1: the built-in role's permissions are seeded by migration.
 namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Roles;
 
 public class BuiltInRolePermissionSeed
 {
     public class Given_the_migration_has_applied(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
-        // The migration still grants the removed Application.Assign, Module.Manage and Catalog.Manage.
+        // The migration still grants the removed Application.*, Module.*, Catalog.* and Organization.* permissions.
         [Fact(Skip = "B5 resets schema")]
-        public async Task Platform_administrator_holds_user_role_admin_access_and_platform_administration()
+        public async Task Platform_administrator_holds_user_role_and_admin_access()
         {
             string[] expected =
             [
                 Permissions.UserRead, Permissions.UserCreate, Permissions.UserUpdate, Permissions.UserDelete,
                 Permissions.RoleRead, Permissions.RoleCreate, Permissions.RoleUpdate, Permissions.RoleDelete, Permissions.RoleAssign,
                 Permissions.AdminAccess,
-                Permissions.OrganizationCreate, Permissions.OrganizationDeactivate,
             ];
 
-            Assert.Equal(expected.Order(StringComparer.Ordinal), await PermissionNamesOfAsync(DefaultRoleNames.PlatformAdministrator));
+            Assert.Equal(expected.Order(StringComparer.Ordinal), await PermissionNamesOfPlatformAdministratorAsync());
         }
 
         [Fact]
-        public async Task Organization_administrator_holds_every_permission_except_admin_access() =>
+        public async Task Platform_administrator_is_seeded_and_active() =>
             Assert.Equal(
-                SpecPermissions.OrganizationAdministratorGrants.Order(StringComparer.Ordinal),
-                await PermissionNamesOfAsync(DefaultRoleNames.OrganizationAdministrator));
-
-        [Fact]
-        public async Task Both_built_in_roles_are_platform_defined_and_active() =>
-            Assert.Equal(
-                2,
+                1,
                 await fixture.DbContext.Roles.AsNoTracking().CountAsync(r =>
-                    (r.Name == DefaultRoleNames.PlatformAdministrator || r.Name == DefaultRoleNames.OrganizationAdministrator)
-                    && r.OrganizationId == null
-                    && r.Status == RoleStatus.Active));
+                    r.Name == DefaultRoleNames.PlatformAdministrator && r.Status == RoleStatus.Active));
 
-        private async Task<IEnumerable<string>> PermissionNamesOfAsync(string builtInRoleName)
+        private async Task<IEnumerable<string>> PermissionNamesOfPlatformAdministratorAsync()
         {
             var roleId = await fixture.DbContext.Roles.AsNoTracking()
-                .Where(r => r.Name == builtInRoleName && r.OrganizationId == null)
+                .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator)
                 .Select(r => r.Id)
                 .SingleAsync();
 

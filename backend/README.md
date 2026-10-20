@@ -2,7 +2,7 @@
 
 The backend for the ScrapGo Downstream Portal: a .NET 10 modular monolith that
 is the portal's **identity hub** (Google Cloud Identity Platform sign-in,
-organizations, roles and permissions) and its **governed, cached proxy** to
+roles and permissions) and its **governed, cached proxy** to
 Quickbase. The frontend talks only to this API, never to Quickbase.
 
 ## Current Status
@@ -17,7 +17,7 @@ Modules (`src/Modules/`):
 
 | Module              | What it does                                                                                                                                           |
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Identity**        | Sign-in, users, organizations, roles and permissions, invitations                                                                                      |
+| **Identity**        | Sign-in, users, roles and permissions                                                                                                                  |
 | **QuickbaseEngine** | The only path to Quickbase: `IQuickbaseQueryService`, cached in Postgres (`quickbase.query_caches`) and resilient (retries, timeouts, circuit breaker) |
 | **Suppliers**       | Read endpoints over the Quickbase Suppliers table (`bqrcgnatz`): list, details, call & prospect status, yard capabilities, Target Pricing — Progress Rail, and dropdown options. See [Suppliers](#suppliers) |
 
@@ -161,24 +161,22 @@ Permissions are resolved per request, so the new admin's next request already
 carries `Admin.Access`. No new token is needed.
 
 Further platform admins are granted by an existing one, not by this command:
-`POST /api/users/{id}/roles` with the PlatformAdministrator role id and no
-`organizationId`.
+`POST /api/users/{id}/roles` with the PlatformAdministrator role id.
 
 ### 8. Platform administrators: Google Workspace sign-in
 
-Platform-scoped permissions resolve only when the request's token carries an
+Permissions resolve only when the request's token carries an
 `hd` claim on `INTERNAL_HD_ALLOWLIST` (`scrapgo.com`), on **every request**:
 
 - **Email/password sign-ins never carry `hd`.** A platform admin signed in that
-  way gets 403 `workspace_sign_in_required` on platform routes. `/api/users/me`
-  shows no platform roles but returns `workspaceSignInRequired: true`, and the
+  way gets 403 `workspace_sign_in_required`. `/api/users/me` shows no roles
+  but returns `workspaceSignInRequired: true`, and the
   portal shows a "Sign in with Google" notice.
 - **GCIP doesn't put `hd` in its tokens by itself.** The `beforeSignIn` blocking
   function in [`infra/gcip-blocking-function/`](infra/gcip-blocking-function/README.md)
   copies it from Google's token for Google sign-ins.
   - It's deployed as `beforeSignIn` (us-central1) and registered under Identity Platform → Settings → Triggers.
-  - Without it, nobody has platform access.
-- Organization and application access work with any sign-in method.
+  - Without it, nobody has any access.
 
 ### 9. Connect to Quickbase
 
@@ -336,29 +334,13 @@ Inside the container, the proxy on your machine is `host.docker.internal:5434`
 
 ## Access model
 
-The model is being replaced by [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md), one task at a time (`../docs/ACCESS-MODEL-TASKS.md`). Applications, modules and the catalog are already gone. Until the rest lands, access is scoped by organization:
+The model is being replaced by [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md), one task at a time (`../docs/ACCESS-MODEL-TASKS.md`). Applications, modules, the catalog, organizations, memberships and organization invitations are already gone. Until the rest lands:
 
-- **Platform administrators** (Google Workspace sign-in):
-  - create organizations, naming the first administrator by user id or email (an unknown email gets an invitation)
-  - rename them (the slug follows the name)
-  - set an administrator (which revokes pending invitations)
-  - deactivate and reactivate them
-  - **delete** a deactivated one permanently; its audit history is kept
-- **Nothing is automatic:** nobody gets anything at sign-in or by joining an organization.
+- **Roles are global.** The only built-in role is **PlatformAdministrator**, and every permission check needs a Google Workspace sign-in.
+- **Platform administrators** list users, enable and disable them, and assign or revoke roles (`/api/users…`). The last active PlatformAdministrator can't be removed.
+- **Nothing is automatic:** nobody gets anything at sign-in.
 
-The rules in [`AGENTS.md`](AGENTS.md) ("Authorization Model"), and the admin API history in [`ADMIN-API-GAPS-v2.md`](ADMIN-API-GAPS-v2.md).
-
-Platform admin endpoints (all `[PlatformAdministration]`, no membership needed):
-
-| Route                                                               | Purpose                                                                                 |
-| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `GET/POST /api/admin/organizations`                                 | List (search, status, paging) / create                                                  |
-| `PUT /api/admin/organizations/{id}`                                 | Rename (regenerates the slug; 409 `duplicate_slug`)                                     |
-| `PUT /api/admin/organizations/{id}/administrators/{userId}`         | Make member + OrganizationAdministrator; revokes pending invitations                    |
-| `POST /api/admin/organizations/{id}/deactivate` · `/reactivate`     | Block / restore all access                                                              |
-| `DELETE /api/admin/organizations/{id}`                              | Permanently delete a **deactivated** organization (409 `organization_active` otherwise) |
-
-Invitations are accepted with `POST /api/invitations/accept` `{ token }`. It needs a verified email matching the invitation's; a Google sign-in counts as verified.
+The rules are in [`AGENTS.md`](AGENTS.md) ("Authorization Model"), and the admin API history in [`ADMIN-API-GAPS-v2.md`](ADMIN-API-GAPS-v2.md).
 
 ## Suppliers
 

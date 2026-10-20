@@ -84,8 +84,8 @@ public static class ScrapGoHostingExtensions
         // "Failed to determine the https port" on every start. HSTS is still
         // sent by SecureHeadersMiddleware outside Development.
 
-        // Explicit so the order is visible: the Identity gates read the
-        // matched route's {organizationId}, so routing must run before them.
+        // Explicit so the order is visible: endpoint metadata must be known
+        // before the Identity gate and authorization run.
         app.UseRouting();
 
         // Before authentication and authorization, so a preflight gets its

@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ScrapGo.Core.Modules.Identity.Api.Authorization;
 
@@ -15,24 +14,12 @@ namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Fixtures;
 [Route("api/_test")]
 public sealed class ProbeController : ControllerBase
 {
-    /// <summary>
-    /// Wires nothing but [Authorize]. The membership guard must still cover it,
-    /// purely because the route carries {organizationId}.
-    /// </summary>
-    [Authorize]
-    [AcceptVerbs("GET", "POST", "PUT", "DELETE", Route = "org-scoped/{organizationId:int}")]
-    public IActionResult OrgScoped() => Ok(new { ok = true });
-
+    /// <summary>Gated on a test-only permission no real endpoint uses.</summary>
     [RequirePermission(SpecPermissions.Alpha)]
-    [HttpGet("permission-scoped/{organizationId:int}")]
+    [HttpGet("permission-scoped")]
     public IActionResult PermissionScoped() => Ok(new { ok = true });
 
-    /// <summary>An organization-scoped permission on a route with no {organizationId}: must be 400, not 403.</summary>
-    [RequirePermission(SpecPermissions.Alpha)]
-    [HttpGet("permission-scoped-no-org")]
-    public IActionResult PermissionScopedWithoutOrganization() => Ok(new { ok = true });
-
-    [RequirePermission(Permissions.AdminAccess, PlatformScope = true)]
+    [RequirePermission(Permissions.AdminAccess)]
     [HttpGet("platform-scoped")]
     public IActionResult PlatformScoped() => Ok(new { ok = true });
 

@@ -1,12 +1,8 @@
 namespace ScrapGo.Core.Modules.Identity.Domain.Authorization;
 
 /// <summary>
-/// A named set of <see cref="Permission"/>s. Two kinds, by <see cref="OrganizationId"/>:
-/// <list type="bullet">
-/// <item>null: a platform-defined built-in such as
-/// <see cref="DefaultRoleNames.OrganizationAdministrator"/>, seeded by migration.</item>
-/// <item>set: an organization's custom role, managed by its admins.</item>
-/// </list>
+/// A named set of <see cref="Permission"/>s, held globally. The only built-in
+/// is <see cref="DefaultRoleNames.PlatformAdministrator"/>, seeded by migration.
 /// </summary>
 /// <remarks>Roles are soft-deleted (<see cref="RoleStatus.Deleted"/>), never removed.</remarks>
 public class Role
@@ -23,9 +19,6 @@ public class Role
 
     public string Description { get; private set; } = string.Empty;
 
-    /// <summary>Null for a platform-scoped built-in role.</summary>
-    public int? OrganizationId { get; private set; }
-
     public RoleStatus Status { get; private set; } = RoleStatus.Active;
 
     public DateTimeOffset CreatedAt { get; private set; }
@@ -34,34 +27,12 @@ public class Role
 
     public IReadOnlyCollection<RolePermission> RolePermissions => _rolePermissions;
 
-    public bool IsOrganizationScoped => OrganizationId is not null;
-
-    public static Role CreateForOrganization(int organizationId, string name, string? description, DateTimeOffset now)
+    public static Role Create(string name, string? description, DateTimeOffset now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
         return new Role
         {
-            OrganizationId = organizationId,
-            Name = name.Trim(),
-            Description = description?.Trim() ?? string.Empty,
-            Status = RoleStatus.Active,
-            CreatedAt = now,
-            UpdatedAt = now,
-        };
-    }
-
-    /// <summary>
-    /// A platform-scoped role. Its assignments carry no organization, and only
-    /// they satisfy platform-scoped permission checks.
-    /// </summary>
-    public static Role CreatePlatformRole(string name, string? description, DateTimeOffset now)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
-
-        return new Role
-        {
-            OrganizationId = null,
             Name = name.Trim(),
             Description = description?.Trim() ?? string.Empty,
             Status = RoleStatus.Active,

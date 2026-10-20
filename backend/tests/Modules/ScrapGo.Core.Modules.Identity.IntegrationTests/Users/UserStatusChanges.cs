@@ -140,18 +140,6 @@ public class UserStatusChanges
             Assert.Equal(HttpStatusCode.Forbidden, (await EnableAsync(fixture, uid, targetId)).StatusCode);
             Assert.Equal(UserStatus.Active, await StatusOfAsync(fixture, targetId));
         }
-
-        // User.Update inside an organization (every org admin has it) is not platform-wide.
-        [Fact]
-        public async Task An_org_admin_gets_four_hundred_three_even_for_a_member_of_their_org()
-        {
-            var (adminUid, _, organizationId) = await fixture.SeedOrganizationAdministratorAsync();
-            var (_, memberId) = await fixture.SeedUserAsync();
-            await fixture.SeedMembershipAsync(memberId, organizationId);
-
-            Assert.Equal(HttpStatusCode.Forbidden, (await DisableAsync(fixture, adminUid, memberId)).StatusCode);
-            Assert.Equal(UserStatus.Active, await StatusOfAsync(fixture, memberId));
-        }
     }
 
     public class Given_an_unauthenticated_request(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
@@ -173,11 +161,11 @@ public class UserStatusChanges
     private static Task<HttpResponseMessage> EnableAsync(IdentitySpecFixture fixture, string actorUid, int userId) =>
         fixture.SendAsync(HttpMethod.Post, $"/api/users/{userId}/enable", fixture.CreateToken(actorUid));
 
-    /// <summary>A user holding User.Update at platform scope through a custom platform role, not PlatformAdministrator.</summary>
+    /// <summary>A user holding User.Update through a custom role, not PlatformAdministrator.</summary>
     private static async Task<(string Uid, int UserId)> SeedUserAdministratorAsync(IdentitySpecFixture fixture)
     {
         var (uid, userId) = await fixture.SeedUserAsync();
-        await fixture.GrantPermissionsAsync(userId, organizationId: null, Permissions.UserUpdate);
+        await fixture.GrantPermissionsAsync(userId, Permissions.UserUpdate);
 
         return (uid, userId);
     }
@@ -186,10 +174,10 @@ public class UserStatusChanges
     {
         var (uid, userId) = await fixture.SeedUserAsync();
         var roleId = await fixture.DbContext.Roles
-            .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator && r.OrganizationId == null)
+            .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator)
             .Select(r => r.Id)
             .SingleAsync();
-        await fixture.AssignRoleAsync(userId, roleId, organizationId: null);
+        await fixture.AssignRoleAsync(userId, roleId);
 
         return (uid, userId);
     }

@@ -37,7 +37,6 @@ public class PlatformAdministratorBootstrap
 
             Assert.Equal(1, await fixture.DbContext.UserRoles.AsNoTracking().CountAsync(ur =>
                 ur.UserId == userId
-                && ur.OrganizationId == null
                 && ur.Role.Name == DefaultRoleNames.PlatformAdministrator));
 
             var audit = await fixture.DbContext.AuditLogs.AsNoTracking()
@@ -85,21 +84,6 @@ public class PlatformAdministratorBootstrap
         }
     }
 
-    // OrganizationAdministrator never carries Admin.Access, and its grants are
-    // organization-scoped, so creating an organization is no path to platform admin.
-    public class Given_an_organization_administrator(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
-    {
-        [Fact]
-        public async Task A_platform_scoped_admin_access_check_is_denied()
-        {
-            var (uid, _, _) = await fixture.SeedOrganizationAdministratorAsync();
-
-            var response = await fixture.SendAsync(HttpMethod.Get, PlatformScopedPath, fixture.CreateToken(uid));
-
-            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        }
-    }
-
     public class Given_a_platform_administrator_already_exists(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
@@ -126,7 +110,7 @@ public class PlatformAdministratorBootstrap
                 BootstrapPlatformAdministratorOutcome.UserNotProvisioned,
                 await BootstrapAsync(fixture, Guid.NewGuid().ToString()));
 
-            Assert.False(await fixture.DbContext.UserRoles.AsNoTracking().AnyAsync(ur => ur.OrganizationId == null));
+            Assert.False(await fixture.DbContext.UserRoles.AsNoTracking().AnyAsync());
             Assert.False(await fixture.DbContext.AuditLogs.AsNoTracking()
                 .AnyAsync(a => a.EventType == IdentityAuditEventTypes.PlatformAdministratorBootstrapped));
         }

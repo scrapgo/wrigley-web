@@ -66,11 +66,12 @@ public class ReadingSuppliersPlatformWide
 
     public class Given_a_caller_who_is_not_a_platform_administrator(SuppliersSpecFixture fixture) : IClassFixture<SuppliersSpecFixture>
     {
-        // An organization's own administrator holds nothing at platform scope.
+        // A Workspace user holding other permissions, but not Admin.Access.
         [Fact]
-        public async Task An_organization_administrator_gets_four_hundred_three_and_no_query_runs()
+        public async Task A_user_without_admin_access_gets_four_hundred_three_and_no_query_runs()
         {
-            var (uid, _, _) = await fixture.SeedOrganizationAdministratorAsync();
+            var (uid, userId) = await fixture.SeedUserAsync();
+            await fixture.GrantPermissionsAsync(userId, ScrapGo.Core.Modules.Identity.Domain.Authorization.Permissions.UserRead);
             var token = fixture.CreateToken(uid);
             var before = fixture.Quickbase.Queries.Count;
 

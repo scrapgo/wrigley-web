@@ -96,7 +96,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*B3 · Remove organizations, memberships and org invitations\*\*
+\- \[x] \*\*B3 · Remove organizations, memberships and org invitations\*\*
 
 &#x20; > Delete organizations, memberships and organization invitations: `Organizations` controllers and services, `OrganizationMembershipGuardMiddleware`, `OrganizationContextAuthorizationResultHandler`, `OrganizationRouteValues`, `\[PlatformAdministration]`, the `Domain/Organizations` folder, `OrganizationRolesController`, their EF configurations and repositories, and the matching tests (Organizations, the cross-tenant tests, `PlatformAdministrationRoutes`).
 

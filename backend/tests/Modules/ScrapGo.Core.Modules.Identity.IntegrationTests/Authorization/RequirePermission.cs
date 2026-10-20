@@ -1,32 +1,28 @@
-// STORY-018/019: The [RequirePermission] engine, organization- and platform-scoped.
-using ScrapGo.Core.Modules.Identity.Api.Authorization;
-
+// STORY-018/019: The [RequirePermission] engine. Roles are global, so every check is unscoped.
 namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Authorization;
 
 public class RequirePermission
 {
-    public class Given_a_caller_who_holds_the_required_permission_in_the_target_org(IdentitySpecFixture fixture)
-        : IClassFixture<IdentitySpecFixture>
+    private const string PermissionScopedPath = "/api/_test/permission-scoped";
+
+    public class Given_a_caller_who_holds_the_required_permission(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
         public async Task The_request_is_allowed()
         {
-            var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
-            await fixture.GrantPermissionsAsync(userId, organizationId, SpecPermissions.Alpha);
+            var (uid, userId) = await fixture.SeedUserAsync();
+            await fixture.GrantPermissionsAsync(userId, SpecPermissions.Alpha);
 
-            var response = await SendPermissionScopedAsync(fixture, fixture.CreateToken(uid), organizationId);
+            var response = await fixture.SendAsync(HttpMethod.Get, PermissionScopedPath, fixture.CreateToken(uid));
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
-    }
 
-    public class Given_a_caller_with_a_platform_scoped_grant(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
-    {
         [Fact]
-        public async Task A_platform_scoped_requirement_is_allowed()
+        public async Task An_admin_access_requirement_is_allowed_with_admin_access()
         {
             var (uid, userId) = await fixture.SeedUserAsync();
-            await fixture.GrantPermissionsAsync(userId, organizationId: null, Permissions.AdminAccess);
+            await fixture.GrantPermissionsAsync(userId, Permissions.AdminAccess);
 
             var response = await fixture.SendAsync(HttpMethod.Get, "/api/_test/platform-scoped", fixture.CreateToken(uid));
 
@@ -41,64 +37,26 @@ public class RequirePermission
         [Fact]
         public async Task The_request_is_denied_with_four_hundred_three()
         {
-            var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
-            await fixture.GrantPermissionsAsync(userId, organizationId, SpecPermissions.Beta);
+            var (uid, userId) = await fixture.SeedUserAsync();
+            await fixture.GrantPermissionsAsync(userId, SpecPermissions.Beta);
 
-            var response = await SendPermissionScopedAsync(fixture, fixture.CreateToken(uid), organizationId);
-
-            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        }
-    }
-
-    // Organization context comes from the route, never from the token: a
-    // forged organizationId claim pointing at the caller's real grant changes
-    // nothing.
-    public class Given_a_token_carrying_a_forged_organization_claim(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
-    {
-        [Fact]
-        public async Task Resolution_uses_the_route_org_not_the_claim()
-        {
-            var (uid, userId, orgA) = await fixture.SeedMemberAsync();
-            await fixture.GrantPermissionsAsync(userId, orgA, SpecPermissions.Alpha);
-            var orgB = await fixture.SeedOrganizationAsync();
-            await fixture.SeedMembershipAsync(userId, orgB);
-
-            var token = fixture.CreateToken(uid, extraClaims: [("organizationId", orgA.ToString())]);
-            var response = await SendPermissionScopedAsync(fixture, token, orgB);
+            var response = await fixture.SendAsync(HttpMethod.Get, PermissionScopedPath, fixture.CreateToken(uid));
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
     }
 
-    public class Given_an_org_scoped_requirement_on_a_route_with_no_organization(IdentitySpecFixture fixture)
-        : IClassFixture<IdentitySpecFixture>
+    // Permissions come from the database, never from the token: a forged
+    // permission claim changes nothing.
+    public class Given_a_token_carrying_a_forged_permission_claim(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
-        public async Task The_request_returns_four_hundred_with_reason_organization_context_required()
+        public async Task The_claim_is_ignored()
         {
-            var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
-            await fixture.GrantPermissionsAsync(userId, organizationId, SpecPermissions.Alpha);
+            var (uid, _) = await fixture.SeedUserAsync(classification: UserClassification.Internal);
 
-            var response = await fixture.SendAsync(HttpMethod.Get, "/api/_test/permission-scoped-no-org", fixture.CreateToken(uid));
-
-            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Equal(
-                PermissionAuthorizationHandler.OrganizationContextRequiredReason,
-                await IdentitySpecFixture.ReadProblemReasonAsync(response));
-        }
-    }
-
-    // A platform-scoped check is satisfied only by an assignment with no
-    // organization. Holding the permission inside an organization isn't enough.
-    public class Given_a_caller_holding_the_permission_only_at_org_level(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
-    {
-        [Fact]
-        public async Task A_platform_scoped_requirement_is_denied()
-        {
-            var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
-            await fixture.GrantPermissionsAsync(userId, organizationId, Permissions.AdminAccess);
-
-            var response = await fixture.SendAsync(HttpMethod.Get, "/api/_test/platform-scoped", fixture.CreateToken(uid));
+            var token = fixture.CreateToken(uid, extraClaims: [("permissions", SpecPermissions.Alpha)]);
+            var response = await fixture.SendAsync(HttpMethod.Get, PermissionScopedPath, token);
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
@@ -109,18 +67,38 @@ public class RequirePermission
         [Fact]
         public async Task The_request_is_denied()
         {
-            var (uid, userId, organizationId) = await fixture.SeedMemberAsync();
-            var roleId = await fixture.GrantPermissionsAsync(userId, organizationId, SpecPermissions.Alpha);
+            var (uid, userId) = await fixture.SeedUserAsync();
+            var roleId = await fixture.GrantPermissionsAsync(userId, SpecPermissions.Alpha);
             var role = await fixture.DbContext.Roles.SingleAsync(r => r.Id == roleId);
             role.MarkDeleted(DateTimeOffset.UtcNow);
             await fixture.DbContext.SaveChangesAsync();
 
-            var response = await SendPermissionScopedAsync(fixture, fixture.CreateToken(uid), organizationId);
+            var response = await fixture.SendAsync(HttpMethod.Get, PermissionScopedPath, fixture.CreateToken(uid));
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
     }
 
-    internal static Task<HttpResponseMessage> SendPermissionScopedAsync(IdentitySpecFixture fixture, string bearerToken, int organizationId) =>
-        fixture.SendAsync(HttpMethod.Get, $"/api/_test/permission-scoped/{organizationId}", bearerToken);
+    // Until B6 resets the schema, the old tables can still hold an
+    // organization-scoped grant. Roles are global now, so it must never resolve.
+    public class Given_a_leftover_organization_scoped_grant(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    {
+        [Fact]
+        public async Task It_grants_nothing()
+        {
+            var (uid, userId) = await fixture.SeedUserAsync();
+            var roleId = await fixture.GrantPermissionsAsync(userId, SpecPermissions.Alpha);
+            var legacyScopeId = (await fixture.DbContext.Database.SqlQuery<int>($"""
+                INSERT INTO identity.organizations (name, slug, status, created_at, updated_at)
+                VALUES ('Legacy', {"legacy-" + Guid.NewGuid().ToString("N")}, 'Active', now(), now())
+                RETURNING id AS "Value"
+                """).ToListAsync()).Single();
+            await fixture.DbContext.Database.ExecuteSqlAsync(
+                $"UPDATE identity.user_roles SET organization_id = {legacyScopeId} WHERE user_id = {userId} AND role_id = {roleId}");
+
+            var response = await fixture.SendAsync(HttpMethod.Get, PermissionScopedPath, fixture.CreateToken(uid));
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        }
+    }
 }

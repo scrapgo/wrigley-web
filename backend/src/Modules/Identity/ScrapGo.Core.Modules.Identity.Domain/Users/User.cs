@@ -7,7 +7,7 @@ namespace ScrapGo.Core.Modules.Identity.Domain.Users;
 /// <see cref="Email"/>. Email is a display attribute, not an authorization key.
 /// </summary>
 /// <remarks>
-/// Other modules (e.g. Organizations) refer to a user by <see cref="Id"/>
+/// Other modules refer to a user by <see cref="Id"/>
 /// only; this entity deliberately has no navigation into them.
 /// </remarks>
 public class User

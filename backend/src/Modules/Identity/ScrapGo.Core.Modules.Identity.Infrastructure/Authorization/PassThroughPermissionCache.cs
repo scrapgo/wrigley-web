@@ -8,13 +8,11 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Authorization;
 /// </summary>
 public sealed class PassThroughPermissionCache : IPermissionCache
 {
-    public Task<IReadOnlySet<string>?> GetAsync(PermissionScope scope, CancellationToken cancellationToken) =>
+    public Task<IReadOnlySet<string>?> GetAsync(int userId, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlySet<string>?>(null);
 
-    public Task SetAsync(PermissionScope scope, IReadOnlySet<string> permissionNames, CancellationToken cancellationToken) =>
+    public Task SetAsync(int userId, IReadOnlySet<string> permissionNames, CancellationToken cancellationToken) =>
         Task.CompletedTask;
 
-    public Task InvalidateAsync(PermissionScope scope, CancellationToken cancellationToken) => Task.CompletedTask;
-
-    public Task InvalidateOrganizationAsync(int organizationId, CancellationToken cancellationToken) => Task.CompletedTask;
+    public Task InvalidateAsync(int userId, CancellationToken cancellationToken) => Task.CompletedTask;
 }

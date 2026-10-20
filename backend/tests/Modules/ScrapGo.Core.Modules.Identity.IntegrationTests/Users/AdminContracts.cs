@@ -1,7 +1,6 @@
 // ADMIN-API-STATUS Task 2: admin contract shapes and the request validation rules handlers will apply.
 using System.Net.Http.Json;
 using System.Text.Json;
-using ScrapGo.Core.Modules.Identity.Application.Organizations;
 using ScrapGo.Core.Modules.Identity.Application.Users;
 using ScrapGo.Core.Shared.Kernel.Paging;
 
@@ -26,35 +25,16 @@ public class AdminContracts
 
     public class Given_an_assign_role_command
     {
-        [Theory]
-        [InlineData(5, null)]
-        [InlineData(5, 12)]
-        public void A_positive_role_id_with_no_or_a_positive_organization_is_well_formed(int? roleId, int? organizationId) =>
-            Assert.True(new AssignRoleCommand("uid", UserId: 1, roleId, organizationId).IsWellFormed);
-
-        [Theory]
-        [InlineData(null, null)]
-        [InlineData(0, null)]
-        [InlineData(-3, null)]
-        [InlineData(5, 0)]
-        [InlineData(5, -1)]
-        public void A_missing_or_non_positive_id_is_not(int? roleId, int? organizationId) =>
-            Assert.False(new AssignRoleCommand("uid", UserId: 1, roleId, organizationId).IsWellFormed);
-    }
-
-    public class Given_an_update_organization_command
-    {
         [Fact]
-        public void A_name_with_a_letter_or_digit_is_well_formed() =>
-            Assert.True(new UpdateOrganizationCommand("uid", OrganizationId: 1, "Acme Metals").IsWellFormed);
+        public void A_positive_role_id_is_well_formed() =>
+            Assert.True(new AssignRoleCommand("uid", UserId: 1, RoleId: 5).IsWellFormed);
 
         [Theory]
         [InlineData(null)]
-        [InlineData("")]
-        [InlineData("   ")]
-        [InlineData("--- !!")]
-        public void A_blank_or_symbol_only_name_is_not(string? name) =>
-            Assert.False(new UpdateOrganizationCommand("uid", OrganizationId: 1, name).IsWellFormed);
+        [InlineData(0)]
+        [InlineData(-3)]
+        public void A_missing_or_non_positive_id_is_not(int? roleId) =>
+            Assert.False(new AssignRoleCommand("uid", UserId: 1, roleId).IsWellFormed);
     }
 
     public class Given_a_page_request

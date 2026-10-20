@@ -22,9 +22,8 @@ public interface IUserContext
     Task<bool> IsActiveUserAsync(CancellationToken cancellationToken);
 
     /// <summary>
-    /// Whether the caller holds <paramref name="permissionName"/> in
-    /// <paramref name="organizationId"/>, or at platform scope when it is null.
-    /// Always false for an unauthenticated or inactive caller.
+    /// Whether the caller holds <paramref name="permissionName"/>. Always false
+    /// for an unauthenticated or inactive caller.
     /// </summary>
-    Task<bool> HasPermissionAsync(string permissionName, int? organizationId, CancellationToken cancellationToken);
+    Task<bool> HasPermissionAsync(string permissionName, CancellationToken cancellationToken);
 }

@@ -4,9 +4,6 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Configuration
 
 public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
 {
-    /// <summary>Seeded id of the built-in <see cref="DefaultRoleNames.OrganizationAdministrator"/> role.</summary>
-    public const int OrganizationAdministratorRoleId = 1;
-
     public void Configure(EntityTypeBuilder<Role> builder)
     {
         builder.ToTable("roles");
@@ -21,9 +18,8 @@ public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
             .HasColumnType("text")
             .IsRequired();
 
-        // Null for a platform-scoped built-in role.
-        builder.Property(r => r.OrganizationId)
-            .IsRequired(false);
+        // Only to filter out the old schema's organization custom roles until B6.
+        builder.Property<int?>(LegacyScope.Property).HasColumnName(LegacyScope.Column);
 
         builder.Property(r => r.Status)
             .HasColumnType("text")
@@ -39,48 +35,18 @@ public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
             .HasColumnType("timestamptz")
             .IsRequired();
 
-        builder.Ignore(r => r.IsOrganizationScoped);
-        // Names are unique per organization. Postgres treats NULLs as distinct
-        // in a unique index, so platform-scoped names need their own partial
-        // index below.
-        builder.HasIndex(r => new { r.OrganizationId, r.Name })
-            .IsUnique()
-            .HasDatabaseName(IdentityUniqueConstraints.RoleNamePerOrganization);
-
+        // Role names are unique. The name is the old schema's platform-scope
+        // index, the one that applies now that roles are global.
         builder.HasIndex(r => r.Name)
             .IsUnique()
-            .HasDatabaseName("ux_roles_name_platform_scope")
-            .HasFilter("organization_id IS NULL");
-
-        builder.HasIndex(r => r.OrganizationId)
-            .HasDatabaseName("ix_roles_organization_id");
+            .HasDatabaseName("ux_roles_name_platform_scope");
 
         builder.ToTable(t => t.HasCheckConstraint("ck_roles_status", "status IN ('Active', 'Deleted')"));
-
-        builder.HasOne<Organization>()
-            .WithMany()
-            .HasForeignKey(r => r.OrganizationId)
-            .OnDelete(DeleteBehavior.Restrict)
-            .HasConstraintName("fk_roles_organization_id");
 
         builder.HasMany(r => r.RolePermissions)
             .WithOne()
             .HasForeignKey(rp => rp.RoleId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_role_permissions_role_id");
-
-        // Built-in, platform-scoped roles. Anonymous objects because the
-        // entity's setters are private. Granted per organization via UserRole.
-        var seededAt = new DateTimeOffset(2026, 9, 9, 0, 0, 0, TimeSpan.Zero);
-        builder.HasData(new
-        {
-            Id = OrganizationAdministratorRoleId,
-            Name = DefaultRoleNames.OrganizationAdministrator,
-            Description = string.Empty,
-            OrganizationId = (int?)null,
-            Status = RoleStatus.Active,
-            CreatedAt = seededAt,
-            UpdatedAt = seededAt,
-        });
     }
 }

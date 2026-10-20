@@ -1,5 +1,5 @@
 // Platform access requires a Google Workspace sign-in (hd on INTERNAL_HD_ALLOWLIST) on every request,
-// not just an Internal classification at provisioning (ORG-APP-MODULE-MODEL.md section 8.1).
+// not just an Internal classification at provisioning.
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -53,7 +53,7 @@ public class WorkspaceSignInForPlatformAccess
             var withWorkspace = await GetMeAsync(fixture, fixture.CreateToken(uid));
             var withoutWorkspace = await GetMeAsync(fixture, fixture.CreateToken(uid, withoutHostedDomain: true));
 
-            Assert.Contains(withWorkspace.GetProperty("permissions").EnumerateArray(), s => s.GetProperty("organizationId").ValueKind == JsonValueKind.Null);
+            Assert.Contains(withWorkspace.GetProperty("permissions").EnumerateArray(), p => p.GetString() == Permissions.AdminAccess);
             Assert.Equal(0, withoutWorkspace.GetProperty("permissions").GetArrayLength());
             Assert.Equal(0, withoutWorkspace.GetProperty("roles").GetArrayLength());
 
@@ -69,7 +69,7 @@ public class WorkspaceSignInForPlatformAccess
             var (uid, _) = await fixture.SeedPlatformAdministratorAsync();
             var (_, targetId) = await fixture.SeedUserAsync("staff@scrapgo.example", UserClassification.Internal);
             var platformAdminRoleId = await fixture.DbContext.Roles.AsNoTracking()
-                .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator && r.OrganizationId == null)
+                .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator)
                 .Select(r => r.Id)
                 .SingleAsync();
 
@@ -81,25 +81,13 @@ public class WorkspaceSignInForPlatformAccess
         }
     }
 
-    // Only platform scope is affected: organization access works from any sign-in method.
-    public class Given_an_org_admin_signing_in_without_workspace(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    public class Given_a_user_with_no_role_signing_in_without_workspace(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
-        [Fact]
-        public async Task Organization_routes_still_work()
-        {
-            var (uid, _, organizationId) = await fixture.SeedOrganizationAdministratorAsync();
-
-            var response = await fixture.SendAsync(
-                HttpMethod.Get, $"/api/organizations/{organizationId}", fixture.CreateToken(uid, withoutHostedDomain: true));
-
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        }
-
-        // No platform role, so nothing to prompt for.
+        // No role, so nothing to prompt for.
         [Fact]
         public async Task Me_does_not_ask_for_a_workspace_sign_in()
         {
-            var (uid, _, _) = await fixture.SeedOrganizationAdministratorAsync();
+            var (uid, _) = await fixture.SeedUserAsync();
 
             var me = await GetMeAsync(fixture, fixture.CreateToken(uid, withoutHostedDomain: true));
 

@@ -1,7 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
 using ScrapGo.Core.Modules.Identity.Application.Authorization;
-using ScrapGo.Core.Modules.Identity.Application.Organizations;
-using ScrapGo.Core.Modules.Identity.Application.Roles;
 using ScrapGo.Core.Modules.Identity.Application.Users;
 
 namespace ScrapGo.Core.Modules.Identity.Application;
@@ -18,18 +16,6 @@ public static class IdentityApplicationServiceCollectionExtensions
         services.AddScoped<UserStatusService>();
         services.AddScoped<EvaluateUserStatusGateHandler>();
         services.AddScoped<LinkProviderHandler>();
-
-        services.AddScoped<CreateOrganizationHandler>();
-        services.AddScoped<ListMyOrganizationsHandler>();
-        services.AddScoped<EvaluateOrganizationMembershipHandler>();
-        services.AddScoped<OrganizationReadService>();
-        services.AddScoped<OrganizationAdminService>();
-        services.AddScoped<PlatformOrganizationService>();
-        services.AddScoped<InvitationService>();
-
-
-        services.AddScoped<RoleService>();
-        services.AddScoped<RoleReadService>();
 
         services.AddScoped<PermissionResolver>();
         services.AddScoped<ListPermissionsHandler>();

@@ -18,19 +18,9 @@ public sealed class UniqueConstraintViolationException(string? constraintName, E
 /// </summary>
 public static class IdentityUniqueConstraints
 {
-    public const string OrganizationSlug = "ux_organizations_slug";
-
-    public const string RoleNamePerOrganization = "ux_roles_organization_id_name";
-
-    /// <summary>At most one pending invitation per email per organization.</summary>
-    public const string PendingInvitation = "ux_invitations_organization_id_email_pending";
-
-    /// <summary>A user has at most one membership row per organization.</summary>
-    public const string OrganizationMembership = "ux_organization_memberships_user_id_organization_id";
-
-    /// <summary>A user holds a given role in a given organization at most once.</summary>
-    public const string OrganizationRoleAssignment = "ux_user_roles_user_id_role_id_organization_id";
-
-    /// <summary>A user holds a given role at platform scope at most once.</summary>
-    public const string PlatformRoleAssignment = "ux_user_roles_user_id_role_id_platform_scope";
+    /// <summary>
+    /// A user holds a given role at most once. The name is the old schema's
+    /// platform-scope index, the one that applies now that roles are global.
+    /// </summary>
+    public const string RoleAssignment = "ux_user_roles_user_id_role_id_platform_scope";
 }

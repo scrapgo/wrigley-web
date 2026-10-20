@@ -6,14 +6,11 @@ namespace ScrapGo.Core.Modules.Identity.Api;
 public static class IdentityModuleApplicationBuilderExtensions
 {
     /// <summary>
-    /// Adds the Identity module's request gates. Call it after
+    /// Adds the Identity module's request gate. Call it after
     /// <c>UseRouting()</c> and <c>UseAuthentication()</c>, and before
-    /// <c>UseAuthorization()</c>. The gates need the authenticated principal
-    /// and the matched route, and must deny before any policy or endpoint runs.
+    /// <c>UseAuthorization()</c>. The gate needs the authenticated principal
+    /// and must deny before any policy or endpoint runs.
     /// </summary>
     public static IApplicationBuilder UseIdentityModule(this IApplicationBuilder app) =>
-        app
-            // First: no point checking a disabled user's organization membership.
-            .UseMiddleware<DisabledUserGateMiddleware>()
-            .UseMiddleware<OrganizationMembershipGuardMiddleware>();
+        app.UseMiddleware<DisabledUserGateMiddleware>();
 }

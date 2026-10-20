@@ -17,13 +17,12 @@ public static class ScrapGoModulesServiceCollectionExtensions
     /// which fails fast if it is missing.</item>
     /// <item><b>JWT authentication</b> (GCIP bearer tokens, RS256, 1-hour cap)
     /// and <b>permission-based authorization</b>: the <c>[RequirePermission]</c>
-    /// handler, organization-context results, the disabled-user gate and the
-    /// cross-tenant membership guard.</item>
+    /// handler, workspace-sign-in results and the disabled-user gate.</item>
     /// <item>The <b>Quickbase typed HTTP client</b> with a Polly resilience
     /// pipeline (retry with exponential backoff and jitter, timeouts, circuit
     /// breaker).</item>
     /// <item><b>Scoped application services:</b> <c>IQuickbaseQueryService</c>
-    /// and the Identity handlers and <c>RoleService</c>.</item>
+    /// and the Identity handlers.</item>
     /// </list>
     /// </summary>
     /// <remarks>
@@ -60,7 +59,7 @@ public static class ScrapGoModulesServiceCollectionExtensions
 
     /// <summary>
     /// Identity: the <c>identity</c> DbContext, GCIP JWT bearer, the permission
-    /// authorization engine, and user, organization and role services.
+    /// authorization engine, and user and role assignment services.
     /// </summary>
     private static IServiceCollection AddIdentityModule(this IServiceCollection services, IConfiguration config) =>
         services

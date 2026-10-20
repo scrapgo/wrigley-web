@@ -6,20 +6,15 @@ namespace ScrapGo.Core.Modules.Identity.Api.Authorization;
 
 /// <summary>
 /// Evaluates <see cref="PermissionRequirement"/>. It resolves the user from the
-/// token's <c>sub</c> and the organization from the route, then asks
-/// <see cref="PermissionResolver"/>. Organization context is never read from
-/// token claims, so a token carrying a forged <c>organizationId</c> claim
-/// changes nothing.
+/// token's <c>sub</c>, then asks <see cref="PermissionResolver"/>. Roles are
+/// global, so there is no scope to read from the route.
 /// </summary>
 public sealed class PermissionAuthorizationHandler(PermissionResolver permissionResolver, ICallerSignIn callerSignIn)
     : AuthorizationHandler<PermissionRequirement>
 {
-    /// <summary>Failure reason (and 400 <c>reason</c>) for an organization-scoped check on a route with no organization.</summary>
-    public const string OrganizationContextRequiredReason = "organization_context_required";
-
     /// <summary>
-    /// Failure reason (and 403 <c>reason</c>) for a platform-scoped check when
-    /// the token isn't a Google Workspace sign-in on the internal allow-list.
+    /// Failure reason (and 403 <c>reason</c>) when the token isn't a Google
+    /// Workspace sign-in on the internal allow-list.
     /// </summary>
     public const string WorkspaceSignInRequiredReason = "workspace_sign_in_required";
 
@@ -30,27 +25,15 @@ public sealed class PermissionAuthorizationHandler(PermissionResolver permission
             return;
         }
 
-        // Platform access needs a Workspace sign-in on every request, whatever
-        // the caller's stored roles say. Named, so the client can say why.
-        if (requirement.PlatformScope && !callerSignIn.IsInternalWorkspaceSignIn)
+        // Every grant needs a Workspace sign-in on every request, whatever the
+        // caller's stored roles say. Named, so the client can say why.
+        if (!callerSignIn.IsInternalWorkspaceSignIn)
         {
             context.Fail(new AuthorizationFailureReason(this, WorkspaceSignInRequiredReason));
             return;
         }
 
-        int? organizationId = null;
-        if (!requirement.PlatformScope)
-        {
-            if (!OrganizationRouteValues.TryGetOrganizationId(httpContext, out var routeOrganizationId))
-            {
-                context.Fail(new AuthorizationFailureReason(this, OrganizationContextRequiredReason));
-                return;
-            }
-
-            organizationId = routeOrganizationId;
-        }
-
-        if (await permissionResolver.HasPermissionAsync(uid, organizationId, requirement.PermissionName, httpContext.RequestAborted))
+        if (await permissionResolver.HasPermissionAsync(uid, requirement.PermissionName, httpContext.RequestAborted))
         {
             context.Succeed(requirement);
         }

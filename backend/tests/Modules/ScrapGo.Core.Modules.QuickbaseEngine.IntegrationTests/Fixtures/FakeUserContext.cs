@@ -14,6 +14,6 @@ public sealed class FakeUserContext : IUserContext
 
     public Task<bool> IsActiveUserAsync(CancellationToken cancellationToken) => Task.FromResult(IsAuthenticated && IsActive);
 
-    public Task<bool> HasPermissionAsync(string permissionName, int? organizationId, CancellationToken cancellationToken) =>
+    public Task<bool> HasPermissionAsync(string permissionName, CancellationToken cancellationToken) =>
         IsActiveUserAsync(cancellationToken);
 }

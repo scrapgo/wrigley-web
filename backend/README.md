@@ -99,7 +99,7 @@ profile. It opens Swagger automatically.
 | http://localhost:5141/swagger       | Swagger UI listing every endpoint                                                         |
 | http://localhost:5141/healthz       | `200` with `"status":"Healthy"` (the process is up)                                       |
 | http://localhost:5141/healthz/ready | `200` once the database is reachable; `503` means the proxy or connection string is wrong |
-| http://localhost:5141/api/users/me  | `401` without a token (authentication is enforced)                                        |
+| http://localhost:5141/api/me        | `401` without a token (authentication is enforced)                                        |
 
 ### 5. Running the Frontend
 
@@ -124,7 +124,7 @@ Get one by signing in through the portal (or any GCIP client), then either:
 - **Swagger:** click **Authorize** and paste the token without the `Bearer ` prefix.
 - **VS Code / Visual Studio:** open [`src/ScrapGo.Core.Api/ScrapGo.Core.Api.http`](src/ScrapGo.Core.Api/ScrapGo.Core.Api.http), paste the token into `@token`, and send the requests.
 
-Start with `GET /api/users/me`: the first call provisions your user record.
+Start with `POST /api/session`: it creates your user record on a Google Workspace sign-in (see [Internal users](#8-internal-users-google-workspace-sign-in)) and returns your access. `GET /api/me` returns the same thing afterwards; it never creates a user.
 
 ### 7. Bootstrap the first platform administrator (once per database)
 
@@ -134,12 +134,12 @@ role by signing in, so the first one is granted by an explicit host command:
 
 1. Apply the Identity migrations (see [Database migrations](#database-migrations)).
 2. Sign in as the person to promote, **with "Sign in with Google" using their
-   Workspace (`@scrapgo.com`) account**, and call `GET /api/users/me` once.
-   That provisions their user record as Internal (see
+   Workspace (`@scrapgo.com`) account**, and call `POST /api/session` once.
+   That creates their user record as Internal (see
    [Internal users](#8-internal-users-google-workspace-sign-in)). The Site
    Admin role is for Internal users only.
    Their GCIP UID is the token's `sub` claim (also `identityPlatformUid` in the
-   `/api/users/me` response).
+   `/api/me` response).
 3. With the Cloud SQL proxy running and user-secrets pointing at the target
    database, run:
 
@@ -320,7 +320,8 @@ Inside the container, the proxy on your machine is `host.docker.internal:5434`
 | Proxy: `could not find default credentials`                                            | Run `gcloud auth application-default login`.                                                                                                                                        |
 | Proxy can't connect to the instance                                                    | The instance has no proxy-reachable IP (private-IP only). See the infra README.                                                                                                     |
 | Every `/api/**` call returns `401`                                                     | Missing or expired token (tokens last at most 1 hour), or it was issued for another GCIP project.                                                                                   |
-| `403` with `reason: user_disabled`                                                     | Your user record is disabled.                                                                                                                                                       |
+| `403` with `reason: account_disabled`                                                  | Your user record is disabled.                                                                                                                                                       |
+| `403` with `reason: no_access`                                                         | No user for your UID, and your sign-in is not a verified Google Workspace sign-in on an allow-listed domain. Sign in with Google using your Workspace account.                      |
 | `dotnet build` fails with "file is locked by testhost"                                 | A test run is still going. Wait for it or stop it.                                                                                                                                  |
 | `401` and the request shows `Authorization: Bearer "@token` (or similar)               | A placeholder was pasted into Swagger's **Authorize** box. Paste the raw ID token (`eyJ…`) with no quotes and no `Bearer ` prefix.                                                  |
 | `403` with `reason: missing_permission`                                                 | The caller's roles don't grant the permission, or its feature is off for them. An `access.denied` audit row records the path and the keys it needed.                                     |

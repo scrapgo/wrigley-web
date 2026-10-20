@@ -1,4 +1,4 @@
-// ADMIN-API-STATUS Task 5: GET /api/users/me reports the caller's effective roles and permissions.
+// B10: GET /api/me reports the caller's user, roles, effective permissions and features.
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -9,51 +9,74 @@ public class CurrentUserAccess
     public class Given_a_user_with_two_roles(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
-        public async Task Me_returns_both_roles_and_the_union_of_their_permissions()
+        public async Task Me_returns_both_role_keys_and_the_union_of_their_permissions()
         {
             var (uid, userId) = await fixture.SeedUserAsync();
             var firstRoleId = await fixture.GrantPermissionsAsync(userId, SpecPermissions.Alpha);
             var secondRoleId = await fixture.GrantPermissionsAsync(userId, SpecPermissions.Alpha, SpecPermissions.Gamma);
+            var roleKeys = await fixture.DbContext.Roles.AsNoTracking()
+                .Where(r => r.Id == firstRoleId || r.Id == secondRoleId).Select(r => r.Key).ToListAsync();
 
             var me = await GetMeAsync(fixture, uid);
 
-            Assert.Equal(
-                new[] { firstRoleId, secondRoleId }.Order(),
-                me.GetProperty("roles").EnumerateArray().Select(r => r.GetProperty("roleId").GetInt32()).Order());
-            Assert.Equal([SpecPermissions.Alpha, SpecPermissions.Gamma], PermissionsOf(me));
+            Assert.Equal(roleKeys.Order(), StringsOf(me, "roles").Order());
+            Assert.Equal([SpecPermissions.Alpha, SpecPermissions.Gamma], StringsOf(me, "permissions"));
         }
     }
 
-    // /me reports what the authorization handler would decide: the same resolver.
-    public class Given_the_bootstrapped_platform_administrator(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    // /me reports what the authorization handler would decide: the same access context.
+    public class Given_a_site_admin(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
-        public async Task Me_reports_admin_access()
+        public async Task Me_reports_admin_access_and_the_locked_features()
         {
-            var (uid, userId) = await fixture.SeedUserAsync();
+            var (uid, userId) = await fixture.SeedUserAsync("admin@scrapgo.example", UserType.Internal);
             var roleId = await fixture.DbContext.Roles
                 .Where(r => r.Key == DefaultRoleNames.SiteAdmin)
                 .Select(r => r.Id)
                 .SingleAsync();
             await fixture.AssignRoleAsync(userId, roleId);
 
-            Assert.Contains(Permissions.UsersManage, PermissionsOf(await GetMeAsync(fixture, uid)));
+            var me = await GetMeAsync(fixture, uid);
+
+            Assert.Contains(DefaultRoleNames.SiteAdmin, StringsOf(me, "roles"));
+            Assert.Contains(Permissions.UsersManage, StringsOf(me, "permissions"));
+            Assert.Contains(FeatureKeys.Users, StringsOf(me, "features"));
+            var user = me.GetProperty("user");
+            Assert.Equal(userId, user.GetProperty("id").GetInt32());
+            Assert.Equal("admin@scrapgo.example", user.GetProperty("email").GetString());
+            Assert.Equal("Internal", user.GetProperty("userType").GetString());
+            Assert.Equal("Active", user.GetProperty("status").GetString());
         }
     }
 
-    public class Given_a_brand_new_user(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    public class Given_a_user_with_no_role(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
         public async Task Me_returns_no_roles_and_no_permissions()
         {
-            var me = await GetMeAsync(fixture, Guid.NewGuid().ToString());
+            var (uid, _) = await fixture.SeedUserAsync();
 
-            Assert.Equal(0, me.GetProperty("roles").GetArrayLength());
-            Assert.Equal(0, me.GetProperty("permissions").GetArrayLength());
+            var me = await GetMeAsync(fixture, uid);
+
+            Assert.Empty(StringsOf(me, "roles"));
+            Assert.Empty(StringsOf(me, "permissions"));
         }
     }
 
-    // Sad path, kept separate.
+    // Sad paths, kept separate.
+
+    public class Given_an_unknown_uid(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    {
+        [Fact]
+        public async Task Me_returns_four_hundred_three_no_access()
+        {
+            var response = await fixture.SendMeAsync(fixture.CreateToken(Guid.NewGuid().ToString(), email: "stranger@example.com"));
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Equal("no_access", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+        }
+    }
 
     public class Given_a_disabled_user(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
@@ -65,22 +88,23 @@ public class CurrentUserAccess
             var user = await fixture.DbContext.Users.SingleAsync(u => u.Id == userId);
             user.Disable(DateTimeOffset.UtcNow);
             await fixture.DbContext.SaveChangesAsync();
+            fixture.EvictAccess();
 
-            var response = await fixture.SendUsersMeAsync(fixture.CreateToken(uid));
+            var response = await fixture.SendMeAsync(fixture.CreateToken(uid));
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-            Assert.Equal("user_disabled", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+            Assert.Equal("account_disabled", await IdentitySpecFixture.ReadProblemReasonAsync(response));
         }
     }
 
     private static async Task<JsonElement> GetMeAsync(IdentitySpecFixture fixture, string uid)
     {
-        var response = await fixture.SendUsersMeAsync(fixture.CreateToken(uid, email: "me@example.com"));
+        var response = await fixture.SendMeAsync(fixture.CreateToken(uid, email: "me@example.com"));
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync<JsonElement>();
     }
 
-    private static List<string> PermissionsOf(JsonElement me) =>
-        [.. me.GetProperty("permissions").EnumerateArray().Select(p => p.GetString()!)];
+    private static List<string> StringsOf(JsonElement me, string property) =>
+        [.. me.GetProperty(property).EnumerateArray().Select(p => p.GetString()!)];
 }

@@ -246,7 +246,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*B10 · `POST /api/session` and `GET /api/me`\*\*
+\- \[x] \*\*B10 · `POST /api/session` and `GET /api/me`\*\*
 
 &#x20; > Implement section 7 for the internal path and the "anything else" path:
 

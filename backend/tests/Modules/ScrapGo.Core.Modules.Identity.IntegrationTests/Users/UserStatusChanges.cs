@@ -12,7 +12,7 @@ public class UserStatusChanges
         {
             var (actorUid, actorId) = await SeedUserAdministratorAsync(fixture);
             var (targetUid, targetId) = await fixture.SeedUserAsync();
-            (await fixture.SendUsersMeAsync(fixture.CreateToken(targetUid))).EnsureSuccessStatusCode();
+            (await fixture.SendMeAsync(fixture.CreateToken(targetUid))).EnsureSuccessStatusCode();
 
             var response = await DisableAsync(fixture, actorUid, targetId);
 
@@ -21,9 +21,9 @@ public class UserStatusChanges
             var audit = Assert.Single(await AuditAsync(fixture, IdentityAuditEventTypes.UserDisabled, targetId));
             Assert.Equal(actorId, audit.UserId);
 
-            var next = await fixture.SendUsersMeAsync(fixture.CreateToken(targetUid));
+            var next = await fixture.SendMeAsync(fixture.CreateToken(targetUid));
             Assert.Equal(HttpStatusCode.Forbidden, next.StatusCode);
-            Assert.Equal("user_disabled", await IdentitySpecFixture.ReadProblemReasonAsync(next));
+            Assert.Equal("account_disabled", await IdentitySpecFixture.ReadProblemReasonAsync(next));
         }
 
         [Fact]
@@ -39,7 +39,7 @@ public class UserStatusChanges
             Assert.Equal(UserStatus.Active, await StatusOfAsync(fixture, targetId));
             var audit = Assert.Single(await AuditAsync(fixture, IdentityAuditEventTypes.UserEnabled, targetId));
             Assert.Equal(actorId, audit.UserId);
-            Assert.Equal(HttpStatusCode.OK, (await fixture.SendUsersMeAsync(fixture.CreateToken(targetUid))).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await fixture.SendMeAsync(fixture.CreateToken(targetUid))).StatusCode);
         }
 
         [Fact]

@@ -15,7 +15,7 @@ public class OneHourLifetimeCap
             // exp - iat == 3600s, exactly at the cap ("exp - iat ≤ 3600").
             var token = fixture.CreateToken(issuedAt: notBefore, notBefore: notBefore, expires: notBefore.AddSeconds(3600));
 
-            var response = await fixture.SendUsersMeAsync(token);
+            var response = await fixture.SendAuthenticatedProbeAsync(token);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
@@ -32,7 +32,7 @@ public class OneHourLifetimeCap
             var issuedAt = DateTime.UtcNow;
             var token = fixture.CreateToken(includeNbf: false, issuedAt: issuedAt, expires: issuedAt.AddMinutes(30));
 
-            var response = await fixture.SendUsersMeAsync(token);
+            var response = await fixture.SendAuthenticatedProbeAsync(token);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
@@ -50,7 +50,7 @@ public class OneHourLifetimeCap
             var notBefore = DateTime.UtcNow.AddMinutes(-1);
             var token = fixture.CreateToken(issuedAt: notBefore, notBefore: notBefore, expires: notBefore.AddHours(2));
 
-            _response = await fixture.SendUsersMeAsync(token);
+            _response = await fixture.SendAuthenticatedProbeAsync(token);
         }
 
         public Task DisposeAsync() => Task.CompletedTask;
@@ -80,7 +80,7 @@ public class OneHourLifetimeCap
             var notBefore = DateTime.UtcNow.AddMinutes(-1);
             var token = fixture.CreateToken(issuedAt: notBefore, notBefore: notBefore, expires: notBefore.AddSeconds(3601));
 
-            var response = await fixture.SendUsersMeAsync(token);
+            var response = await fixture.SendAuthenticatedProbeAsync(token);
 
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         }
@@ -91,7 +91,7 @@ public class OneHourLifetimeCap
         private HttpResponseMessage _response = null!;
 
         public async Task InitializeAsync() =>
-            _response = await fixture.SendUsersMeAsync(fixture.CreateToken(includeIat: false));
+            _response = await fixture.SendAuthenticatedProbeAsync(fixture.CreateToken(includeIat: false));
 
         public Task DisposeAsync() => Task.CompletedTask;
 
@@ -113,7 +113,7 @@ public class OneHourLifetimeCap
         {
             var token = fixture.CreateToken(notBefore: DateTime.UtcNow.AddMinutes(-40), expires: DateTime.UtcNow.AddMinutes(-30));
 
-            var response = await fixture.SendUsersMeAsync(token);
+            var response = await fixture.SendAuthenticatedProbeAsync(token);
 
             Assert.DoesNotContain(TokenLifetimeExceededException.Reason, await response.Content.ReadAsStringAsync());
         }
@@ -125,7 +125,7 @@ public class OneHourLifetimeCap
         [Fact]
         public async Task The_response_body_does_not_carry_the_token_lifetime_exceeded_reason()
         {
-            var response = await fixture.SendUsersMeAsync(fixture.CreateToken(tamperSignature: true));
+            var response = await fixture.SendAuthenticatedProbeAsync(fixture.CreateToken(tamperSignature: true));
 
             Assert.DoesNotContain(TokenLifetimeExceededException.Reason, await response.Content.ReadAsStringAsync());
         }

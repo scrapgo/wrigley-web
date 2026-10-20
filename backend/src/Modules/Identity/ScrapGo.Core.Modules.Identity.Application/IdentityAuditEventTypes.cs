@@ -3,14 +3,14 @@ namespace ScrapGo.Core.Modules.Identity.Application;
 /// <summary>Single source of truth for the audit event types this module writes.</summary>
 public static class IdentityAuditEventTypes
 {
-    /// <summary>First request for a UID created its user row.</summary>
-    public const string UserProvisioned = "user_provisioned";
+    /// <summary><c>POST /api/session</c> created the user (ACCESS-MODEL.md section 10).</summary>
+    public const string UserProvisioned = "user.provisioned";
+
+    /// <summary>A known, active user signed in (<c>POST /api/session</c>).</summary>
+    public const string SessionStarted = "session.started";
 
     /// <summary>A request was refused for a missing permission (ACCESS-MODEL.md section 10).</summary>
     public const string AccessDenied = "access.denied";
-
-    /// <summary>An authenticated request from a disabled user was denied.</summary>
-    public const string DeniedDisabledUser = "denied_disabled_user";
 
     public const string UserDisabled = "user_disabled";
 

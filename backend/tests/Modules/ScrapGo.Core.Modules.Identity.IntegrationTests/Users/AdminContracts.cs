@@ -8,18 +8,21 @@ namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Users;
 
 public class AdminContracts
 {
-    // Present on the wire now, populated in Task 5.
-    public class Given_a_caller_calling_users_me(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    public class Given_a_caller_calling_me(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
-        public async Task The_body_carries_roles_and_scoped_permissions_arrays()
+        public async Task The_body_carries_user_roles_permissions_and_features()
         {
-            var response = await fixture.SendUsersMeAsync(fixture.CreateToken(Guid.NewGuid().ToString(), email: "me@example.com"));
+            var (uid, _) = await fixture.SeedUserAsync();
+
+            var response = await fixture.SendMeAsync(fixture.CreateToken(uid, email: "me@example.com"));
             response.EnsureSuccessStatusCode();
 
             var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal(JsonValueKind.Object, body.GetProperty("user").ValueKind);
             Assert.Equal(JsonValueKind.Array, body.GetProperty("roles").ValueKind);
             Assert.Equal(JsonValueKind.Array, body.GetProperty("permissions").ValueKind);
+            Assert.Equal(JsonValueKind.Array, body.GetProperty("features").ValueKind);
         }
     }
 

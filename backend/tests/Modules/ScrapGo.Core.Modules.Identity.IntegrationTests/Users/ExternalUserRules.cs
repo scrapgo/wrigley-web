@@ -43,7 +43,7 @@ public class ExternalUserRules
         {
             var (uid, _) = await fixture.SeedUserAsync("customer@acme.example");
 
-            Assert.Equal(HttpStatusCode.OK, (await fixture.SendUsersMeAsync(fixture.CreateToken(uid))).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await fixture.StartSessionAsync(fixture.CreateToken(uid))).StatusCode);
         }
     }
 
@@ -54,7 +54,7 @@ public class ExternalUserRules
         {
             var (uid, _) = await fixture.SeedUserAsync("customer@acme.example");
 
-            var response = await fixture.SendUsersMeAsync(fixture.CreateToken(uid));
+            var response = await fixture.StartSessionAsync(fixture.CreateToken(uid));
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
             Assert.Equal("mfa_required", await IdentitySpecFixture.ReadProblemReasonAsync(response));
@@ -65,7 +65,7 @@ public class ExternalUserRules
         {
             var (uid, _) = await fixture.SeedUserAsync("customer@acme.example");
 
-            var response = await fixture.SendUsersMeAsync(fixture.CreateToken(uid, signInProvider: "password", signInSecondFactor: "phone"));
+            var response = await fixture.StartSessionAsync(fixture.CreateToken(uid, signInProvider: "password", signInSecondFactor: "phone"));
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
@@ -75,7 +75,7 @@ public class ExternalUserRules
         {
             var (uid, _) = await fixture.SeedUserAsync("staff@scrapgo.example", UserType.Internal);
 
-            Assert.Equal(HttpStatusCode.OK, (await fixture.SendUsersMeAsync(fixture.CreateToken(uid))).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await fixture.StartSessionAsync(fixture.CreateToken(uid))).StatusCode);
         }
     }
 }

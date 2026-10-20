@@ -209,7 +209,8 @@ public class IdentitySpecFixture : IAsyncLifetime
         bool includeNbf = true,
         bool tamperSignature = false,
         IEnumerable<(string Type, string Value)>? extraClaims = null,
-        bool withoutHostedDomain = false)
+        bool withoutHostedDomain = false,
+        bool? emailVerified = null)
     {
         var notBeforeInstant = notBefore ?? DateTime.UtcNow.AddMinutes(-1);
         var resolvedExpires = expires ?? DateTime.UtcNow.AddMinutes(30);
@@ -234,6 +235,11 @@ public class IdentitySpecFixture : IAsyncLifetime
         if (email is not null)
         {
             claims.Add(new Claim("email", email));
+        }
+
+        if (emailVerified is not null)
+        {
+            claims.Add(new Claim("email_verified", emailVerified.Value ? "true" : "false", ClaimValueTypes.Boolean));
         }
 
         // An internal (Workspace) user's token carries hd unless the spec says
@@ -283,11 +289,25 @@ public class IdentitySpecFixture : IAsyncLifetime
             Content = body is null ? null : JsonContent.Create(body),
         });
 
-    public Task<HttpResponseMessage> SendUsersMeAsync(string bearerToken) =>
-        Client.SendAsync(new HttpRequestMessage(HttpMethod.Get, "/api/users/me")
-        {
-            Headers = { Authorization = new AuthenticationHeaderValue("Bearer", bearerToken) },
-        });
+    /// <summary>
+    /// A token shaped like a real Google Workspace sign-in: provider
+    /// <c>google.com</c>, <c>email_verified</c> true and <c>hd</c> (by default
+    /// <see cref="InternalDomain"/>), i.e. one that passes the internal rule.
+    /// </summary>
+    public string CreateWorkspaceToken(string uid, string? email = null, string hd = InternalDomain) =>
+        CreateToken(uid, email: email ?? $"{uid}@{hd}", hd: hd, signInProvider: "google.com", emailVerified: true);
+
+    /// <summary><c>POST /api/session</c>, the end of a sign-in.</summary>
+    public Task<HttpResponseMessage> StartSessionAsync(string bearerToken) =>
+        SendAsync(HttpMethod.Post, "/api/session", bearerToken);
+
+    /// <summary><c>GET /api/me</c>.</summary>
+    public Task<HttpResponseMessage> SendMeAsync(string bearerToken) =>
+        SendAsync(HttpMethod.Get, "/api/me", bearerToken);
+
+    /// <summary>A route any authenticated caller reaches, user row or not: for authentication specs.</summary>
+    public Task<HttpResponseMessage> SendAuthenticatedProbeAsync(string bearerToken) =>
+        SendAsync(HttpMethod.Get, "/api/_test/no-attribute", bearerToken);
 
     public static async Task<string?> ReadProblemReasonAsync(HttpResponseMessage response)
     {

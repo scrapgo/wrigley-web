@@ -64,23 +64,27 @@ public class PlatformAdministratorBootstrap
         }
     }
 
-    // Signing in never grants anything: provisioning through /api/users/me
-    // leaves the caller with no platform role.
-    public class Given_a_user_who_only_signed_in(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    // Signing in never makes anyone an administrator: a new internal user
+    // gets scrapgo_user only, never site_admin.
+    public class Given_an_internal_user_who_only_signed_in(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
-        public async Task They_hold_no_role_and_are_denied()
+        public async Task They_hold_only_scrapgo_user_and_are_denied_administration()
         {
             var uid = Guid.NewGuid().ToString();
-            var token = fixture.CreateToken(uid, email: "fresh@example.com");
-            (await fixture.SendUsersMeAsync(token)).EnsureSuccessStatusCode();
+            var token = fixture.CreateWorkspaceToken(uid);
+            (await fixture.StartSessionAsync(token)).EnsureSuccessStatusCode();
 
             var response = await fixture.SendAsync(HttpMethod.Get, PlatformScopedPath, token);
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
             var userId = await fixture.DbContext.Users.AsNoTracking()
                 .Where(u => u.IdentityPlatformUid == uid).Select(u => u.Id).SingleAsync();
-            Assert.False(await fixture.DbContext.UserRoles.AsNoTracking().AnyAsync(ur => ur.UserId == userId));
+            var roleKeys = await fixture.DbContext.UserRoles.AsNoTracking()
+                .Where(ur => ur.UserId == userId)
+                .Select(ur => ur.Role.Key)
+                .ToListAsync();
+            Assert.Equal([DefaultRoleNames.ScrapGoUser], roleKeys);
         }
     }
 

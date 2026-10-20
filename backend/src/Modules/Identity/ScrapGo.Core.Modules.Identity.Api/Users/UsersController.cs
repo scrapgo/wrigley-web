@@ -9,15 +9,14 @@ using PermissionCatalog = ScrapGo.Core.Modules.Identity.Domain.Authorization.Per
 namespace ScrapGo.Core.Modules.Identity.Api.Users;
 
 /// <summary>
-/// Users: the caller's own record (<c>me</c>), and the platform-wide admin
-/// reads. The caller's identity comes only from the validated bearer token's
-/// <c>sub</c> claim, never from the request body or query. This controller
+/// Users: the platform-wide admin reads and changes. The caller's identity
+/// comes only from the validated bearer token's <c>sub</c> claim, never from
+/// the request body or query. This controller
 /// parses the request, calls one Application handler and maps the outcome; it
 /// holds no business logic.
 /// </summary>
 /// <remarks>
-/// <c>me</c> is open to any authenticated caller the disabled-user gate lets
-/// through. The admin reads need <c>User.Read</c>. Role assignment is
+/// The caller's own record is <c>GET /api/me</c>. The admin reads need <c>User.Read</c>. Role assignment is
 /// authorized inside <see cref="UserRoleAssignmentService"/>.
 /// </remarks>
 [ApiController]
@@ -171,30 +170,6 @@ public sealed class UsersController : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public Task<IActionResult> Enable(int id, [FromServices] UserStatusService userStatus, CancellationToken cancellationToken) =>
         ChangeStatusAsync(id, UserStatus.Active, userStatus, cancellationToken);
-
-    /// <summary>
-    /// First-request auto-provisioning: returns the caller's user record,
-    /// creating it on first sight, with their effective roles and permissions.
-    /// </summary>
-    [HttpGet("me")]
-    [ProducesResponseType<CurrentUserDto>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetMe(
-        [FromServices] GetCurrentUserHandler handler,
-        CancellationToken cancellationToken)
-    {
-        if (User.GetIdentityPlatformUid() is not { } uid)
-        {
-            return ControllerProblems.MissingSubjectClaim();
-        }
-
-        var command = new ProvisionCurrentUserCommand(
-            uid,
-            Email: User.FindFirst("email")?.Value ?? string.Empty,
-            HostedDomain: User.FindFirst("hd")?.Value);
-
-        return Ok(await handler.HandleAsync(command, cancellationToken));
-    }
 
     private async Task<IActionResult> ChangeStatusAsync(
         int id, UserStatus status, UserStatusService userStatus, CancellationToken cancellationToken)

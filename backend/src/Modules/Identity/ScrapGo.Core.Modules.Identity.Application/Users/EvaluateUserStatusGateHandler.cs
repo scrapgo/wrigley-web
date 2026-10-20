@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 
 namespace ScrapGo.Core.Modules.Identity.Application.Users;
@@ -33,6 +34,9 @@ public sealed class EvaluateUserStatusGateHandler(
     IAuditLog<IdentityModule> auditLog,
     IOptions<ExternalUserMfaOptions> mfaOptions)
 {
+    /// <summary>The denial reason, in the 403 body and the <c>access.denied</c> audit row.</summary>
+    public const string AccountDisabledReason = "account_disabled";
+
     /// <param name="hasSecondFactor">Whether the bearer token records a second factor (<c>firebase.sign_in_second_factor</c>).</param>
     public async Task<UserStatusGateDecision> HandleAsync(bool hasSecondFactor, CancellationToken cancellationToken)
     {
@@ -43,7 +47,10 @@ public sealed class EvaluateUserStatusGateHandler(
         // rather than "== Disabled" so any future status fails closed.
         if (access is not null && access.Status != UserStatus.Active)
         {
-            auditLog.Record(new AuditEvent(IdentityAuditEventTypes.DeniedDisabledUser, UserId: access.UserId));
+            auditLog.Record(new AuditEvent(
+                IdentityAuditEventTypes.AccessDenied,
+                UserId: access.UserId,
+                Metadata: JsonSerializer.Serialize(new { reason = AccountDisabledReason })));
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
             return UserStatusGateDecision.Deny;

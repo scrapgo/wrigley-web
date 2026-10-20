@@ -1,5 +1,5 @@
 // STORY-007: Validate GCIP JWTs on protected routes.
-// Ported from identity-platform. The protected route is now GET /api/users/me
+// Ported from identity-platform. The protected route is now GET /api/_test/no-attribute
 // (the legacy /api/_diag/whoami route was not carried over).
 
 namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Authentication;
@@ -12,7 +12,7 @@ public class GcipJwtValidation
         [Fact]
         public async Task A_protected_endpoint_call_returns_the_handlers_success_code()
         {
-            var response = await fixture.SendUsersMeAsync(fixture.CreateToken());
+            var response = await fixture.SendAuthenticatedProbeAsync(fixture.CreateToken());
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
@@ -25,7 +25,7 @@ public class GcipJwtValidation
         [Fact]
         public async Task A_protected_endpoint_returns_four_hundred_one()
         {
-            var response = await fixture.Client.GetAsync("/api/users/me");
+            var response = await fixture.Client.GetAsync("/api/_test/no-attribute");
 
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         }
@@ -40,7 +40,7 @@ public class GcipJwtValidation
                 notBefore: DateTime.UtcNow.AddMinutes(-40),
                 expires: DateTime.UtcNow.AddMinutes(-30));
 
-            var response = await fixture.SendUsersMeAsync(token);
+            var response = await fixture.SendAuthenticatedProbeAsync(token);
 
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         }
@@ -51,7 +51,7 @@ public class GcipJwtValidation
         [Fact]
         public async Task The_response_is_four_hundred_one()
         {
-            var response = await fixture.SendUsersMeAsync(fixture.CreateToken(tamperSignature: true));
+            var response = await fixture.SendAuthenticatedProbeAsync(fixture.CreateToken(tamperSignature: true));
 
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         }
@@ -62,7 +62,7 @@ public class GcipJwtValidation
         [Fact]
         public async Task The_response_is_four_hundred_one()
         {
-            var response = await fixture.SendUsersMeAsync(fixture.CreateToken(audience: "some-other-gcip-project"));
+            var response = await fixture.SendAuthenticatedProbeAsync(fixture.CreateToken(audience: "some-other-gcip-project"));
 
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         }
@@ -73,7 +73,7 @@ public class GcipJwtValidation
         [Fact]
         public async Task The_response_is_four_hundred_one()
         {
-            var response = await fixture.SendUsersMeAsync(
+            var response = await fixture.SendAuthenticatedProbeAsync(
                 fixture.CreateToken(issuer: "https://securetoken.google.com/some-other-gcip-project"));
 
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -90,7 +90,7 @@ public class GcipJwtValidation
             var notBefore = DateTime.UtcNow.AddMinutes(10);
             var token = fixture.CreateToken(issuedAt: DateTime.UtcNow, notBefore: notBefore, expires: notBefore.AddMinutes(30));
 
-            var response = await fixture.SendUsersMeAsync(token);
+            var response = await fixture.SendAuthenticatedProbeAsync(token);
 
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         }
@@ -106,7 +106,7 @@ public class GcipJwtValidation
             var expires = DateTime.UtcNow.AddMinutes(10);
             var token = fixture.CreateToken(issuedAt: DateTime.UtcNow, notBefore: expires.AddMinutes(5), expires: expires);
 
-            var response = await fixture.SendUsersMeAsync(token);
+            var response = await fixture.SendAuthenticatedProbeAsync(token);
 
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         }

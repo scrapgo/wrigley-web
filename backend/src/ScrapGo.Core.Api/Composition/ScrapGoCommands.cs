@@ -49,7 +49,7 @@ public static class ScrapGoCommands
             BootstrapPlatformAdministratorOutcome.AlreadyGranted =>
                 ($"AlreadyGranted: {uid} already holds PlatformAdministrator. Nothing changed.", 0),
             BootstrapPlatformAdministratorOutcome.UserNotProvisioned =>
-                ($"UserNotProvisioned: no user for {uid}. Sign in and call GET /api/users/me once, then retry.", 1),
+                ($"UserNotProvisioned: no user for {uid}. Sign in once (POST /api/session), then retry.", 1),
             BootstrapPlatformAdministratorOutcome.ExternalUserNotAllowed =>
                 ($"ExternalUserNotAllowed: {uid} is an external user; platform roles are for internal (Google Workspace) users only.", 1),
             BootstrapPlatformAdministratorOutcome.AnotherAdministratorExists =>

@@ -45,10 +45,9 @@ public class DenyByDefault
         [Fact]
         public async Task They_hold_no_role_and_every_permission_check_denies()
         {
-            var uid = Guid.NewGuid().ToString();
+            var (uid, userId) = await fixture.SeedUserAsync("joiner@example.com");
             var token = fixture.CreateToken(uid, email: "joiner@example.com");
-            (await fixture.SendUsersMeAsync(token)).EnsureSuccessStatusCode();
-            var userId = await fixture.DbContext.Users.AsNoTracking().Where(u => u.IdentityPlatformUid == uid).Select(u => u.Id).SingleAsync();
+            (await fixture.StartSessionAsync(token)).EnsureSuccessStatusCode();
 
             Assert.False(await fixture.DbContext.UserRoles.AsNoTracking().AnyAsync(ur => ur.UserId == userId));
             Assert.Equal(HttpStatusCode.Forbidden,

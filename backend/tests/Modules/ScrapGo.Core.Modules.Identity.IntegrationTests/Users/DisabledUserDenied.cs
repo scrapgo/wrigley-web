@@ -1,4 +1,4 @@
-// STORY-011: Disabled user denied despite a valid token.
+// STORY-011, B10: a disabled user is denied despite a valid token: 403 account_disabled.
 using ScrapGo.Core.Modules.Identity.Api.Middleware;
 
 namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Users;
@@ -19,22 +19,22 @@ public class DisabledUserDenied
             fixture.DbContext.Users.Add(User.Provision(_uid, "active@example.com", UserType.External, DateTimeOffset.UtcNow));
             await fixture.DbContext.SaveChangesAsync();
 
-            _response = await fixture.SendUsersMeAsync(fixture.CreateToken(_uid));
+            _response = await fixture.StartSessionAsync(fixture.CreateToken(_uid));
         }
 
         public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
-        public void The_response_is_two_hundred() => Assert.Equal(HttpStatusCode.OK, _response.StatusCode);
+        public void Starting_a_session_returns_two_hundred() => Assert.Equal(HttpStatusCode.OK, _response.StatusCode);
     }
 
-    // A never-seen UID has nothing to disable, so "no row" must not be treated as "denied".
+    // A never-seen UID has nothing to disable, so "no row" must not be treated as "disabled".
     public class Given_a_uid_with_no_user_row_yet_and_a_valid_jwt(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
-        public async Task The_response_is_two_hundred()
+        public async Task The_gate_lets_the_request_through()
         {
-            var response = await fixture.SendUsersMeAsync(fixture.CreateToken(Guid.NewGuid().ToString()));
+            var response = await fixture.SendAuthenticatedProbeAsync(fixture.CreateToken(Guid.NewGuid().ToString()));
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
@@ -64,29 +64,56 @@ public class DisabledUserDenied
         public async Task InitializeAsync()
         {
             var now = DateTimeOffset.UtcNow;
-            var user = User.Provision(_uid, "disabled@example.com", UserType.External, now);
+            var user = User.Provision(_uid, $"disabled-{_uid}@scrapgo.example", UserType.Internal, now);
             user.Disable(now);
             fixture.DbContext.Users.Add(user);
             await fixture.DbContext.SaveChangesAsync();
             _userId = user.Id;
 
-            _response = await fixture.SendUsersMeAsync(fixture.CreateToken(_uid));
+            // Even a sign-in that passes the internal rule is refused.
+            _response = await fixture.StartSessionAsync(fixture.CreateWorkspaceToken(_uid));
         }
 
         public Task DisposeAsync() => Task.CompletedTask;
 
         [Fact]
-        public void An_authenticated_call_returns_four_hundred_three() =>
+        public void Starting_a_session_returns_four_hundred_three() =>
             Assert.Equal(HttpStatusCode.Forbidden, _response.StatusCode);
 
         [Fact]
-        public async Task The_response_body_carries_the_user_disabled_reason() =>
-            Assert.Equal(DisabledUserGateMiddleware.DisabledUserReason, await IdentitySpecFixture.ReadProblemReasonAsync(_response));
+        public async Task The_response_body_carries_the_account_disabled_reason() =>
+            Assert.Equal("account_disabled", await IdentitySpecFixture.ReadProblemReasonAsync(_response));
 
         [Fact]
-        public async Task An_audit_log_row_of_type_denied_disabled_user_is_written() =>
-            Assert.Equal(1, await fixture.DbContext.AuditLogs.CountAsync(
-                a => a.EventType == IdentityAuditEventTypes.DeniedDisabledUser && a.UserId == _userId));
+        public async Task An_access_denied_audit_row_with_reason_account_disabled_is_written()
+        {
+            var audits = await fixture.DbContext.AuditLogs.AsNoTracking()
+                .Where(a => a.EventType == IdentityAuditEventTypes.AccessDenied && a.UserId == _userId)
+                .ToListAsync();
+
+            Assert.Contains(audits, a =>
+            {
+                using var document = System.Text.Json.JsonDocument.Parse(a.Metadata!);
+                return document.RootElement.GetProperty("reason").GetString() == "account_disabled";
+            });
+        }
+
+        [Fact]
+        public async Task No_sign_in_is_recorded()
+        {
+            Assert.Null(await fixture.DbContext.Users.AsNoTracking().Where(u => u.Id == _userId).Select(u => u.LastSignInAt).SingleAsync());
+            Assert.False(await fixture.DbContext.AuditLogs.AnyAsync(
+                a => a.EventType == IdentityAuditEventTypes.SessionStarted && a.UserId == _userId));
+        }
+
+        [Fact]
+        public async Task Me_returns_four_hundred_three_account_disabled()
+        {
+            var response = await fixture.SendMeAsync(fixture.CreateToken(_uid));
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Equal(DisabledUserGateMiddleware.DisabledUserReason, await IdentitySpecFixture.ReadProblemReasonAsync(response));
+        }
     }
 
     // The gate never turns a missing token into a 403: that stays the ordinary 401.
@@ -94,11 +121,11 @@ public class DisabledUserDenied
         : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
-        public async Task The_response_is_four_hundred_one_not_four_hundred_three()
-        {
-            var response = await fixture.Client.GetAsync("/api/users/me");
+        public async Task Me_returns_four_hundred_one_not_four_hundred_three() =>
+            Assert.Equal(HttpStatusCode.Unauthorized, (await fixture.Client.GetAsync("/api/me")).StatusCode);
 
-            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        }
+        [Fact]
+        public async Task Session_returns_four_hundred_one_not_four_hundred_three() =>
+            Assert.Equal(HttpStatusCode.Unauthorized, (await fixture.Client.PostAsync("/api/session", content: null)).StatusCode);
     }
 }

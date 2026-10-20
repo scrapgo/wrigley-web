@@ -5,3 +5,4 @@ global using ScrapGo.Core.Modules.Identity.Domain.Authorization;
 global using ScrapGo.Core.Modules.Identity.Domain.Features;
 global using ScrapGo.Core.Modules.Identity.Domain.Users;
 global using ScrapGo.Core.Modules.Identity.IntegrationTests.Fixtures;
+global using ScrapGo.Core.Modules.Identity.Application.Session;

@@ -13,7 +13,7 @@ public enum BootstrapPlatformAdministratorOutcome
     /// <summary>The user already held it; nothing was written.</summary>
     AlreadyGranted,
 
-    /// <summary>No user row for the UID. They must sign in and call <c>GET /api/users/me</c> once first.</summary>
+    /// <summary>No user row for the UID. They must sign in (<c>POST /api/session</c>) once first.</summary>
     UserNotProvisioned,
 
     /// <summary>A different user already holds it. Bootstrap is one-time; later grants go through the role-assignment API.</summary>

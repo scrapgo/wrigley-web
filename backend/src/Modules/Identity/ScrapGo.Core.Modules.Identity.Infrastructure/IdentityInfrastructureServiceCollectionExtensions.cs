@@ -3,7 +3,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using ScrapGo.Core.Modules.Identity.Application.Access;
 using ScrapGo.Core.Modules.Identity.Application.Users;
+using ScrapGo.Core.Modules.Identity.Infrastructure.Access;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Authentication;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Authorization;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Persistence;
@@ -21,6 +23,12 @@ public static class IdentityInfrastructureServiceCollectionExtensions
     {
         AddPersistence(services, configuration);
         AddGcipAuthentication(services, configuration);
+
+        // The access context: one query per load (scoped, per-request DbContext),
+        // cached for 30 seconds per instance (singleton).
+        services.AddMemoryCache();
+        services.AddScoped<IAccessContextProvider, EfAccessContextProvider>();
+        services.AddSingleton<IAccessCache, MemoryAccessCache>();
 
         // An allow-list that is unset or blank is legitimate (every user is
         // External), so unlike the project id there is no fail-fast here.

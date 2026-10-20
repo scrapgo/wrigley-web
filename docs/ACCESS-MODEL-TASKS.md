@@ -190,7 +190,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*B7 · Access context provider and cache\*\*
+\- \[x] \*\*B7 · Access context provider and cache\*\*
 
 &#x20; > Create `AccessContext` (section 8), `IAccessContextProvider` and `IAccessCache` in Application, and their implementations in Infrastructure: one EF query, the access rule from section 4, an `IMemoryCache` with a 30-second TTL keyed by UID, and `EvictUser(int userId)` / `EvictAll()`.
 

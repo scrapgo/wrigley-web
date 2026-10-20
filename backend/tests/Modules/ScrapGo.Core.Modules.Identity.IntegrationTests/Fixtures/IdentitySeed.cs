@@ -70,6 +70,7 @@ public static class IdentitySeed
 
         fixture.DbContext.UserRoles.Add(UserRole.Assign(userId, roleId, UserType.Internal, assignedByUserId: null, DateTimeOffset.UtcNow));
         await fixture.DbContext.SaveChangesAsync();
+        fixture.EvictAccess();
     }
 
     private static async Task MakeInternalAsync(this IdentitySpecFixture fixture, int userId)

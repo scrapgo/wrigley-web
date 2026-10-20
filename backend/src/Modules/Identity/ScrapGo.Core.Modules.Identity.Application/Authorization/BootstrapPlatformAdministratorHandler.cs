@@ -37,7 +37,7 @@ public enum BootstrapPlatformAdministratorOutcome
 public sealed class BootstrapPlatformAdministratorHandler(
     IUserRepository users,
     IRoleRepository roles,
-    IPermissionCache permissionCache,
+    IAccessCache accessCache,
     IUnitOfWork unitOfWork,
     IAuditLog<IdentityModule> auditLog,
     TimeProvider timeProvider)
@@ -95,7 +95,7 @@ public sealed class BootstrapPlatformAdministratorHandler(
 
         if (outcome == BootstrapPlatformAdministratorOutcome.Granted)
         {
-            await permissionCache.InvalidateAsync(userId, cancellationToken);
+            accessCache.EvictUser(userId);
         }
 
         return outcome;

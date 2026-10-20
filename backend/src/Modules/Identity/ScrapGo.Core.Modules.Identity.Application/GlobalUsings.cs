@@ -1,3 +1,4 @@
+global using ScrapGo.Core.Modules.Identity.Application.Access;
 global using ScrapGo.Core.Modules.Identity.Application.Abstractions;
 global using ScrapGo.Core.Modules.Identity.Domain.Authorization;
 global using ScrapGo.Core.Modules.Identity.Domain.Features;

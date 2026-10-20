@@ -1,3 +1,6 @@
+using ScrapGo.Core.Modules.Identity.Application.Users;
+using ScrapGo.Core.Shared.Kernel.Paging;
+
 namespace ScrapGo.Core.Modules.Identity.Application.Abstractions;
 
 public interface IUserRepository
@@ -15,8 +18,11 @@ public interface IUserRepository
 
     Task<int?> GetIdByUidAsync(string identityPlatformUid, CancellationToken cancellationToken);
 
-    /// <summary>A tracked user, or null. For mutations; list reads go through <see cref="IAuthorizationQueries.ListUsersAsync"/>.</summary>
+    /// <summary>A tracked user, or null. For mutations; list reads go through <see cref="ListAsync"/>.</summary>
     Task<User?> GetByIdAsync(int userId, CancellationToken cancellationToken);
+
+    /// <summary>Every user, filtered and paged by id. Assumes a valid <see cref="PageRequest"/>.</summary>
+    Task<PagedResult<UserSummaryDto>> ListAsync(UserListFilter filter, PageRequest page, CancellationToken cancellationToken);
 
     /// <summary>
     /// Applies <see cref="User.Enable"/> or <see cref="User.Disable"/> to the

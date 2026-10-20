@@ -17,18 +17,17 @@ public static class IdentityModuleServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddIdentityApi(this IServiceCollection services)
     {
-        // Scoped: it resolves permissions through the per-request DbContext.
-        services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
-        services.AddSingleton<IAuthorizationMiddlewareResultHandler, PermissionAuthorizationResultHandler>();
+        // perm: policies on demand, checked against the caller's access context.
+        // The handler is scoped: it uses the request-scoped ICurrentAccess.
+        services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+        services.AddScoped<IAuthorizationHandler, PermissionHandler>();
+        services.AddSingleton<IAuthorizationMiddlewareResultHandler, PermissionDeniedResultHandler>();
 
         services.AddHttpContextAccessor();
         services.AddScoped<IUserContext, HttpUserContext>();
 
         // The caller's access context, loaded at most once per request.
         services.AddScoped<ICurrentAccess, HttpCurrentAccess>();
-
-        // Permissions need a Workspace sign-in on the current request.
-        services.AddScoped<ICallerSignIn, HttpCallerSignIn>();
 
         return services;
     }

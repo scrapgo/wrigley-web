@@ -51,6 +51,22 @@ public sealed class RoleRepository(IdentityDbContext dbContext) : IRoleRepositor
             .OrderBy(key => key)
             .ToListAsync(cancellationToken);
 
+    public async Task<IReadOnlySet<string>> ListGrantedPermissionKeysAsync(int userId, CancellationToken cancellationToken) =>
+        (await dbContext.UserRoles
+            .AsNoTracking()
+            .Where(ur => ur.UserId == userId)
+            .SelectMany(ur => ur.Role.RolePermissions.Select(rp => rp.Permission.Key))
+            .Distinct()
+            .ToListAsync(cancellationToken))
+        .ToHashSet(StringComparer.Ordinal);
+
+    public async Task<IReadOnlyList<string>> ListPermissionKeysAsync(CancellationToken cancellationToken) =>
+        await dbContext.Permissions
+            .AsNoTracking()
+            .OrderBy(p => p.Key)
+            .Select(p => p.Key)
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<AssignedRoleDto>> ListUserRolesAsync(int userId, CancellationToken cancellationToken) =>
         await dbContext.UserRoles
             .AsNoTracking()

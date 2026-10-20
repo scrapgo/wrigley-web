@@ -24,10 +24,10 @@ public sealed record UserDetailResult(UserReadOutcome Outcome, UserDetailDto? Us
 /// </summary>
 /// <remarks>
 /// Every user on the platform is visible here, so the routes require
-/// <c>User.Read</c> at platform scope (<c>[RequirePermission(...)]</c>),
+/// <c>users.view</c> (<c>[RequirePermission(...)]</c>),
 /// checked before these methods run.
 /// </remarks>
-public sealed class UserReadService(IAuthorizationQueries authorization, IUserRepository users, IRoleRepository roles)
+public sealed class UserReadService(IUserRepository users, IRoleRepository roles)
 {
     public async Task<UserListResult> ListAsync(ListUsersQuery query, CancellationToken cancellationToken)
     {
@@ -37,7 +37,7 @@ public sealed class UserReadService(IAuthorizationQueries authorization, IUserRe
             return new(UserReadOutcome.InvalidRequest);
         }
 
-        var result = await authorization.ListUsersAsync(new UserListFilter(query.Search, status), page, cancellationToken);
+        var result = await users.ListAsync(new UserListFilter(query.Search, status), page, cancellationToken);
 
         return new(UserReadOutcome.Success, result);
     }

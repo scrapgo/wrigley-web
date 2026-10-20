@@ -208,7 +208,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*B8 · Permission policies replace `\[RequirePermission]`\*\*
+\- \[x] \*\*B8 · Permission policies replace `\[RequirePermission]`\*\*
 
 &#x20; > Replace `PermissionResolver`, `AuthorizationQueries`, `PermissionAuthorizationHandler`, `PassThroughPermissionCache` and `IPermissionCache` with:
 

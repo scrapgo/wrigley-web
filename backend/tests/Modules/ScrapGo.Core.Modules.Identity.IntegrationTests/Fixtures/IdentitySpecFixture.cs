@@ -79,6 +79,13 @@ public class IdentitySpecFixture : IAsyncLifetime
     /// </summary>
     public void MarkInternal(string uid) => _internalUids[uid] = true;
 
+    /// <summary>
+    /// Drops every cached access context. Specs that change roles, grants,
+    /// features or status straight in the database call this, as the admin
+    /// endpoints evict on their own.
+    /// </summary>
+    public void EvictAccess() => Services.GetRequiredService<ScrapGo.Core.Modules.Identity.Application.Access.IAccessCache>().EvictAll();
+
     /// <summary><c>Identity:RequireMfaForExternalUsers</c> for this fixture. Null (the default) leaves it unset, i.e. off.</summary>
     protected virtual string? RequireMfaForExternalUsers => null;
 

@@ -1,5 +1,4 @@
-using ScrapGo.Core.Modules.Identity.Application.Abstractions;
-using ScrapGo.Core.Modules.Identity.Application.Authorization;
+using ScrapGo.Core.Modules.Identity.Application.Access;
 using ScrapGo.Core.Modules.Identity.Domain.Users;
 using ScrapGo.Core.Shared.Kernel.Security;
 
@@ -7,31 +6,20 @@ namespace ScrapGo.Core.Modules.Identity.Api.Authorization;
 
 /// <summary>
 /// <see cref="IUserContext"/> for an HTTP request. Identity comes from the
-/// validated bearer token (<c>sub</c>), user status from Postgres, and
-/// permissions from <see cref="PermissionResolver"/>, the same engine behind
+/// validated bearer token (<c>sub</c>); status and permissions come from the
+/// caller's access context (<see cref="ICurrentAccess"/>), the same one behind
 /// <c>[RequirePermission]</c>.
 /// </summary>
-/// <remarks>Scoped per request. The active-user lookup runs at most once per request.</remarks>
-public sealed class HttpUserContext(
-    IHttpContextAccessor httpContextAccessor,
-    IUserRepository users,
-    PermissionResolver permissionResolver) : IUserContext
+/// <remarks>Scoped per request. The access context loads at most once per request.</remarks>
+public sealed class HttpUserContext(IHttpContextAccessor httpContextAccessor, ICurrentAccess currentAccess) : IUserContext
 {
-    private Task<bool>? _isActiveUser;
-
     public bool IsAuthenticated => httpContextAccessor.HttpContext?.User.Identity?.IsAuthenticated == true;
 
     public string? IdentityPlatformUid => IsAuthenticated ? httpContextAccessor.HttpContext!.User.GetIdentityPlatformUid() : null;
 
-    public Task<bool> IsActiveUserAsync(CancellationToken cancellationToken) =>
-        _isActiveUser ??= LoadIsActiveUserAsync(cancellationToken);
+    public async Task<bool> IsActiveUserAsync(CancellationToken cancellationToken) =>
+        IsAuthenticated && await currentAccess.GetAsync(cancellationToken) is { Status: UserStatus.Active };
 
     public async Task<bool> HasPermissionAsync(string permissionName, CancellationToken cancellationToken) =>
-        IdentityPlatformUid is { } uid
-        && await IsActiveUserAsync(cancellationToken)
-        && await permissionResolver.HasPermissionAsync(uid, permissionName, cancellationToken);
-
-    private async Task<bool> LoadIsActiveUserAsync(CancellationToken cancellationToken) =>
-        IdentityPlatformUid is { } uid
-        && await users.GetStatusByUidAsync(uid, cancellationToken) is { Status: UserStatus.Active };
+        IsAuthenticated && await currentAccess.GetAsync(cancellationToken) is { } access && access.Can(permissionName);
 }

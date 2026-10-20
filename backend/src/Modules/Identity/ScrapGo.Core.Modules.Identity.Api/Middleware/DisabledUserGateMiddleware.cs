@@ -30,12 +30,12 @@ public sealed class DisabledUserGateMiddleware(RequestDelegate next)
         // A missing uid on an authenticated principal is defensive only (GCIP
         // tokens always carry sub). It falls through so the anomaly surfaces
         // in the endpoint, not as a silent pass here.
-        if (context.User.Identity?.IsAuthenticated == true && context.User.GetIdentityPlatformUid() is { } uid)
+        if (context.User.Identity?.IsAuthenticated == true && context.User.GetIdentityPlatformUid() is not null)
         {
             // No WWW-Authenticate header on these 403s: RFC 6750 §3 governs
             // bearer challenges, and this is an application-level 403 against
             // a caller who already presented a valid token.
-            switch (await gate.HandleAsync(uid, HasSecondFactor(context.User), context.RequestAborted))
+            switch (await gate.HandleAsync(HasSecondFactor(context.User), context.RequestAborted))
             {
                 case UserStatusGateDecision.Deny:
                     await ProblemResults.WriteAsync(context.Response, ProblemResults.Create(

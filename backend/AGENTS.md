@@ -78,7 +78,7 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 
 **QuickbaseEngine**: implements `IQuickbaseQueryService`, cache-aside over the Quickbase REST API, backed by `quickbase.query_caches`. Its Api project has no controllers.
 
-**Suppliers** (Application, Infrastructure, Api; no Domain or database, since Quickbase owns the data): read endpoints over the Quickbase Suppliers table `bqrcgnatz`, under `/api/suppliers`, for **platform administrators only** for now (`Admin.Access` at platform scope, which needs a Workspace sign-in). Supplier scoping (B13 in `docs/ACCESS-MODEL-TASKS.md`) replaces this.
+**Suppliers** (Application, Infrastructure, Api; no Domain or database, since Quickbase owns the data): read endpoints over the Quickbase Suppliers table `bqrcgnatz`, under `/api/suppliers`, for holders of `suppliers.view_all` for now. Supplier scoping (B13 in `docs/ACCESS-MODEL-TASKS.md`) adds `suppliers.view_own`.
 - `GET /api/suppliers` returns names sorted by name, with `search`, `skip` and `top` (1–1000, default 100).
 - `GET …/suppliers/{recordId}` returns one supplier's details.
 - `GET …/suppliers/{recordId}/call-prospect-status` returns call & prospect status (fields 197, 192, 193, 236, 181, 238, 97).
@@ -125,25 +125,27 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 
 This section describes an interim model, being replaced by [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md) task by task (`docs/ACCESS-MODEL-TASKS.md`). Applications, modules and the catalog are gone (B2), and so are organizations, memberships and organization invitations (B3).
 
-**The schema is the new one (B5, B6).** The entities and configurations match section 5 of `ACCESS-MODEL.md`: `User` (with `UserType`), `Role`, `UserRole`, `Feature`, `FeatureTarget`, `Permission`, `RolePermission`, `UserSupplier` and `Invitation`. The forward migration `AccessModelV1` drops the old tables, keeps users and seeds section 6 from `AccessModelSeed` (Infrastructure), using the keys in `Permissions`, `DefaultRoleNames` and `FeatureKeys` (Domain). The seed has fixed ids; the migration moves each identity sequence past them. **The access context (B7)** is the new engine's core: `AccessContext` (Application/Access) applies the access rule of section 4 (active user AND a role grants the permission AND its feature is on for them). `EfAccessContextProvider` loads it in one EF query; `MemoryAccessCache` caches it by UID for 30 seconds, with `EvictUser(userId)` for a change to one user and `EvictAll()` for a role-permission or feature change; `ICurrentAccess` (`HttpCurrentAccess`, request-scoped) loads the caller's at most once per request. The `[RequirePermission]` engine below doesn't use it yet: B8 switches it over.
+**The schema is the new one (B5, B6).** The entities and configurations match section 5 of `ACCESS-MODEL.md`: `User` (with `UserType`), `Role`, `UserRole`, `Feature`, `FeatureTarget`, `Permission`, `RolePermission`, `UserSupplier` and `Invitation`. The forward migration `AccessModelV1` drops the old tables, keeps users and seeds section 6 from `AccessModelSeed` (Infrastructure), using the keys in `Permissions`, `DefaultRoleNames` and `FeatureKeys` (Domain). The seed has fixed ids; the migration moves each identity sequence past them. **The access context (B7)** is the new engine's core: `AccessContext` (Application/Access) applies the access rule of section 4 (active user AND a role grants the permission AND its feature is on for them). `EfAccessContextProvider` loads it in one EF query; `MemoryAccessCache` caches it by UID for 30 seconds, with `EvictUser(userId)` for a change to one user and `EvictAll()` for a role-permission or feature change; `ICurrentAccess` (`HttpCurrentAccess`, request-scoped) loads the caller's at most once per request. The `[RequirePermission]` engine below is built on it (B8).
 
 ### Permissions and resolution
 
-- **Roles are global:** no scope, no route conventions. `[RequirePermission(Permissions.X)]` checks that the caller holds `X`. The only role-name literals allowed are in `DefaultRoleNames`.
-- **Every permission check needs a Google Workspace sign-in on the request** (Decision 12): the token's `hd` claim must be on `INTERNAL_HD_ALLOWLIST`. The check is `ICallerSignIn` in `PermissionResolver`, before the cache. Otherwise `[RequirePermission]` answers 403 `workspace_sign_in_required`, in-service checks refuse, and `/me` shows no roles or permissions (with `workspaceSignInRequired: true` when the user holds a role).
-- **`INTERNAL_HD_ALLOWLIST` must be set in every environment** (Terraform default `scrapgo.com`); when it's blank, nobody has any access. It is a JSON array in appsettings (`["scrapgo.com"]`, as in `appsettings.Development.json`) or a comma-separated string as an env var (`InternalHdAllowlistConfiguration.Read`). GCIP tokens only carry `hd` because of the `beforeSignIn` blocking function in `infra/gcip-blocking-function/`.
-- **Permissions (code):** `Permissions.All`, seeded by migration (ids are positions in the list; append, never reorder). Retired `Invoice.*` / `Report.*` (ids 10–16) never resolve.
-- **Resolution** (`AuthorizationQueries.GetPermissionNamesAsync`): roles must be active and grants unexpired (`user_roles.expires_at`).
+- **`[RequirePermission(params string[] anyOf)]`** sets a `perm:a|b` policy; `PermissionPolicyProvider` builds it on demand (any of the keys), and `PermissionHandler` checks it against `ICurrentAccess`. The only role-key literals allowed are in `DefaultRoleNames`; code checks permission keys only.
+- **Denials:** `PermissionDeniedResultHandler` turns every authorization 403 into ProblemDetails with `reason: missing_permission` and writes an `access.denied` audit row (method, path, required keys).
+- **The disabled-user gate** (`DisabledUserGateMiddleware` → `EvaluateUserStatusGateHandler`) reads the same `ICurrentAccess`: a known user who isn't Active gets 403 `user_disabled`. Status changes evict the user from the cache, so they apply on the very next request.
+- **Other modules** check through `IUserContext.HasPermissionAsync`, also backed by `ICurrentAccess`.
+- **There is no per-request Google Workspace check any more.** Internal is a user type, decided once at creation (ACCESS-MODEL.md section 3).
+- **`INTERNAL_HD_ALLOWLIST`** decides who is created Internal. It is a JSON array in appsettings (`["scrapgo.com"]`, as in `appsettings.Development.json`) or a comma-separated string as an env var (`InternalHdAllowlistConfiguration.Read`). GCIP tokens only carry `hd` because of the `beforeSignIn` blocking function in `infra/gcip-blocking-function/`.
+- **Permissions (code):** `Permissions` (Domain) holds every key; the seed maps them to features and roles.
 - **A FallbackPolicy** requires an authenticated caller on any endpoint without authorization metadata. Only `/healthz` and `/healthz/ready` are `AllowAnonymous`.
 
 ### Roles
 
-- **The only built-in role is `PlatformAdministrator`** (`User.*`, `Role.*`, `Admin.Access`). The old migration also grants it removed permissions that nothing checks. There is no role create or delete; B15 builds the roles API.
-- **Assigning and revoking** (`UserRoleAssignmentService`, `/api/users/{id}/roles`) needs `Admin.Access` and `Role.Assign` (403 `platform_admin_required` otherwise). The escalation guard refuses a role with a permission the caller doesn't hold (403 `cannot_grant_unheld_permission`). External users can't hold roles (`external_user_not_allowed`).
-- **Last-administrator protection** (409 `last_platform_administrator`, under a row lock): the last active PlatformAdministrator can't be revoked or disabled.
-- **Deny-by-default; no role is ever assigned at sign-in.** The first `PlatformAdministrator` comes only from the one-time, audited `bootstrap-platform-admin` host command.
-- **External users** (`users.classification`, the database being the only source): MFA for them is reserved behind `Identity:RequireMfaForExternalUsers`, off until MFA is enabled in GCIP. When it's on, a token without `firebase.sign_in_second_factor` gets 403 `mfa_required`.
-- **Permission cache:** `IPermissionCache` (keyed by user) is a pass-through until Redis is migrated. Every mutation must invalidate the affected user.
+- **Three system roles** (`site_admin`, `scrapgo_user`, `user`), seeded; there is no role create or delete (B15 builds the roles API).
+- **Assigning and revoking** (`UserRoleAssignmentService`, `/api/users/{id}/roles`) needs `users.manage` (403 `platform_admin_required` otherwise). The escalation guard refuses a role with a permission the caller doesn't hold (403 `cannot_grant_unheld_permission`). External users can't hold internal roles (`external_user_not_allowed`).
+- **Last-administrator protection** (409 `last_platform_administrator`, under a row lock): the last active Site Admin can't be revoked or disabled.
+- **Deny-by-default.** The first Site Admin comes only from the one-time, audited `bootstrap-platform-admin` host command.
+- **External users:** MFA for them is reserved behind `Identity:RequireMfaForExternalUsers`, off until MFA is enabled in GCIP. When it's on, a token without `firebase.sign_in_second_factor` gets 403 `mfa_required`.
+- **Cache eviction:** every change to a user's roles or status calls `IAccessCache.EvictUser`; role-permission and feature changes must call `EvictAll`.
 
 ## Rules
 

@@ -16,7 +16,6 @@ public static class IdentityApplicationServiceCollectionExtensions
         services.AddScoped<UserStatusService>();
         services.AddScoped<EvaluateUserStatusGateHandler>();
 
-        services.AddScoped<PermissionResolver>();
         services.AddScoped<ListPermissionsHandler>();
         services.AddScoped<BootstrapPlatformAdministratorHandler>();
 

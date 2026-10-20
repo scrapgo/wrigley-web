@@ -1,5 +1,4 @@
 using System.Text.Json;
-using ScrapGo.Core.Modules.Identity.Application.Authorization;
 
 namespace ScrapGo.Core.Modules.Identity.Application.Users;
 
@@ -64,8 +63,8 @@ public enum RevokeRoleOutcome
 public sealed class UserRoleAssignmentService(
     IUserRepository users,
     IRoleRepository roles,
-    PermissionResolver permissionResolver,
-    IPermissionCache permissionCache,
+    ICurrentAccess currentAccess,
+    IAccessCache accessCache,
     IUnitOfWork unitOfWork,
     IAuditLog<IdentityModule> auditLog,
     TimeProvider timeProvider)
@@ -79,7 +78,7 @@ public sealed class UserRoleAssignmentService(
 
         var roleId = command.RoleId!.Value;
 
-        if (await AuthorizeAsync(command.ActorUid, cancellationToken) is not { } actorUserId)
+        if (await AuthorizeAsync(cancellationToken) is not { } actor)
         {
             return new(AssignRoleOutcome.PlatformAdminRequired);
         }
@@ -99,15 +98,15 @@ public sealed class UserRoleAssignmentService(
             return new(AssignRoleOutcome.RoleNotFound);
         }
 
-        // Escalation guard: nobody hands out more than they hold.
-        var held = await permissionResolver.GetPermissionNamesAsync(actorUserId, cancellationToken);
+        // Escalation guard: nobody hands out more than their own roles grant.
+        var held = await roles.ListGrantedPermissionKeysAsync(actor.UserId, cancellationToken);
         var granted = await roles.GetRolePermissionsAsync(role.Id, cancellationToken);
         if (!granted.All(held.Contains))
         {
             return new(AssignRoleOutcome.CannotGrantUnheldPermission);
         }
 
-        return await AssignInTransactionAsync(actorUserId, command.UserId, role, cancellationToken);
+        return await AssignInTransactionAsync(actor.UserId, command.UserId, role, cancellationToken);
     }
 
     public async Task<RevokeRoleOutcome> RevokeAsync(RevokeRoleCommand command, CancellationToken cancellationToken)
@@ -117,7 +116,7 @@ public sealed class UserRoleAssignmentService(
             return RevokeRoleOutcome.InvalidRequest;
         }
 
-        if (await AuthorizeAsync(command.ActorUid, cancellationToken) is not { } actorUserId)
+        if (await AuthorizeAsync(cancellationToken) is not { } actor)
         {
             return RevokeRoleOutcome.PlatformAdminRequired;
         }
@@ -149,7 +148,7 @@ public sealed class UserRoleAssignmentService(
             roles.RemoveUserRole(assignment);
             auditLog.Record(new AuditEvent(
                 IdentityAuditEventTypes.RoleRevoked,
-                UserId: actorUserId,
+                UserId: actor.UserId,
                 Metadata: AuditMetadata(command.UserId, command.RoleId)));
             await unitOfWork.SaveChangesAsync(ct);
 
@@ -158,7 +157,7 @@ public sealed class UserRoleAssignmentService(
 
         if (outcome == RevokeRoleOutcome.Revoked)
         {
-            await permissionCache.InvalidateAsync(command.UserId, cancellationToken);
+            accessCache.EvictUser(command.UserId);
         }
 
         return outcome;
@@ -196,17 +195,16 @@ public sealed class UserRoleAssignmentService(
 
         if (outcome == AssignRoleOutcome.Assigned)
         {
-            await permissionCache.InvalidateAsync(userId, cancellationToken);
+            accessCache.EvictUser(userId);
         }
 
         return new(outcome, dto);
     }
 
-    /// <summary>The actor's user id when they hold <c>users.manage</c>; null otherwise.</summary>
-    private async Task<int?> AuthorizeAsync(string actorUid, CancellationToken cancellationToken) =>
-        await users.GetIdByUidAsync(actorUid, cancellationToken) is { } actorUserId
-        && await permissionResolver.HasPermissionAsync(actorUid, Permissions.UsersManage, cancellationToken)
-            ? actorUserId
+    /// <summary>The caller's access context when they hold <c>users.manage</c>; null otherwise.</summary>
+    private async Task<AccessContext?> AuthorizeAsync(CancellationToken cancellationToken) =>
+        await currentAccess.GetAsync(cancellationToken) is { } access && access.Can(Permissions.UsersManage)
+            ? access
             : null;
 
     private static string AuditMetadata(int targetUserId, int roleId) =>

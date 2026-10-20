@@ -44,6 +44,7 @@ public sealed class UserStatusService(
     IRoleRepository roles,
     IUnitOfWork unitOfWork,
     IAuditLog<IdentityModule> auditLog,
+    IAccessCache accessCache,
     TimeProvider timeProvider)
 {
     public async Task<UserStatusOutcome> ChangeAsync(ChangeUserStatusCommand command, CancellationToken cancellationToken)
@@ -55,7 +56,7 @@ public sealed class UserStatusService(
             return UserStatusOutcome.CannotDisableSelf;
         }
 
-        return await unitOfWork.ExecuteInTransactionAsync(async ct =>
+        var outcome = await unitOfWork.ExecuteInTransactionAsync(async ct =>
         {
             if (await users.GetByIdAsync(command.UserId, ct) is not { } user)
             {
@@ -81,6 +82,14 @@ public sealed class UserStatusService(
 
             return UserStatusOutcome.Changed;
         }, cancellationToken);
+
+        // The gate reads the cached access context: evict so the change applies on the very next request.
+        if (outcome == UserStatusOutcome.Changed)
+        {
+            accessCache.EvictUser(command.UserId);
+        }
+
+        return outcome;
     }
 
     /// <summary>

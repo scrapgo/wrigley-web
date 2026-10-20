@@ -6,6 +6,9 @@ public static class IdentityAuditEventTypes
     /// <summary>First request for a UID created its user row.</summary>
     public const string UserProvisioned = "user_provisioned";
 
+    /// <summary>A request was refused for a missing permission (ACCESS-MODEL.md section 10).</summary>
+    public const string AccessDenied = "access.denied";
+
     /// <summary>An authenticated request from a disabled user was denied.</summary>
     public const string DeniedDisabledUser = "denied_disabled_user";
 

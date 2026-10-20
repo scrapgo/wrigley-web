@@ -7,7 +7,6 @@ using ScrapGo.Core.Modules.Identity.Application.Access;
 using ScrapGo.Core.Modules.Identity.Application.Users;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Access;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Authentication;
-using ScrapGo.Core.Modules.Identity.Infrastructure.Authorization;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Persistence;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Users;
 using ScrapGo.Core.Shared.Infrastructure.Audit;
@@ -51,13 +50,8 @@ public static class IdentityInfrastructureServiceCollectionExtensions
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
-        services.AddScoped<IAuthorizationQueries, AuthorizationQueries>();
         services.AddScoped<IUnitOfWork, IdentityUnitOfWork>();
         services.AddScoped<IAuditLog<IdentityModule>, AuditLogRecorder<IdentityModule, IdentityDbContext>>();
-
-        // Always resolves from Postgres until the Redis cache is migrated.
-        // Swapping this registration is the only change that needs.
-        services.AddSingleton<IPermissionCache, PassThroughPermissionCache>();
     }
 
     private static void AddGcipAuthentication(IServiceCollection services, IConfiguration configuration)

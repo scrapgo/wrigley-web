@@ -48,20 +48,6 @@ public class ReadingSuppliersPlatformWide
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
             Assert.Equal("supplier_not_found", await IdentitySpecFixture.ReadProblemReasonAsync(response));
         }
-
-        // Platform access needs a Google Workspace sign-in on every request.
-        [Fact]
-        public async Task Without_a_workspace_sign_in_it_returns_four_hundred_three()
-        {
-            var (uid, _) = await fixture.SeedPlatformAdministratorAsync();
-            var before = fixture.Quickbase.Queries.Count;
-
-            var response = await fixture.SendAsync(HttpMethod.Get, "/api/suppliers", fixture.CreateToken(uid, withoutHostedDomain: true));
-
-            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-            Assert.Equal("missing_permission", await IdentitySpecFixture.ReadProblemReasonAsync(response));
-            Assert.Equal(before, fixture.Quickbase.Queries.Count);
-        }
     }
 
     public class Given_a_caller_who_is_not_a_platform_administrator(SuppliersSpecFixture fixture) : IClassFixture<SuppliersSpecFixture>

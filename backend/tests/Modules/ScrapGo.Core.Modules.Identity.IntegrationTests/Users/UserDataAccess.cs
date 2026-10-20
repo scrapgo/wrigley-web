@@ -112,7 +112,7 @@ public class UserDataAccess
     {
         await using var scope = fixture.Services.CreateAsyncScope();
 
-        return await scope.ServiceProvider.GetRequiredService<IAuthorizationQueries>()
-            .ListUsersAsync(filter, page, CancellationToken.None);
+        return await scope.ServiceProvider.GetRequiredService<IUserRepository>()
+            .ListAsync(filter, page, CancellationToken.None);
     }
 }

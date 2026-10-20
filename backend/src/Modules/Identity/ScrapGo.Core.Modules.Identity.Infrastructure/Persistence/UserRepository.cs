@@ -1,7 +1,37 @@
+using ScrapGo.Core.Modules.Identity.Application.Users;
+using ScrapGo.Core.Shared.Kernel.Paging;
+
 namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence;
 
 public sealed class UserRepository(IdentityDbContext dbContext) : IUserRepository
 {
+    public async Task<PagedResult<UserSummaryDto>> ListAsync(UserListFilter filter, PageRequest page, CancellationToken cancellationToken)
+    {
+        var users = dbContext.Users.AsNoTracking();
+
+        if (filter.Status is { } status)
+        {
+            users = users.Where(u => u.Status == status);
+        }
+
+        if (!string.IsNullOrWhiteSpace(filter.Search))
+        {
+            var pattern = LikePatterns.Contains(filter.Search.Trim());
+            users = users.Where(u => EF.Functions.ILike(u.Email, pattern, LikePatterns.EscapeCharacter));
+        }
+
+        var totalCount = await users.CountAsync(cancellationToken);
+        var rows = await users
+            .OrderBy(u => u.Id)
+            .Skip(page.Skip)
+            .Take(page.ResolvedPageSize)
+            .Select(u => new { u.Id, u.Email, u.Status, u.CreatedAt })
+            .ToListAsync(cancellationToken);
+
+        return PagedResult<UserSummaryDto>.Create(
+            [.. rows.Select(u => new UserSummaryDto(u.Id, u.Email, DisplayName: null, u.Status.ToString(), u.CreatedAt))], page, totalCount);
+    }
+
     /// <summary>
     /// A real DB-level idempotent insert (<c>INSERT ... ON CONFLICT
     /// (identity_platform_uid) DO NOTHING RETURNING ...</c>) rather than a

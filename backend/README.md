@@ -135,9 +135,9 @@ role by signing in, so the first one is granted by an explicit host command:
 1. Apply the Identity migrations (see [Database migrations](#database-migrations)).
 2. Sign in as the person to promote, **with "Sign in with Google" using their
    Workspace (`@scrapgo.com`) account**, and call `GET /api/users/me` once.
-   That provisions their user record as Internal. Platform roles are for
-   Internal users only, and platform access needs a Workspace sign-in on every
-   request (see [Platform administrators](#platform-administrators-google-workspace-sign-in)).
+   That provisions their user record as Internal (see
+   [Internal users](#8-internal-users-google-workspace-sign-in)). The Site
+   Admin role is for Internal users only.
    Their GCIP UID is the token's `sub` claim (also `identityPlatformUid` in the
    `/api/users/me` response).
 3. With the Cloud SQL proxy running and user-secrets pointing at the target
@@ -151,27 +151,25 @@ role by signing in, so the first one is granted by an explicit host command:
 
    | Output                       | Exit code | Meaning                                                                                                                   |
    | ---------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------- |
-   | `Granted`                    | 0         | The user now holds `PlatformAdministrator`. An audit row was written.                                                     |
+   | `Granted`                    | 0         | The user now holds `site_admin`. An audit row was written.                                                                |
    | `AlreadyGranted`             | 0         | They already held it. Nothing changed; it is safe to re-run.                                                              |
    | `UserNotProvisioned`         | 1         | No user for that UID. Do step 2 first.                                                                                    |
    | `AnotherAdministratorExists` | 1         | Someone else already holds it. Bootstrap is one-time; it never adds a second admin.                                       |
    | `ExternalUserNotAllowed`     | 1         | The user is External (their first sign-in wasn't a Workspace Google sign-in). Platform roles are for Internal users only. |
 
-Permissions are resolved per request, so the new admin's next request already
-carries `Admin.Access`. No new token is needed.
+The command evicts the user's cached access, so their next request already
+carries the Site Admin permissions. No new token is needed.
 
-Further platform admins are granted by an existing one, not by this command:
-`POST /api/users/{id}/roles` with the PlatformAdministrator role id.
+Further Site Admins are granted by an existing one, not by this command:
+`POST /api/users/{id}/roles` with the `site_admin` role id.
 
-### 8. Platform administrators: Google Workspace sign-in
+### 8. Internal users: Google Workspace sign-in
 
-Permissions resolve only when the request's token carries an
-`hd` claim on `INTERNAL_HD_ALLOWLIST` (`scrapgo.com`), on **every request**:
+A user is created **Internal** only when their first sign-in's token carries an
+`hd` claim on `INTERNAL_HD_ALLOWLIST` (`scrapgo.com`). The type is set once and
+never re-evaluated; access then comes from roles, whatever the sign-in method.
 
-- **Email/password sign-ins never carry `hd`.** A platform admin signed in that
-  way gets 403 `workspace_sign_in_required`. `/api/users/me` shows no roles
-  but returns `workspaceSignInRequired: true`, and the
-  portal shows a "Sign in with Google" notice.
+- **Email/password sign-ins never carry `hd`**, so an account created that way is External.
 - **GCIP doesn't put `hd` in its tokens by itself.** The `beforeSignIn` blocking
   function in [`infra/gcip-blocking-function/`](infra/gcip-blocking-function/README.md)
   copies it from Google's token for Google sign-ins.
@@ -325,7 +323,7 @@ Inside the container, the proxy on your machine is `host.docker.internal:5434`
 | `403` with `reason: user_disabled`                                                     | Your user record is disabled.                                                                                                                                                       |
 | `dotnet build` fails with "file is locked by testhost"                                 | A test run is still going. Wait for it or stop it.                                                                                                                                  |
 | `401` and the request shows `Authorization: Bearer "@token` (or similar)               | A placeholder was pasted into Swagger's **Authorize** box. Paste the raw ID token (`eyJ…`) with no quotes and no `Bearer ` prefix.                                                  |
-| `403` with `reason: workspace_sign_in_required`                                        | A platform route was called with a token that has no allowlisted `hd`. Sign in with Google using a `@scrapgo.com` account; check `INTERNAL_HD_ALLOWLIST` and the blocking function. |
+| `403` with `reason: missing_permission`                                                 | The caller's roles don't grant the permission, or its feature is off for them. An `access.denied` audit row records the path and the keys it needed.                                     |
 | `dotnet build` / `dotnet ef` fails: file locked by `ScrapGo.Core.Api`                  | The local API is running. Stop it, or use `--configuration Release` (ef) or `-o <folder>` (test).                                                                                   |
 | `ConnectionString property has not been initialized` from `dotnet ef`                  | `$C` is empty in this terminal. Set it from user-secrets (see [Database migrations](#database-migrations)).                                                                         |
 | `28P01: password authentication failed for user "<user>"`                              | The connection string still has placeholders. Use the real values from user-secrets or Secret Manager.                                                                              |
@@ -337,8 +335,8 @@ Inside the container, the proxy on your machine is `host.docker.internal:5434`
 
 The model is being replaced by [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md), one task at a time (`../docs/ACCESS-MODEL-TASKS.md`). Applications, modules, the catalog, organizations, memberships and organization invitations are already gone. Until the rest lands:
 
-- **Roles are global.** The only built-in role is **PlatformAdministrator**, and every permission check needs a Google Workspace sign-in.
-- **Platform administrators** list users, enable and disable them, and assign or revoke roles (`/api/users…`). The last active PlatformAdministrator can't be removed.
+- **Roles are global.** Three system roles are seeded (`site_admin`, `scrapgo_user`, `user`), and a permission counts only while its feature is on for the user.
+- **Site Admins** list users, enable and disable them, and assign or revoke roles (`/api/users…`). The last active Site Admin can't be removed.
 - **Nothing is automatic:** nobody gets anything at sign-in.
 
 The rules are in [`AGENTS.md`](AGENTS.md) ("Authorization Model"), and the admin API history in [`ADMIN-API-GAPS-v2.md`](ADMIN-API-GAPS-v2.md).
@@ -354,7 +352,7 @@ Every endpoint checks the caller before any Quickbase data is read. A caller wit
 
 | Route form | Who |
 | --- | --- |
-| `/api/suppliers…` | **Platform administrators only** for now (`Admin.Access` at platform scope, Google Workspace sign-in). Supplier scoping replaces this in a later task |
+| `/api/suppliers…` | Holders of `suppliers.view_all` (internal roles) for now. Supplier scoping adds external users in a later task |
 | `/api/suppliers/<dropdown>` options | Any signed-in user (fixed lists, not Quickbase data) |
 
 ### Endpoints

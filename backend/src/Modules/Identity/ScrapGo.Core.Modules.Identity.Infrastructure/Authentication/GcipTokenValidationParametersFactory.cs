@@ -6,8 +6,7 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Authentication;
 /// Single source of truth for the rules a GCIP ID token must satisfy: the
 /// deployment's issuer and audience, a signature resolved via
 /// <see cref="IGcipSigningKeyProvider"/>, RS256 only, and the 1-hour lifetime
-/// cap. Shared by the bearer scheme and <see cref="GcipIdTokenValidator"/>, so
-/// the re-auth token path can never drift from the header path.
+/// cap, for the bearer scheme.
 /// </summary>
 public static class GcipTokenValidationParametersFactory
 {

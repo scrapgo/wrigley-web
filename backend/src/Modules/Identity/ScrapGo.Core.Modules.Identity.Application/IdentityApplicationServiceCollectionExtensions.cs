@@ -15,7 +15,6 @@ public static class IdentityApplicationServiceCollectionExtensions
         services.AddScoped<UserRoleAssignmentService>();
         services.AddScoped<UserStatusService>();
         services.AddScoped<EvaluateUserStatusGateHandler>();
-        services.AddScoped<LinkProviderHandler>();
 
         services.AddScoped<PermissionResolver>();
         services.AddScoped<ListPermissionsHandler>();

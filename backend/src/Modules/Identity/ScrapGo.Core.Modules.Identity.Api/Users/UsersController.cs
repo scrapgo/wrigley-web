@@ -196,68 +196,6 @@ public sealed class UsersController : ControllerBase
         return Ok(await handler.HandleAsync(command, cancellationToken));
     }
 
-    /// <summary>
-    /// Self-service secure account linking. <c>reauthIdToken</c> is validated
-    /// independently and is never trusted to say which account it belongs to.
-    /// </summary>
-    [HttpPost("me/linked-providers/link")]
-    [ProducesResponseType<LinkProviderResponse>(StatusCodes.Status200OK)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> LinkProvider(
-        LinkProviderRequest request,
-        [FromServices] LinkProviderHandler handler,
-        CancellationToken cancellationToken)
-    {
-        if (User.GetIdentityPlatformUid() is not { } uid)
-        {
-            return ControllerProblems.MissingSubjectClaim();
-        }
-
-        if (string.IsNullOrWhiteSpace(request.ReauthIdToken))
-        {
-            return ProblemResults.Create(
-                StatusCodes.Status400BadRequest,
-                "Missing reauthIdToken",
-                "A fresh GCIP re-authentication ID token is required to link a provider.").ToActionResult();
-        }
-
-        var result = await handler.HandleAsync(new LinkProviderCommand(uid, request.ReauthIdToken), cancellationToken);
-
-        return result.Outcome switch
-        {
-            LinkProviderOutcome.Linked => Ok(new LinkProviderResponse(Linked: true, result.Provider)),
-
-            LinkProviderOutcome.InvalidReauthToken => ProblemResults.Create(
-                StatusCodes.Status401Unauthorized,
-                "Invalid re-authentication token",
-                "The reauthIdToken failed signature/issuer/audience/lifetime validation.",
-                "invalid_reauth_token").ToActionResult(),
-
-            LinkProviderOutcome.ReauthIdentityMismatch => ProblemResults.Create(
-                StatusCodes.Status403Forbidden,
-                "Re-authentication identity mismatch",
-                "The reauthIdToken does not belong to the authenticated caller.",
-                "reauth_identity_mismatch").ToActionResult(),
-
-            LinkProviderOutcome.ReauthNotFresh => ProblemResults.Create(
-                StatusCodes.Status403Forbidden,
-                "Re-authentication not fresh",
-                "The reauthIdToken's auth_time is outside the freshness window; re-authenticate again.",
-                "reauth_not_fresh").ToActionResult(),
-
-            LinkProviderOutcome.UserNotProvisioned => ProblemResults.Create(
-                StatusCodes.Status409Conflict,
-                "User not provisioned",
-                "Call GET /api/users/me before linking a provider.",
-                "user_not_provisioned").ToActionResult(),
-
-            _ => throw new InvalidOperationException($"Unhandled {nameof(LinkProviderOutcome)}: {result.Outcome}."),
-        };
-    }
-
     private async Task<IActionResult> ChangeStatusAsync(
         int id, UserStatus status, UserStatusService userStatus, CancellationToken cancellationToken)
     {

@@ -42,7 +42,6 @@ public static class IdentityInfrastructureServiceCollectionExtensions
             options.UseModulePostgres(connectionString, IdentityDbContext.Schema));
 
         services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<ILinkedCredentialRepository, LinkedCredentialRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IAuthorizationQueries, AuthorizationQueries>();
         services.AddScoped<IUnitOfWork, IdentityUnitOfWork>();
@@ -77,8 +76,6 @@ public static class IdentityInfrastructureServiceCollectionExtensions
         services.AddSingleton<IGcipSigningKeyProvider>(sp => new GcipSigningKeyProvider(
             sp.GetRequiredService<IHttpClientFactory>().CreateClient(GcipSigningKeyProvider.HttpClientName),
             sp.GetRequiredService<IOptions<GcipOptions>>()));
-
-        services.AddSingleton<IReauthTokenValidator, GcipIdTokenValidator>();
 
         services
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

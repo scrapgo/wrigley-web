@@ -114,7 +114,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*B4 · Remove account linking\*\*
+\- \[x] \*\*B4 · Remove account linking\*\*
 
 &#x20; > Delete `LinkedCredential`, `LinkedCredentialStatus`, `LinkProviderHandler`, the `LinkProvider\*` request and response types, the link endpoint on `UsersController`, `ILinkedCredentialRepository` and its implementation, `IReauthTokenValidator` if nothing else uses it, and `SecureAccountLinking` tests. GCIP's "one account per email" setting replaces this.
 

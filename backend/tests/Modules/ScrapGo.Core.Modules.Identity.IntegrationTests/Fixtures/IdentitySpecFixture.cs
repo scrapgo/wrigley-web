@@ -282,14 +282,6 @@ public class IdentitySpecFixture : IAsyncLifetime
             Headers = { Authorization = new AuthenticationHeaderValue("Bearer", bearerToken) },
         });
 
-    /// <summary>The caller's session on the header, the independent re-auth token in the JSON body.</summary>
-    public Task<HttpResponseMessage> SendLinkProviderAsync(string bearerToken, string? reauthIdToken) =>
-        Client.SendAsync(new HttpRequestMessage(HttpMethod.Post, "/api/users/me/linked-providers/link")
-        {
-            Headers = { Authorization = new AuthenticationHeaderValue("Bearer", bearerToken) },
-            Content = JsonContent.Create(new { reauthIdToken }),
-        });
-
     public static async Task<string?> ReadProblemReasonAsync(HttpResponseMessage response)
     {
         using var problemDetails = JsonDocument.Parse(await response.Content.ReadAsStringAsync());

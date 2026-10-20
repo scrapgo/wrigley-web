@@ -74,7 +74,7 @@ Naming: folder name == project name == assembly name == root namespace, always p
 
 Composition: `Program.cs` only calls `AddScrapGoModules(config)`, `AddScrapGoHosting()` and `RunScrapGoAsync(args)` (in `src/ScrapGo.Core.Api/Composition/`). `RunScrapGoAsync` runs a one-shot operator command when `args` names one (`ScrapGoCommands`, e.g. `bootstrap-platform-admin`), and otherwise applies `UseScrapGoPipeline()` and serves HTTP. To add a module, add one private `Add{Module}Module` call in `ScrapGoModulesServiceCollectionExtensions`; each module keeps its own `Add{Module}Application`/`Add{Module}Infrastructure` extensions.
 
-Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user gate, account linking, global roles and the permission catalog, and the `[RequirePermission]` engine.
+Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user gate, global roles and the permission catalog, and the `[RequirePermission]` engine.
 
 **QuickbaseEngine**: implements `IQuickbaseQueryService`, cache-aside over the Quickbase REST API, backed by `quickbase.query_caches`. Its Api project has no controllers.
 

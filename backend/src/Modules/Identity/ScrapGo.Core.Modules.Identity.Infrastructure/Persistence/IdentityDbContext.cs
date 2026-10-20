@@ -17,8 +17,6 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
 
     public DbSet<User> Users => Set<User>();
 
-    public DbSet<LinkedCredential> LinkedCredentials => Set<LinkedCredential>();
-
     public DbSet<Role> Roles => Set<Role>();
 
     public DbSet<Permission> Permissions => Set<Permission>();

@@ -9,9 +9,6 @@ public static class IdentityAuditEventTypes
     /// <summary>An authenticated request from a disabled user was denied.</summary>
     public const string DeniedDisabledUser = "denied_disabled_user";
 
-    /// <summary>A user linked an additional sign-in provider.</summary>
-    public const string ProviderLinked = "provider_linked";
-
     public const string UserDisabled = "user_disabled";
 
     public const string UserEnabled = "user_enabled";

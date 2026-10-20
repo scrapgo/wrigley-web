@@ -10,10 +10,15 @@ public sealed class FakeUserContext : IUserContext
 
     public bool IsActive { get; set; } = true;
 
+    public SupplierScope SupplierScope { get; set; } = SupplierScope.All;
+
     public string? IdentityPlatformUid => IsAuthenticated ? "spec-user" : null;
 
     public Task<bool> IsActiveUserAsync(CancellationToken cancellationToken) => Task.FromResult(IsAuthenticated && IsActive);
 
-    public Task<bool> HasPermissionAsync(string permissionName, CancellationToken cancellationToken) =>
+    public Task<bool> HasPermissionAsync(string permission, CancellationToken cancellationToken) =>
         IsActiveUserAsync(cancellationToken);
+
+    public async Task<SupplierScope> GetSupplierScopeAsync(CancellationToken cancellationToken) =>
+        await IsActiveUserAsync(cancellationToken) ? SupplierScope : SupplierScope.None;
 }

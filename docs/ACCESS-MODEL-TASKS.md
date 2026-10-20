@@ -232,7 +232,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*B9 · Slim `IUserContext` for other modules\*\*
+\- \[x] \*\*B9 · Slim `IUserContext` for other modules\*\*
 
 &#x20; > In Shared.Kernel, reduce `IUserContext` to `IsAuthenticated`, `IdentityPlatformUid`, `IsActiveUserAsync`, `HasPermissionAsync(string permission, CancellationToken)` and `GetSupplierScopeAsync(CancellationToken)`. The scope returns `All` or a set of Record IDs: `All` when the caller has `suppliers.view\_all`, their linked IDs when they have `suppliers.view\_own`, and none otherwise. Implement it in Identity on top of `ICurrentAccess`. Update `QuickbaseQueryService`'s gate and the Quickbase test fakes.
 

@@ -109,7 +109,7 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 
 **Proxy modules** (Suppliers, and later Freight and others) follow the Suppliers shape:
 - They reach Quickbase only through `IQuickbaseQueryService` and check the caller through `IUserContext`. Both contracts live in **Shared.Kernel** (`Shared.Kernel.Quickbase`, `Shared.Kernel.Security`), so no module references QuickbaseEngine's or Identity's projects.
-- They check permissions with `IUserContext.HasPermissionAsync`.
+- They check permissions with `IUserContext.HasPermissionAsync`, and filter suppliers by `IUserContext.GetSupplierScopeAsync` (`SupplierScope.All` with `suppliers.view_all`, the caller's linked Record IDs with `suppliers.view_own`, `None` otherwise).
 - They name Identity's permissions by string, with a spec pinning that string to Identity's `Permissions`.
 
 ## Quickbase Query Cache (QuickbaseEngine module)

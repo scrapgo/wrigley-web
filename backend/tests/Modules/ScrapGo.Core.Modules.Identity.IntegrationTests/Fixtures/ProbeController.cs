@@ -19,6 +19,16 @@ public sealed class ProbeController : ControllerBase
     [HttpGet("permission-scoped")]
     public IActionResult PermissionScoped() => Ok(new { ok = true });
 
+    /// <summary>The caller's supplier scope, as other modules see it through <see cref="IUserContext"/>.</summary>
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    [HttpGet("supplier-scope")]
+    public async Task<IActionResult> SupplierScope(
+        [FromServices] ScrapGo.Core.Shared.Kernel.Security.IUserContext userContext, CancellationToken cancellationToken)
+    {
+        var scope = await userContext.GetSupplierScopeAsync(cancellationToken);
+        return Ok(new { all = scope.IsAll, recordIds = scope.RecordIds.Order() });
+    }
+
     /// <summary>Any of two test-only permissions (<c>perm:Spec.Alpha|Spec.Beta</c>).</summary>
     [RequirePermission(SpecPermissions.Alpha, SpecPermissions.Beta)]
     [HttpGet("any-of")]

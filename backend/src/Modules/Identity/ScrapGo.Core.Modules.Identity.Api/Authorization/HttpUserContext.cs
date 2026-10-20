@@ -1,4 +1,5 @@
 using ScrapGo.Core.Modules.Identity.Application.Access;
+using PermissionCatalog = ScrapGo.Core.Modules.Identity.Domain.Authorization.Permissions;
 using ScrapGo.Core.Modules.Identity.Domain.Users;
 using ScrapGo.Core.Shared.Kernel.Security;
 
@@ -20,6 +21,21 @@ public sealed class HttpUserContext(IHttpContextAccessor httpContextAccessor, IC
     public async Task<bool> IsActiveUserAsync(CancellationToken cancellationToken) =>
         IsAuthenticated && await currentAccess.GetAsync(cancellationToken) is { Status: UserStatus.Active };
 
-    public async Task<bool> HasPermissionAsync(string permissionName, CancellationToken cancellationToken) =>
-        IsAuthenticated && await currentAccess.GetAsync(cancellationToken) is { } access && access.Can(permissionName);
+    public async Task<bool> HasPermissionAsync(string permission, CancellationToken cancellationToken) =>
+        IsAuthenticated && await currentAccess.GetAsync(cancellationToken) is { } access && access.Can(permission);
+
+    public async Task<SupplierScope> GetSupplierScopeAsync(CancellationToken cancellationToken)
+    {
+        if (!IsAuthenticated || await currentAccess.GetAsync(cancellationToken) is not { } access)
+        {
+            return SupplierScope.None;
+        }
+
+        if (access.Can(PermissionCatalog.SuppliersViewAll))
+        {
+            return SupplierScope.All;
+        }
+
+        return access.Can(PermissionCatalog.SuppliersViewOwn) ? SupplierScope.Of(access.SupplierRecordIds) : SupplierScope.None;
+    }
 }

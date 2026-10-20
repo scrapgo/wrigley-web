@@ -20,9 +20,10 @@ namespace ScrapGo.Core.Modules.QuickbaseEngine.Application.Queries;
 /// </para>
 /// <para>
 /// Quickbase data, cached or live, is released only to an authenticated,
-/// provisioned and active caller (<see cref="IUserContext"/>). This is the
-/// floor; table-level access checks belong in the caller until the Quickbase
-/// table-access model exists.
+/// provisioned and active caller (<see cref="IUserContext.IsActiveUserAsync"/>).
+/// This is the floor: permission and supplier-scope checks
+/// (<see cref="IUserContext.HasPermissionAsync"/>,
+/// <see cref="IUserContext.GetSupplierScopeAsync"/>) belong in the calling module.
 /// </para>
 /// </remarks>
 public sealed class QuickbaseQueryService(

@@ -22,8 +22,17 @@ public interface IUserContext
     Task<bool> IsActiveUserAsync(CancellationToken cancellationToken);
 
     /// <summary>
-    /// Whether the caller holds <paramref name="permissionName"/>. Always false
-    /// for an unauthenticated or inactive caller.
+    /// Whether the caller holds <paramref name="permission"/>: granted by one of
+    /// their roles, with its feature on for them. Always false for an
+    /// unauthenticated or inactive caller.
     /// </summary>
-    Task<bool> HasPermissionAsync(string permissionName, CancellationToken cancellationToken);
+    Task<bool> HasPermissionAsync(string permission, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The suppliers the caller may see: <see cref="SupplierScope.All"/> with
+    /// <c>suppliers.view_all</c>; their linked Record IDs with
+    /// <c>suppliers.view_own</c>; <see cref="SupplierScope.None"/> otherwise
+    /// (and for an unauthenticated or inactive caller).
+    /// </summary>
+    Task<SupplierScope> GetSupplierScopeAsync(CancellationToken cancellationToken);
 }

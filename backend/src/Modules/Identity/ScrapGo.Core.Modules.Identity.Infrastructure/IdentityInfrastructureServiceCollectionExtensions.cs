@@ -7,6 +7,7 @@ using ScrapGo.Core.Modules.Identity.Application.Users;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Authentication;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Authorization;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Persistence;
+using ScrapGo.Core.Modules.Identity.Infrastructure.Users;
 using ScrapGo.Core.Shared.Infrastructure.Audit;
 using ScrapGo.Core.Shared.Infrastructure.Persistence;
 using ScrapGo.Core.Shared.Infrastructure.Web;
@@ -23,7 +24,7 @@ public static class IdentityInfrastructureServiceCollectionExtensions
 
         // An allow-list that is unset or blank is legitimate (every user is
         // External), so unlike the project id there is no fail-fast here.
-        var internalHostedDomains = InternalHdAllowlistOptions.Parse(configuration[InternalHdAllowlistOptions.ConfigurationKey]);
+        var internalHostedDomains = InternalHdAllowlistConfiguration.Read(configuration);
         services.Configure<InternalHdAllowlistOptions>(options => options.HostedDomains = internalHostedDomains);
 
         // Off unless explicitly turned on (Decision 4b: MFA isn't enabled in GCIP yet).

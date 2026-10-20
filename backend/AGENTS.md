@@ -190,7 +190,7 @@ The full design, its decisions and the implementation record are in [`../ORG-APP
   - Platform-scoped permissions resolve only when the current token's `hd` claim is on `INTERNAL_HD_ALLOWLIST`. The check is `ICallerSignIn` in `PermissionResolver`, before the cache.
   - Otherwise `[RequirePermission(..., PlatformScope = true)]` answers 403 `workspace_sign_in_required`, in-service platform checks refuse, and `/me` shows no platform roles or permissions.
   - Organization and application access are unaffected.
-  - **`INTERNAL_HD_ALLOWLIST` must be set in every environment** (Terraform default `scrapgo.com`); when it's blank, nobody has platform access.
+  - **`INTERNAL_HD_ALLOWLIST` must be set in every environment** (Terraform default `scrapgo.com`); when it's blank, nobody has platform access. It is a JSON array in appsettings (`["scrapgo.com"]`, as in `appsettings.Development.json`) or a comma-separated string as an env var (`InternalHdAllowlistConfiguration.Read`).
   - GCIP tokens only carry `hd` because of the `beforeSignIn` blocking function in `infra/gcip-blocking-function/`, which copies it from Google's token for Google sign-ins. Without it deployed and registered, nobody has platform access.
 - **External users** (`users.classification`, the database being the only source; Decision 8):
   - They may be organization or application administrators.

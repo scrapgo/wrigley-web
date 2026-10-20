@@ -268,7 +268,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*B11 · Invitations\*\*
+\- \[x] \*\*B11 · Invitations\*\*
 
 &#x20; > Implement `POST/GET /api/admin/invitations`, `POST …/{id}/resend` and `DELETE …/{id}` (section 9), and the invitation branch of `POST /api/session`:
 

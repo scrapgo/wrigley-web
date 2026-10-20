@@ -47,12 +47,15 @@ public class IdentitySpecFixture : IAsyncLifetime
     /// <c>hd</c>, as real Workspace sign-ins do.
     /// </summary>
     public const string InternalDomain = "scrapgo.example";
+    /// <summary>The portal origin accept links are built from (<c>Invitations:FrontendBaseUrl</c>).</summary>
+    public const string FrontendBaseUrl = "https://portal.scrapgo.example";
+
     public static readonly string Issuer = $"https://securetoken.google.com/{ProjectId}";
 
     private const string SigningKeyId = "identity-spec-signing-key-1";
 
     private static readonly string[] EnvironmentVariables =
-        ["ConnectionStrings__Default", "Gcip__ProjectId", "Gcip__JwksUri", "INTERNAL_HD_ALLOWLIST", "Identity__RequireMfaForExternalUsers"];
+        ["ConnectionStrings__Default", "Gcip__ProjectId", "Gcip__JwksUri", "INTERNAL_HD_ALLOWLIST", "Identity__RequireMfaForExternalUsers", "Invitations__FrontendBaseUrl"];
 
     private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:16-alpine").Build();
     private readonly RSA _signingRsa = RSA.Create(2048);
@@ -126,6 +129,7 @@ public class IdentitySpecFixture : IAsyncLifetime
         Environment.SetEnvironmentVariable("Gcip__JwksUri", "https://fake-gcip-jwks.invalid/keys");
         Environment.SetEnvironmentVariable("INTERNAL_HD_ALLOWLIST", HdAllowlist);
         Environment.SetEnvironmentVariable("Identity__RequireMfaForExternalUsers", RequireMfaForExternalUsers);
+        Environment.SetEnvironmentVariable("Invitations__FrontendBaseUrl", FrontendBaseUrl);
 
         var jwksJson = BuildJwksJson(_signingRsa, SigningKeyId);
 

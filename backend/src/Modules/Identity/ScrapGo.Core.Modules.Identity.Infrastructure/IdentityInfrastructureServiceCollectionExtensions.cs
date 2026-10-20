@@ -4,9 +4,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using ScrapGo.Core.Modules.Identity.Application.Access;
+using ScrapGo.Core.Modules.Identity.Application.Invitations;
 using ScrapGo.Core.Modules.Identity.Application.Users;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Access;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Authentication;
+using ScrapGo.Core.Modules.Identity.Infrastructure.Invitations;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Persistence;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Users;
 using ScrapGo.Core.Shared.Infrastructure.Audit;
@@ -34,6 +36,10 @@ public static class IdentityInfrastructureServiceCollectionExtensions
         var internalHostedDomains = InternalHdAllowlistConfiguration.Read(configuration);
         services.Configure<InternalHdAllowlistOptions>(options => options.HostedDomains = internalHostedDomains);
 
+        // V1 sender only logs; the admin shares the accept link from the API response.
+        services.Configure<InvitationOptions>(configuration.GetSection(InvitationOptions.SectionName));
+        services.AddScoped<IInvitationSender, LoggingInvitationSender>();
+
         // Off unless explicitly turned on (Decision 4b: MFA isn't enabled in GCIP yet).
         var requireMfa = configuration.GetValue<bool>(ExternalUserMfaOptions.ConfigurationKey);
         services.Configure<ExternalUserMfaOptions>(options => options.RequireForExternalUsers = requireMfa);
@@ -50,6 +56,7 @@ public static class IdentityInfrastructureServiceCollectionExtensions
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
+        services.AddScoped<IInvitationRepository, InvitationRepository>();
         services.AddScoped<IUnitOfWork, IdentityUnitOfWork>();
         services.AddScoped<IAuditLog<IdentityModule>, AuditLogRecorder<IdentityModule, IdentityDbContext>>();
     }

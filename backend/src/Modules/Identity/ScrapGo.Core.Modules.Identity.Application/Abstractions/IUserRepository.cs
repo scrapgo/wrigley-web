@@ -13,6 +13,9 @@ public interface IUserRepository
     /// </summary>
     Task<ProvisionedUser> InsertIfAbsentAsync(User candidate, CancellationToken cancellationToken);
 
+    /// <summary>Stages supplier links for an External user; written by the next save.</summary>
+    void AddSupplierLinks(IEnumerable<UserSupplier> links);
+
     /// <summary>A lightweight projection, because the status gate runs on every authenticated request.</summary>
     Task<UserStatusSnapshot?> GetStatusByUidAsync(string identityPlatformUid, CancellationToken cancellationToken);
 

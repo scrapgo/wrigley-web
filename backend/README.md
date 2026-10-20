@@ -124,7 +124,7 @@ Get one by signing in through the portal (or any GCIP client), then either:
 - **Swagger:** click **Authorize** and paste the token without the `Bearer ` prefix.
 - **VS Code / Visual Studio:** open [`src/ScrapGo.Core.Api/ScrapGo.Core.Api.http`](src/ScrapGo.Core.Api/ScrapGo.Core.Api.http), paste the token into `@token`, and send the requests.
 
-Start with `POST /api/session`: it creates your user record on a Google Workspace sign-in (see [Internal users](#8-internal-users-google-workspace-sign-in)) and returns your access. `GET /api/me` returns the same thing afterwards; it never creates a user.
+Start with `POST /api/session`: it creates your user record on a Google Workspace sign-in (see [Internal users](#8-internal-users-google-workspace-sign-in)) and returns your access. `GET /api/me` returns the same thing afterwards; it never creates a user. External users join only by invitation (`POST /api/admin/invitations`); set `Invitations:FrontendBaseUrl` to the portal origin so the returned accept links point at it.
 
 ### 7. Bootstrap the first platform administrator (once per database)
 

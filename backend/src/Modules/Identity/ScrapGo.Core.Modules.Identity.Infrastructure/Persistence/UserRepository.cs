@@ -5,6 +5,8 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence;
 
 public sealed class UserRepository(IdentityDbContext dbContext) : IUserRepository
 {
+    public void AddSupplierLinks(IEnumerable<UserSupplier> links) => dbContext.UserSuppliers.AddRange(links);
+
     public async Task<PagedResult<UserSummaryDto>> ListAsync(UserListFilter filter, PageRequest page, CancellationToken cancellationToken)
     {
         var users = dbContext.Users.AsNoTracking();

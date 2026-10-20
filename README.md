@@ -74,10 +74,10 @@ The frontend talks only to the backend API; the backend is the only component th
 
 The portal includes administrative features for managing organizations, roles, permissions, and users. There are two levels of administrative access:
 
-1. **Platform Administrator**: A single user with full system access. This role is bootstrapped using the command:
+1. **Site Admin** (`site_admin`): full administrative access. The first one is assigned with the host command below (it refuses while any active Site Admin exists):
 
    ```bash
-   dotnet run --project src/ScrapGo.Core.Api -- bootstrap-platform-admin --uid <GCIP_UID>
+   dotnet run --project src/ScrapGo.Core.Api -- bootstrap-site-admin --uid <GCIP_UID>
    ```
 
 2. **Organization Administrators**: Users with administrative access limited to specific organizations. These roles can be assigned through the API.

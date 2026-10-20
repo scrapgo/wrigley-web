@@ -31,10 +31,10 @@ public class ExternalUserRules
             var (uid, _) = await fixture.SeedUserAsync("customer@acme.example");
 
             await using var scope = fixture.Services.CreateAsyncScope();
-            var outcome = await scope.ServiceProvider.GetRequiredService<BootstrapPlatformAdministratorHandler>()
-                .HandleAsync(new BootstrapPlatformAdministratorCommand(uid), CancellationToken.None);
+            var outcome = await scope.ServiceProvider.GetRequiredService<BootstrapSiteAdminHandler>()
+                .HandleAsync(new BootstrapSiteAdminCommand(uid), CancellationToken.None);
 
-            Assert.Equal(BootstrapPlatformAdministratorOutcome.ExternalUserNotAllowed, outcome);
+            Assert.Equal(BootstrapSiteAdminOutcome.ExternalUserNotAllowed, outcome);
         }
 
         // Decision 4b: off by default.

@@ -30,6 +30,6 @@ public static class IdentityAuditEventTypes
 
     public const string RoleRevoked = "role_revoked";
 
-    /// <summary>The <c>bootstrap-platform-admin</c> command granted the first PlatformAdministrator.</summary>
-    public const string PlatformAdministratorBootstrapped = "platform_administrator_bootstrapped";
+    /// <summary>The <c>bootstrap-site-admin</c> command assigned site_admin.</summary>
+    public const string SiteAdminBootstrapped = "site_admin.bootstrapped";
 }

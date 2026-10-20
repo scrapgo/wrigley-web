@@ -8,7 +8,7 @@ namespace ScrapGo.Core.Modules.Identity.Domain.Authorization;
 /// </summary>
 public static class DefaultRoleNames
 {
-    /// <summary>A few ScrapGo staff. Internal. The first comes from <c>bootstrap-platform-admin</c>.</summary>
+    /// <summary>A few ScrapGo staff. Internal. The first comes from <c>bootstrap-site-admin</c>.</summary>
     public const string SiteAdmin = "site_admin";
 
     /// <summary>Every internal user, assigned on first sign-in. Internal.</summary>

@@ -126,11 +126,12 @@ Get one by signing in through the portal (or any GCIP client), then either:
 
 Start with `POST /api/session`: it creates your user record on a Google Workspace sign-in (see [Internal users](#8-internal-users-google-workspace-sign-in)) and returns your access. `GET /api/me` returns the same thing afterwards; it never creates a user. External users join only by invitation (`POST /api/admin/invitations`); set `Invitations:FrontendBaseUrl` to the portal origin so the returned accept links point at it.
 
-### 7. Bootstrap the first platform administrator (once per database)
+### 7. Bootstrap the first Site Admin (once per database)
 
-Platform-wide admin routes (`Admin.Access` at platform scope) deny everyone
-until someone holds the built-in `PlatformAdministrator` role. Nobody gets a
-role by signing in, so the first one is granted by an explicit host command:
+The admin routes (`users.*`, `roles.*`, `features.*`, `audit.view`) deny
+everyone until someone holds the built-in `site_admin` role. Signing in never
+grants it, so the first one is assigned by an explicit host command. The same
+command recovers a database whose Site Admins are all disabled.
 
 1. Apply the Identity migrations (see [Database migrations](#database-migrations)).
 2. Sign in as the person to promote, **with "Sign in with Google" using their
@@ -144,18 +145,18 @@ role by signing in, so the first one is granted by an explicit host command:
    database, run:
 
    ```bash
-   dotnet run --project src/ScrapGo.Core.Api -- bootstrap-platform-admin --uid <GCIP uid>
+   dotnet run --project src/ScrapGo.Core.Api -- bootstrap-site-admin --uid <GCIP uid>
    ```
 
    The command does not start the web server. It prints one of:
 
-   | Output                       | Exit code | Meaning                                                                                                                   |
-   | ---------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------- |
-   | `Granted`                    | 0         | The user now holds `site_admin`. An audit row was written.                                                                |
-   | `AlreadyGranted`             | 0         | They already held it. Nothing changed; it is safe to re-run.                                                              |
-   | `UserNotProvisioned`         | 1         | No user for that UID. Do step 2 first.                                                                                    |
-   | `AnotherAdministratorExists` | 1         | Someone else already holds it. Bootstrap is one-time; it never adds a second admin.                                       |
-   | `ExternalUserNotAllowed`     | 1         | The user is External (their first sign-in wasn't a Workspace Google sign-in). Platform roles are for Internal users only. |
+   | Output                   | Exit code | Meaning                                                                                                                 |
+   | ------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------------- |
+   | `Granted`                | 0         | The user now holds `site_admin`. A `site_admin.bootstrapped` audit row was written.                                     |
+   | `AlreadyGranted`         | 0         | They already held it. Nothing changed; it is safe to re-run.                                                            |
+   | `UserNotProvisioned`     | 1         | No user for that UID. Do step 2 first.                                                                                  |
+   | `ActiveSiteAdminExists`  | 1         | Another active user already holds `site_admin`. Ask them to assign the role; the command never adds a second admin.     |
+   | `ExternalUserNotAllowed` | 1         | The user is External (their first sign-in wasn't a Workspace Google sign-in). Site Admin is for Internal users only.    |
 
 The command evicts the user's cached access, so their next request already
 carries the Site Admin permissions. No new token is needed.

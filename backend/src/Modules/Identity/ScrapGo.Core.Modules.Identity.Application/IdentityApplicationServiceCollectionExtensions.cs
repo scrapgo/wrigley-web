@@ -20,7 +20,7 @@ public static class IdentityApplicationServiceCollectionExtensions
         services.AddScoped<EvaluateUserStatusGateHandler>();
 
         services.AddScoped<ListPermissionsHandler>();
-        services.AddScoped<BootstrapPlatformAdministratorHandler>();
+        services.AddScoped<BootstrapSiteAdminHandler>();
 
         return services;
     }

@@ -292,7 +292,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*B12 · `bootstrap-site-admin` command\*\*
+\- \[x] \*\*B12 · `bootstrap-site-admin` command\*\*
 
 &#x20; > Rename the `bootstrap-platform-admin` host command to `bootstrap-site-admin --uid <uid>`. It assigns `site\_admin` to an existing Internal user. It refuses External users, and refuses to run if any active Site Admin exists. Audit it. Update `PlatformAdministratorBootstrap` tests and the README.
 

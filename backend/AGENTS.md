@@ -72,7 +72,7 @@ Every project, test projects included, has a `GlobalUsings.cs`, and each namespa
 
 Naming: folder name == project name == assembly name == root namespace, always prefixed `ScrapGo.Core.` (the `ScrapGo.Core.Api` product name; the frontend is `ScrapGo.Portal.Web`).
 
-Composition: `Program.cs` only calls `AddScrapGoModules(config)`, `AddScrapGoHosting()` and `RunScrapGoAsync(args)` (in `src/ScrapGo.Core.Api/Composition/`). `RunScrapGoAsync` runs a one-shot operator command when `args` names one (`ScrapGoCommands`, e.g. `bootstrap-platform-admin`), and otherwise applies `UseScrapGoPipeline()` and serves HTTP. To add a module, add one private `Add{Module}Module` call in `ScrapGoModulesServiceCollectionExtensions`; each module keeps its own `Add{Module}Application`/`Add{Module}Infrastructure` extensions.
+Composition: `Program.cs` only calls `AddScrapGoModules(config)`, `AddScrapGoHosting()` and `RunScrapGoAsync(args)` (in `src/ScrapGo.Core.Api/Composition/`). `RunScrapGoAsync` runs a one-shot operator command when `args` names one (`ScrapGoCommands`, e.g. `bootstrap-site-admin`), and otherwise applies `UseScrapGoPipeline()` and serves HTTP. To add a module, add one private `Add{Module}Module` call in `ScrapGoModulesServiceCollectionExtensions`; each module keeps its own `Add{Module}Application`/`Add{Module}Infrastructure` extensions.
 
 Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user gate, global roles and the permission catalog, and the `[RequirePermission]` engine.
 
@@ -145,7 +145,7 @@ This section describes an interim model, being replaced by [`../docs/ACCESS-MODE
 - **Three system roles** (`site_admin`, `scrapgo_user`, `user`), seeded; there is no role create or delete (B15 builds the roles API).
 - **Assigning and revoking** (`UserRoleAssignmentService`, `/api/users/{id}/roles`) needs `users.manage` (403 `platform_admin_required` otherwise). The escalation guard refuses a role with a permission the caller doesn't hold (403 `cannot_grant_unheld_permission`). External users can't hold internal roles (`external_user_not_allowed`).
 - **Last-administrator protection** (409 `last_platform_administrator`, under a row lock): the last active Site Admin can't be revoked or disabled.
-- **Deny-by-default.** The first Site Admin comes only from the one-time, audited `bootstrap-platform-admin` host command.
+- **Deny-by-default.** The first Site Admin comes only from the one-time, audited `bootstrap-site-admin` host command.
 - **External users:** MFA for them is reserved behind `Identity:RequireMfaForExternalUsers`, off until MFA is enabled in GCIP. When it's on, a token without `firebase.sign_in_second_factor` gets 403 `mfa_required`.
 - **Cache eviction:** every change to a user's roles or status calls `IAccessCache.EvictUser`; role-permission and feature changes must call `EvictAll`.
 

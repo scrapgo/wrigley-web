@@ -66,7 +66,7 @@ empty for this function.
 **Use a `@scrapgo.com` account as platform admin.** A personal Google account
 (such as `@gmail.com`) has no `hd`, so it never gets platform access. Sign in
 once with Google as the Workspace user. That provisions them as Internal. Then run
-`bootstrap-platform-admin --uid <their GCIP uid>`.
+`bootstrap-site-admin --uid <their GCIP uid>`.
 
 If the same email already has an email/password account with a verified email,
 GCIP may refuse the Google sign-in ("account exists with different

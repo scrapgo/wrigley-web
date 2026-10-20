@@ -53,7 +53,7 @@ public class WorkspaceSignInForPlatformAccess
             var withWorkspace = await GetMeAsync(fixture, fixture.CreateToken(uid));
             var withoutWorkspace = await GetMeAsync(fixture, fixture.CreateToken(uid, withoutHostedDomain: true));
 
-            Assert.Contains(withWorkspace.GetProperty("permissions").EnumerateArray(), p => p.GetString() == Permissions.AdminAccess);
+            Assert.Contains(withWorkspace.GetProperty("permissions").EnumerateArray(), p => p.GetString() == Permissions.UsersManage);
             Assert.Equal(0, withoutWorkspace.GetProperty("permissions").GetArrayLength());
             Assert.Equal(0, withoutWorkspace.GetProperty("roles").GetArrayLength());
 
@@ -69,7 +69,7 @@ public class WorkspaceSignInForPlatformAccess
             var (uid, _) = await fixture.SeedPlatformAdministratorAsync();
             var (_, targetId) = await fixture.SeedUserAsync("staff@scrapgo.example", UserType.Internal);
             var platformAdminRoleId = await fixture.DbContext.Roles.AsNoTracking()
-                .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator)
+                .Where(r => r.Key == DefaultRoleNames.SiteAdmin)
                 .Select(r => r.Id)
                 .SingleAsync();
 

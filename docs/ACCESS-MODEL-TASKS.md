@@ -152,7 +152,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*B6 · Reset Identity migrations and seed\*\*
+\- \[x] \*\*B6 · Reset Identity migrations and seed\*\* (done as B6-alt: forward migration `AccessModelV1`, users kept)
 
 &#x20; > Delete every file in the Identity `Persistence/Migrations` folder. Generate one migration, `InitialAccessModel`, from the new model. Seed the three roles, the features, the permissions and the role-permission matrix exactly as in section 6 of `ACCESS-MODEL.md`, using the constants from `Permissions.cs`, which you create in Domain.
 

@@ -334,6 +334,26 @@ Errors are ProblemDetails with a `reason` extension (`ProblemResults`). Every 40
 
 
 
+\## Deploying
+
+
+
+The Identity schema moves to this model with one forward migration, `AccessModelV1` (B6-alt, chosen because deployed environments have users to keep). It runs with the other Identity migrations; \*\*no schema needs dropping\*\*.
+
+
+
+\- It drops every table of the old organization / application / role model (organizations, memberships, applications, modules, the old roles, grants, permissions and invitations, linked credentials).
+
+\- It keeps `users`: `classification` becomes `user\_type` (same values), and it adds `display\_name`, `sign\_in\_provider` and `last\_sign\_in\_at`.
+
+\- It creates the new tables and seeds section 6.
+
+\- It gives existing users the new system roles: every internal user gets `scrapgo\_user`, former platform-scoped PlatformAdministrators also get `site\_admin`, and every external user gets `user` (with no supplier links: link them, or they see no suppliers).
+
+\- It is forward-only. Back up the database before it runs; its `Down` throws.
+
+
+
 \## 11. Later (not V1)
 
 

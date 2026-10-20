@@ -28,7 +28,7 @@ public sealed class UsersController : ControllerBase
 {
     /// <summary>Every user on the platform, paged by id. Filters: <c>search</c> (email substring), <c>status</c>.</summary>
     [HttpGet]
-    [RequirePermission(PermissionCatalog.UserRead)]
+    [RequirePermission(PermissionCatalog.UsersView)]
     [ProducesResponseType<PagedResult<UserSummaryDto>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
@@ -56,7 +56,7 @@ public sealed class UsersController : ControllerBase
 
     /// <summary>One user and every role they hold.</summary>
     [HttpGet("{id:int}")]
-    [RequirePermission(PermissionCatalog.UserRead)]
+    [RequirePermission(PermissionCatalog.UsersView)]
     [ProducesResponseType<UserDetailDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -155,7 +155,7 @@ public sealed class UsersController : ControllerBase
     /// disabled-user gate, starting with the next one. Idempotent.
     /// </summary>
     [HttpPost("{id:int}/disable")]
-    [RequirePermission(PermissionCatalog.UserUpdate)]
+    [RequirePermission(PermissionCatalog.UsersManage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
@@ -165,7 +165,7 @@ public sealed class UsersController : ControllerBase
 
     /// <summary>Re-enables a disabled user. Idempotent.</summary>
     [HttpPost("{id:int}/enable")]
-    [RequirePermission(PermissionCatalog.UserUpdate)]
+    [RequirePermission(PermissionCatalog.UsersManage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

@@ -90,7 +90,7 @@ public sealed class UserStatusService(
     /// </summary>
     private async Task<bool> IsLastActivePlatformAdministratorAsync(int userId, CancellationToken cancellationToken)
     {
-        var roleId = await roles.GetPlatformRoleIdAsync(DefaultRoleNames.PlatformAdministrator, cancellationToken);
+        var roleId = await roles.GetPlatformRoleIdAsync(DefaultRoleNames.SiteAdmin, cancellationToken);
         if (!await roles.IsHeldByAsync(userId, roleId, cancellationToken))
         {
             return false;

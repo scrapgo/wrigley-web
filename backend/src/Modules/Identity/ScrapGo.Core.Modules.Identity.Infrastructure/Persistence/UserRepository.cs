@@ -24,10 +24,10 @@ public sealed class UserRepository(IdentityDbContext dbContext) : IUserRepositor
         // not at build time.
         var inserted = await dbContext.Users
             .FromSqlInterpolated($"""
-                INSERT INTO identity.users (identity_platform_uid, email, status, user_type, created_at, updated_at)
-                VALUES ({candidate.IdentityPlatformUid}, {candidate.Email}, {candidate.Status.ToString()}, {candidate.UserType.ToString()}, {candidate.CreatedAt}, {candidate.UpdatedAt})
+                INSERT INTO identity.users (identity_platform_uid, email, display_name, user_type, status, sign_in_provider, last_sign_in_at, created_at, updated_at)
+                VALUES ({candidate.IdentityPlatformUid}, {candidate.Email}, {candidate.DisplayName}, {candidate.UserType.ToString()}, {candidate.Status.ToString()}, {candidate.SignInProvider}, {candidate.LastSignInAt}, {candidate.CreatedAt}, {candidate.UpdatedAt})
                 ON CONFLICT (identity_platform_uid) DO NOTHING
-                RETURNING id, identity_platform_uid, email, status, user_type, created_at, updated_at
+                RETURNING id, identity_platform_uid, email, display_name, user_type, status, sign_in_provider, last_sign_in_at, created_at, updated_at
                 """)
             .AsNoTracking()
             .ToListAsync(cancellationToken);

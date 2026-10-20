@@ -71,7 +71,7 @@ public class ReadingSuppliersPlatformWide
         public async Task A_user_without_admin_access_gets_four_hundred_three_and_no_query_runs()
         {
             var (uid, userId) = await fixture.SeedUserAsync();
-            await fixture.GrantPermissionsAsync(userId, ScrapGo.Core.Modules.Identity.Domain.Authorization.Permissions.UserRead);
+            await fixture.GrantPermissionsAsync(userId, ScrapGo.Core.Modules.Identity.Domain.Authorization.Permissions.UsersView);
             var token = fixture.CreateToken(uid);
             var before = fixture.Quickbase.Queries.Count;
 

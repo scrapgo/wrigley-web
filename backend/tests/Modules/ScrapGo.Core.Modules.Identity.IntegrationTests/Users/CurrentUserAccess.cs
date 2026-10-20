@@ -32,12 +32,12 @@ public class CurrentUserAccess
         {
             var (uid, userId) = await fixture.SeedUserAsync();
             var roleId = await fixture.DbContext.Roles
-                .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator)
+                .Where(r => r.Key == DefaultRoleNames.SiteAdmin)
                 .Select(r => r.Id)
                 .SingleAsync();
             await fixture.AssignRoleAsync(userId, roleId);
 
-            Assert.Contains(Permissions.AdminAccess, PermissionsOf(await GetMeAsync(fixture, uid)));
+            Assert.Contains(Permissions.UsersManage, PermissionsOf(await GetMeAsync(fixture, uid)));
         }
     }
 
@@ -61,7 +61,7 @@ public class CurrentUserAccess
         public async Task Me_is_blocked_by_the_disabled_user_gate()
         {
             var (uid, userId) = await fixture.SeedUserAsync();
-            await fixture.GrantPermissionsAsync(userId, Permissions.UserRead);
+            await fixture.GrantPermissionsAsync(userId, Permissions.UsersView);
             var user = await fixture.DbContext.Users.SingleAsync(u => u.Id == userId);
             user.Disable(DateTimeOffset.UtcNow);
             await fixture.DbContext.SaveChangesAsync();

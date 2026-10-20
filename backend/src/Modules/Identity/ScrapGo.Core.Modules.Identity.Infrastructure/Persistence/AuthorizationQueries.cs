@@ -11,12 +11,9 @@ public sealed class AuthorizationQueries(IdentityDbContext dbContext) : IAuthori
     /// </remarks>
     public async Task<IReadOnlySet<string>> GetPermissionNamesAsync(int userId, CancellationToken cancellationToken)
     {
-        var retired = Permissions.Retired;
         var names = await dbContext.UserRoles.AsNoTracking()
             .Where(ur => ur.UserId == userId)
             .SelectMany(ur => ur.Role.RolePermissions.Select(rp => rp.Permission.Key))
-            // Retired permissions never resolve, even if a stale grant survives.
-            .Where(name => !retired.Contains(name))
             .Distinct()
             .ToListAsync(cancellationToken);
 
@@ -54,7 +51,6 @@ public sealed class AuthorizationQueries(IdentityDbContext dbContext) : IAuthori
     public async Task<IReadOnlyList<string>> ListPermissionNamesAsync(CancellationToken cancellationToken) =>
         await dbContext.Permissions
             .AsNoTracking()
-            .Where(p => !Permissions.Retired.Contains(p.Key))
             .OrderBy(p => p.Key)
             .Select(p => p.Key)
             .ToListAsync(cancellationToken);

@@ -28,8 +28,7 @@ public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
             .IsRequired();
 
         builder.Property(r => r.IsSystem)
-            .IsRequired()
-            .HasDefaultValue(false);
+            .IsRequired();
 
         // The target of user_roles' composite foreign key (role_id, user_type).
         builder.HasAlternateKey(r => new { r.Id, r.UserType })
@@ -46,5 +45,17 @@ public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
             .HasForeignKey(rp => rp.RoleId)
             .OnDelete(DeleteBehavior.Cascade)
             .HasConstraintName("fk_role_permissions_role_id");
+
+        // The three system roles (ACCESS-MODEL.md section 2). Anonymous objects
+        // because the entity's setters are private.
+        builder.HasData(AccessModelSeed.Roles.Select(r => new
+        {
+            r.Id,
+            r.Key,
+            r.Name,
+            r.Description,
+            r.UserType,
+            IsSystem = true,
+        }));
     }
 }

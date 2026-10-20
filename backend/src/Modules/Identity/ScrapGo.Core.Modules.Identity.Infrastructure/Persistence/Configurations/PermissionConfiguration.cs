@@ -41,5 +41,15 @@ public sealed class PermissionConfiguration : IEntityTypeConfiguration<Permissio
             .HasForeignKey(p => p.FeatureId)
             .OnDelete(DeleteBehavior.Restrict)
             .HasConstraintName("fk_permissions_feature_id");
+
+        builder.HasData(AccessModelSeed.PermissionSeeds.Select(p => new
+        {
+            p.Id,
+            p.Key,
+            FeatureId = AccessModelSeed.FeatureId(p.FeatureKey),
+            p.Audience,
+            p.Name,
+            Description = string.Empty,
+        }));
     }
 }

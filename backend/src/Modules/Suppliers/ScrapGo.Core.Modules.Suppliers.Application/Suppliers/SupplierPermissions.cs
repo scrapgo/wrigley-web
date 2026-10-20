@@ -8,9 +8,8 @@ namespace ScrapGo.Core.Modules.Suppliers.Application.Suppliers;
 public static class SupplierPermissions
 {
     /// <summary>
-    /// Supplier access is for platform administrators for now: <c>Admin.Access</c>
-    /// at platform scope, which also requires a Google Workspace sign-in.
-    /// Supplier scoping (B13) replaces this.
+    /// Reading every supplier: internal roles hold it. External users' scoped
+    /// <c>suppliers.view_own</c> arrives with supplier scoping (B13).
     /// </summary>
-    public const string PlatformRead = "Admin.Access";
+    public const string ViewAll = "suppliers.view_all";
 }

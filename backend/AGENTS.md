@@ -125,7 +125,7 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 
 This section describes an interim model, being replaced by [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md) task by task (`docs/ACCESS-MODEL-TASKS.md`). Applications, modules and the catalog are gone (B2), and so are organizations, memberships and organization invitations (B3).
 
-**The EF model is the new one (B5), but the migrations are still the old ones until B6.** The entities and configurations match section 5 of `ACCESS-MODEL.md`: `User` (with `UserType`), `Role`, `UserRole`, `Feature`, `FeatureTarget`, `Permission`, `RolePermission`, `UserSupplier` and `Invitation`. The old migrations don't create that schema, so the Testcontainers integration tests fail until B6 generates `InitialAccessModel`. `IdentityDbContext` ignores EF's pending-model-changes warning until then.
+**The schema is the new one (B5, B6).** The entities and configurations match section 5 of `ACCESS-MODEL.md`: `User` (with `UserType`), `Role`, `UserRole`, `Feature`, `FeatureTarget`, `Permission`, `RolePermission`, `UserSupplier` and `Invitation`. The forward migration `AccessModelV1` drops the old tables, keeps users and seeds section 6 from `AccessModelSeed` (Infrastructure), using the keys in `Permissions`, `DefaultRoleNames` and `FeatureKeys` (Domain). The seed has fixed ids; the migration moves each identity sequence past them. The engine below is still the interim one: it resolves permissions from roles but doesn't apply feature toggles yet (B7).
 
 ### Permissions and resolution
 

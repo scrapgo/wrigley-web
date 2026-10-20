@@ -7,7 +7,7 @@ public interface IRoleRepository
     /// <summary>An active role, untracked, or null.</summary>
     Task<Role?> FindActiveRoleAsync(int roleId, CancellationToken cancellationToken);
 
-    /// <summary>The id of a built-in role, e.g. <see cref="DefaultRoleNames.PlatformAdministrator"/>.</summary>
+    /// <summary>The id of a built-in role, e.g. <see cref="DefaultRoleNames.SiteAdmin"/>.</summary>
     Task<int> GetPlatformRoleIdAsync(string roleName, CancellationToken cancellationToken);
 
     /// <summary>

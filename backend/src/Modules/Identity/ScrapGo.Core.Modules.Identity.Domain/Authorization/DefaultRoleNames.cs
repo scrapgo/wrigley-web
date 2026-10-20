@@ -1,17 +1,19 @@
 namespace ScrapGo.Core.Modules.Identity.Domain.Authorization;
 
 /// <summary>
-/// Names of the built-in, platform-defined roles seeded by migration. This is
-/// the only place a role name may appear as a literal. Access decisions go
-/// through resolved permissions, never a role-name check; the names exist only
-/// so code can find the built-in rows to assign them.
+/// Keys of the system roles seeded by migration (ACCESS-MODEL.md section 2).
+/// This is the only place a role key may appear as a literal. Access decisions
+/// go through permissions, never a role check; the keys exist only so code can
+/// find the seeded rows to assign them.
 /// </summary>
 public static class DefaultRoleNames
 {
-    /// <summary>
-    /// ScrapGo staff with administration: Admin.Access, User.* and Role.*.
-    /// The first one comes only from the explicit <c>bootstrap-platform-admin</c>
-    /// command, never at sign-in.
-    /// </summary>
-    public const string PlatformAdministrator = "PlatformAdministrator";
+    /// <summary>A few ScrapGo staff. Internal. The first comes from <c>bootstrap-platform-admin</c>.</summary>
+    public const string SiteAdmin = "site_admin";
+
+    /// <summary>Every internal user, assigned on first sign-in. Internal.</summary>
+    public const string ScrapGoUser = "scrapgo_user";
+
+    /// <summary>Buyers, sellers, transporters. External; joins by invitation only.</summary>
+    public const string User = "user";
 }

@@ -10,7 +10,7 @@ internal static class SupplierProblems
         SupplierOutcome.Forbidden => ProblemResults.Create(
             StatusCodes.Status403Forbidden,
             "Missing permission",
-            $"Requires {SupplierPermissions.PlatformRead} at platform scope (a platform administrator signed in with Google Workspace).",
+            $"Requires {SupplierPermissions.ViewAll}, with a Google Workspace sign-in.",
             "missing_permission").ToActionResult(),
         SupplierOutcome.NotFound => ProblemResults.Create(
             StatusCodes.Status404NotFound,

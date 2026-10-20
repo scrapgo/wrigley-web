@@ -17,7 +17,7 @@ public enum AssignRoleOutcome
     /// <summary>No role id, or a non-positive id.</summary>
     InvalidRequest,
 
-    /// <summary>Only a platform administrator (<c>Admin.Access</c> and <c>Role.Assign</c>) may assign roles.</summary>
+    /// <summary>Only a holder of <c>users.manage</c> may assign roles.</summary>
     PlatformAdminRequired,
 
     UserNotFound,
@@ -53,9 +53,8 @@ public enum RevokeRoleOutcome
 }
 
 /// <summary>
-/// Assigns roles to users and revokes them. Roles are global, and only a
-/// platform administrator (<c>Admin.Access</c> and <c>Role.Assign</c>) may
-/// change them.
+/// Assigns roles to users and revokes them. Only a holder of
+/// <c>users.manage</c> may change them.
 /// </summary>
 /// <remarks>
 /// Every write runs in one transaction with its audit row, and invalidates
@@ -135,7 +134,7 @@ public sealed class UserRoleAssignmentService(
                 return RevokeRoleOutcome.NotAssigned;
             }
 
-            if (command.RoleId == await roles.GetPlatformRoleIdAsync(DefaultRoleNames.PlatformAdministrator, ct))
+            if (command.RoleId == await roles.GetPlatformRoleIdAsync(DefaultRoleNames.SiteAdmin, ct))
             {
                 // Locked (as user disable does) so two concurrent changes can't
                 // each see "another administrator remains" and remove the last
@@ -203,11 +202,10 @@ public sealed class UserRoleAssignmentService(
         return new(outcome, dto);
     }
 
-    /// <summary>The actor's user id when they hold <c>Admin.Access</c> and <c>Role.Assign</c>; null otherwise.</summary>
+    /// <summary>The actor's user id when they hold <c>users.manage</c>; null otherwise.</summary>
     private async Task<int?> AuthorizeAsync(string actorUid, CancellationToken cancellationToken) =>
         await users.GetIdByUidAsync(actorUid, cancellationToken) is { } actorUserId
-        && await permissionResolver.HasPermissionAsync(actorUid, Permissions.AdminAccess, cancellationToken)
-        && await permissionResolver.HasPermissionAsync(actorUid, Permissions.RoleAssign, cancellationToken)
+        && await permissionResolver.HasPermissionAsync(actorUid, Permissions.UsersManage, cancellationToken)
             ? actorUserId
             : null;
 

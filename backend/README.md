@@ -276,6 +276,7 @@ Recent Identity migrations, in order:
 | `AddApplicationsAndModules`            | Catalog and entitlement tables; application roles and grant expiry                                                                                                                                                                        |
 | `AddInvitations`                       | Email invitations with pre-granted roles                                                                                                                                                                                                  |
 | `AddDownstreamApplication`             | The first catalog application, **Downstream**: modules Pricing, Opportunities, Loads & Freight and Suppliers; permissions `Downstream.<Module>.Read/Write` (ids 25–32); role templates "Downstream Administrator" and "Downstream Viewer" |
+| `AccessModelV1`                        | The access model (`../docs/ACCESS-MODEL.md`): drops the organization / application / role tables, keeps users (`classification` → `user_type`), seeds roles, features, permissions and the matrix, and gives existing users the new system roles. Forward-only |
 
 ## Tests
 

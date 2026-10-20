@@ -165,7 +165,7 @@ public class UserStatusChanges
     private static async Task<(string Uid, int UserId)> SeedUserAdministratorAsync(IdentitySpecFixture fixture)
     {
         var (uid, userId) = await fixture.SeedUserAsync();
-        await fixture.GrantPermissionsAsync(userId, Permissions.UserUpdate);
+        await fixture.GrantPermissionsAsync(userId, Permissions.UsersManage);
 
         return (uid, userId);
     }
@@ -174,7 +174,7 @@ public class UserStatusChanges
     {
         var (uid, userId) = await fixture.SeedUserAsync();
         var roleId = await fixture.DbContext.Roles
-            .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator)
+            .Where(r => r.Key == DefaultRoleNames.SiteAdmin)
             .Select(r => r.Id)
             .SingleAsync();
         await fixture.AssignRoleAsync(userId, roleId);

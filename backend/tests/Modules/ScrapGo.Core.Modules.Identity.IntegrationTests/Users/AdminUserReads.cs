@@ -94,7 +94,7 @@ public class AdminUserReads
         {
             var (uid, userId) = await fixture.SeedUserAsync();
             var roleId = await fixture.DbContext.Roles
-                .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator)
+                .Where(r => r.Key == DefaultRoleNames.SiteAdmin)
                 .Select(r => r.Id)
                 .SingleAsync();
             await fixture.AssignRoleAsync(userId, roleId);
@@ -139,7 +139,7 @@ public class AdminUserReads
     private static async Task<string> PlatformReaderTokenAsync(IdentitySpecFixture fixture)
     {
         var (uid, userId) = await fixture.SeedUserAsync("reader@platform.example");
-        await fixture.GrantPermissionsAsync(userId, Permissions.UserRead);
+        await fixture.GrantPermissionsAsync(userId, Permissions.UsersView);
 
         return fixture.CreateToken(uid);
     }

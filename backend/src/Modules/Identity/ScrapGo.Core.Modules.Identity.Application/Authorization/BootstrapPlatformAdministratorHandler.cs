@@ -24,7 +24,7 @@ public enum BootstrapPlatformAdministratorOutcome
 }
 
 /// <summary>
-/// Grants the first <see cref="DefaultRoleNames.PlatformAdministrator"/>,
+/// Grants the first <see cref="DefaultRoleNames.SiteAdmin"/>,
 /// the only way a platform-scoped role assignment is created outside the
 /// role-assignment API. It runs from the host's <c>bootstrap-platform-admin</c>
 /// command only, never over HTTP and never at sign-in.
@@ -61,7 +61,7 @@ public sealed class BootstrapPlatformAdministratorHandler(
         {
             outcome = await unitOfWork.ExecuteInTransactionAsync(async ct =>
             {
-                var roleId = await roles.GetPlatformRoleIdAsync(DefaultRoleNames.PlatformAdministrator, ct);
+                var roleId = await roles.GetPlatformRoleIdAsync(DefaultRoleNames.SiteAdmin, ct);
                 await roles.LockRoleAsync(roleId, ct);
 
                 var holders = await roles.ListHolderIdsAsync(roleId, ct);

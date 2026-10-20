@@ -6,7 +6,7 @@ public enum SupplierOutcome
 {
     Success,
 
-    /// <summary>The caller lacks <see cref="SupplierPermissions.PlatformRead"/> at platform scope.</summary>
+    /// <summary>The caller lacks <see cref="SupplierPermissions.ViewAll"/>.</summary>
     Forbidden,
 
     NotFound,
@@ -50,7 +50,7 @@ public sealed record ListSuppliersQuery(string? Search, int? Skip, int? Top);
 /// <summary>
 /// Supplier reads for the portal. Every call checks the caller through
 /// <see cref="IUserContext"/> before any Quickbase data is touched:
-/// <see cref="SupplierPermissions.PlatformRead"/> at platform scope, until
+/// <see cref="SupplierPermissions.ViewAll"/>, until
 /// supplier scoping (B13) arrives.
 /// </summary>
 public sealed class SupplierService(IUserContext userContext, ISupplierSource source, ILogger<SupplierService> logger)
@@ -222,5 +222,5 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
     }
 
     private Task<bool> CanReadAsync(CancellationToken cancellationToken) =>
-        userContext.HasPermissionAsync(SupplierPermissions.PlatformRead, cancellationToken);
+        userContext.HasPermissionAsync(SupplierPermissions.ViewAll, cancellationToken);
 }

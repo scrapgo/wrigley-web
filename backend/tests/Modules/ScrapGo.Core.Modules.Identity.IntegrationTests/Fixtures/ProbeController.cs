@@ -19,7 +19,7 @@ public sealed class ProbeController : ControllerBase
     [HttpGet("permission-scoped")]
     public IActionResult PermissionScoped() => Ok(new { ok = true });
 
-    [RequirePermission(Permissions.AdminAccess)]
+    [RequirePermission(Permissions.UsersManage)]
     [HttpGet("platform-scoped")]
     public IActionResult PlatformScoped() => Ok(new { ok = true });
 

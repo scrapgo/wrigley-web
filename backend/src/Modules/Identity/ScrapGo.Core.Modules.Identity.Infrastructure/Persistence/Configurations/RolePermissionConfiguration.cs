@@ -20,5 +20,12 @@ public sealed class RolePermissionConfiguration : IEntityTypeConfiguration<RoleP
             .HasForeignKey(rp => rp.PermissionId)
             .OnDelete(DeleteBehavior.Cascade)
             .HasConstraintName("fk_role_permissions_permission_id");
+
+        // The role-permission matrix (ACCESS-MODEL.md section 6).
+        builder.HasData(AccessModelSeed.Matrix.SelectMany(entry => entry.Value.Select(permission => new
+        {
+            RoleId = AccessModelSeed.RoleId(entry.Key),
+            PermissionId = AccessModelSeed.PermissionId(permission),
+        })));
     }
 }

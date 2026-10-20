@@ -12,7 +12,7 @@ public class UserRoleAssignment
         {
             var (adminUid, adminId) = await SeedPlatformAdministratorAsync(fixture);
             var (_, targetId) = await SeedInternalUserAsync(fixture);
-            var roleId = await CreateRoleAsync(fixture, Permissions.UserRead);
+            var roleId = await CreateRoleAsync(fixture, Permissions.UsersView);
 
             var response = await AssignAsync(fixture, adminUid, targetId, roleId);
 
@@ -30,7 +30,7 @@ public class UserRoleAssignment
         {
             var (adminUid, _) = await SeedPlatformAdministratorAsync(fixture);
             var (_, targetId) = await SeedInternalUserAsync(fixture);
-            var roleId = await CreateRoleAsync(fixture, Permissions.UserRead);
+            var roleId = await CreateRoleAsync(fixture, Permissions.UsersView);
             (await AssignAsync(fixture, adminUid, targetId, roleId)).EnsureSuccessStatusCode();
 
             var response = await AssignAsync(fixture, adminUid, targetId, roleId);
@@ -45,7 +45,7 @@ public class UserRoleAssignment
         {
             var (adminUid, adminId) = await SeedPlatformAdministratorAsync(fixture);
             var (_, targetId) = await SeedInternalUserAsync(fixture);
-            var roleId = await CreateRoleAsync(fixture, Permissions.UserRead);
+            var roleId = await CreateRoleAsync(fixture, Permissions.UsersView);
             (await AssignAsync(fixture, adminUid, targetId, roleId)).EnsureSuccessStatusCode();
 
             var response = await RevokeAsync(fixture, adminUid, targetId, roleId);
@@ -61,7 +61,7 @@ public class UserRoleAssignment
         {
             var (adminUid, _) = await SeedPlatformAdministratorAsync(fixture);
             var (_, targetId) = await SeedInternalUserAsync(fixture);
-            var roleId = await CreateRoleAsync(fixture, Permissions.UserRead);
+            var roleId = await CreateRoleAsync(fixture, Permissions.UsersView);
 
             var response = await RevokeAsync(fixture, adminUid, targetId, roleId);
 
@@ -75,7 +75,7 @@ public class UserRoleAssignment
         {
             var (adminUid, _) = await SeedPlatformAdministratorAsync(fixture);
             var (targetUid, targetId) = await SeedInternalUserAsync(fixture);
-            var roleId = await CreateRoleAsync(fixture, Permissions.UserRead);
+            var roleId = await CreateRoleAsync(fixture, Permissions.UsersView);
             const string probe = "/api/users";
 
             Assert.Equal(HttpStatusCode.Forbidden, (await fixture.SendAsync(HttpMethod.Get, probe, fixture.CreateToken(targetUid))).StatusCode);
@@ -149,16 +149,16 @@ public class UserRoleAssignment
         }
     }
 
-    // Role.Assign without Admin.Access is not enough: only platform administrators change roles.
-    public class Given_a_user_holding_role_assign_but_not_admin_access(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    // Seeing users isn't managing them: role changes need users.manage.
+    public class Given_a_user_holding_users_view_but_not_users_manage(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
         public async Task Assign_and_revoke_return_four_hundred_three_with_reason_platform_admin_required()
         {
             var (uid, userId) = await fixture.SeedUserAsync();
-            await fixture.GrantPermissionsAsync(userId, Permissions.RoleAssign);
+            await fixture.GrantPermissionsAsync(userId, Permissions.UsersView);
             var (_, targetId) = await SeedInternalUserAsync(fixture);
-            var roleId = await CreateRoleAsync(fixture, Permissions.UserRead);
+            var roleId = await CreateRoleAsync(fixture, Permissions.DashboardView);
 
             var assign = await AssignAsync(fixture, uid, targetId, roleId);
             var revoke = await RevokeAsync(fixture, uid, targetId, roleId);
@@ -177,9 +177,9 @@ public class UserRoleAssignment
         public async Task Assigning_returns_four_hundred_three_with_reason_cannot_grant_unheld_permission()
         {
             var (uid, userId) = await fixture.SeedUserAsync();
-            await fixture.GrantPermissionsAsync(userId, Permissions.AdminAccess, Permissions.RoleAssign);
+            await fixture.GrantPermissionsAsync(userId, Permissions.UsersManage);
             var (_, targetId) = await SeedInternalUserAsync(fixture);
-            var roleId = await CreateRoleAsync(fixture, Permissions.UserRead);
+            var roleId = await CreateRoleAsync(fixture, Permissions.UsersView);
 
             var response = await AssignAsync(fixture, uid, targetId, roleId);
 
@@ -233,7 +233,7 @@ public class UserRoleAssignment
         fixture.DbContext.Roles.Add(role);
         await fixture.DbContext.SaveChangesAsync();
 
-        var permissionIds = await fixture.DbContext.Permissions.Where(p => permissions.Contains(p.Name)).Select(p => p.Id).ToListAsync();
+        var permissionIds = await fixture.DbContext.Permissions.Where(p => permissions.Contains(p.Key)).Select(p => p.Id).ToListAsync();
         fixture.DbContext.RolePermissions.AddRange(permissionIds.Select(id => RolePermission.Create(role.Id, id)));
         await fixture.DbContext.SaveChangesAsync();
 
@@ -242,7 +242,7 @@ public class UserRoleAssignment
 
     private static Task<int> PlatformAdministratorRoleIdAsync(IdentitySpecFixture fixture) =>
         fixture.DbContext.Roles
-            .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator)
+            .Where(r => r.Key == DefaultRoleNames.SiteAdmin)
             .Select(r => r.Id)
             .SingleAsync();
 

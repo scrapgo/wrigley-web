@@ -1,60 +1,47 @@
 namespace ScrapGo.Core.Modules.Identity.Domain.Authorization;
 
 /// <summary>
-/// The permission catalog. It is a compile-time contract: seeded into
-/// <c>identity.permissions</c> by migration (ids are 1-based positions in
-/// <see cref="All"/>), and read-only over HTTP.
+/// Every permission key (ACCESS-MODEL.md section 6). A compile-time contract,
+/// seeded by migration: admins map keys to roles, they never invent keys. Code
+/// checks these keys, never role names.
 /// </summary>
-/// <remarks>
-/// Append new permissions to the end of <see cref="All"/>, never reorder:
-/// seeded ids are positional, and a reorder would re-key existing grants.
-/// </remarks>
 public static class Permissions
 {
-    public const string UserRead = "User.Read";
-    public const string UserCreate = "User.Create";
-    public const string UserUpdate = "User.Update";
-    public const string UserDelete = "User.Delete";
+    public const string DashboardView = "dashboard.view";
 
-    public const string RoleRead = "Role.Read";
-    public const string RoleCreate = "Role.Create";
-    public const string RoleUpdate = "Role.Update";
-    public const string RoleDelete = "Role.Delete";
-    public const string RoleAssign = "Role.Assign";
+    public const string SuppliersViewAll = "suppliers.view_all";
 
-    public const string InvoiceRead = "Invoice.Read";
-    public const string InvoiceCreate = "Invoice.Create";
-    public const string InvoiceUpdate = "Invoice.Update";
-    public const string InvoiceDelete = "Invoice.Delete";
-    public const string InvoiceApprove = "Invoice.Approve";
+    public const string SuppliersViewOwn = "suppliers.view_own";
 
-    public const string ReportRead = "Report.Read";
-    public const string ReportExport = "Report.Export";
+    public const string SuppliersEditAll = "suppliers.edit_all";
 
-    public const string AdminAccess = "Admin.Access";
+    /// <summary>Defined but not granted in V1: external users are view-only.</summary>
+    public const string SuppliersEditOwn = "suppliers.edit_own";
+
+    public const string UsersView = "users.view";
+
+    public const string UsersInvite = "users.invite";
+
+    /// <summary>Enable/disable users, change their roles and supplier links.</summary>
+    public const string UsersManage = "users.manage";
+
+    public const string RolesView = "roles.view";
+
+    public const string RolesManage = "roles.manage";
+
+    public const string FeaturesView = "features.view";
+
+    public const string FeaturesManage = "features.manage";
+
+    public const string AuditView = "audit.view";
 
     public static readonly IReadOnlyList<string> All =
     [
-        UserRead, UserCreate, UserUpdate, UserDelete,
-        RoleRead, RoleCreate, RoleUpdate, RoleDelete, RoleAssign,
-        InvoiceRead, InvoiceCreate, InvoiceUpdate, InvoiceDelete, InvoiceApprove,
-        ReportRead, ReportExport,
-        AdminAccess,
+        DashboardView,
+        SuppliersViewAll, SuppliersViewOwn, SuppliersEditAll, SuppliersEditOwn,
+        UsersView, UsersInvite, UsersManage,
+        RolesView, RolesManage,
+        FeaturesView, FeaturesManage,
+        AuditView,
     ];
-
-    /// <summary>
-    /// Retired generic permissions (permission ids 10–16). Their rows stay,
-    /// because ids are positional and must never be reused, but they can't be
-    /// attached to a role, aren't listed, and never resolve.
-    /// </summary>
-    public static readonly string[] Retired =
-    [
-        InvoiceRead, InvoiceCreate, InvoiceUpdate, InvoiceDelete, InvoiceApprove,
-        ReportRead, ReportExport,
-    ];
-
-    public static bool IsRetired(string permissionName) => Retired.Contains(permissionName, StringComparer.Ordinal);
-
-    /// <summary>The live catalog: <see cref="All"/> without the <see cref="Retired"/> entries.</summary>
-    public static IEnumerable<string> Active => All.Where(name => !IsRetired(name));
 }

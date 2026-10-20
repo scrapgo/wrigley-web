@@ -21,13 +21,10 @@ public static class SpecPermissions
 
     public static readonly string[] All = [Alpha, Beta, Gamma];
 
-    /// <summary>Every row in the test database's catalog: production (retired included) plus these.</summary>
+    /// <summary>Every row in the test database's catalog: production plus these.</summary>
     public static IEnumerable<string> CatalogRows => Permissions.All.Concat(All);
 
-    /// <summary>What <c>GET /api/permissions</c> lists: the live production catalog plus these.</summary>
-    public static IEnumerable<string> Listed => Permissions.Active.Concat(All);
-
-    /// <summary>Far above the positional production ids, so they never collide.</summary>
+    /// <summary>Far above the seeded production ids, so they never collide. Owned by the always-On dashboard feature.</summary>
     private const int FirstId = 1001;
 
     internal static async Task SeedAsync(IdentityDbContext dbContext)
@@ -35,8 +32,8 @@ public static class SpecPermissions
         for (var i = 0; i < All.Length; i++)
         {
             await dbContext.Database.ExecuteSqlAsync($"""
-                INSERT INTO identity.permissions (id, name, created_at, updated_at)
-                VALUES ({FirstId + i}, {All[i]}, now(), now());
+                INSERT INTO identity.permissions (id, key, feature_id, audience, name, description)
+                VALUES ({FirstId + i}, {All[i]}, 1, 'Any', {All[i]}, '');
                 """);
         }
     }

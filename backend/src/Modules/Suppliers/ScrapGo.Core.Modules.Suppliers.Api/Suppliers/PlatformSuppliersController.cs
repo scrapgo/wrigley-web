@@ -4,9 +4,9 @@ using Microsoft.AspNetCore.Mvc;
 namespace ScrapGo.Core.Modules.Suppliers.Api.Suppliers;
 
 /// <summary>
-/// Suppliers (Quickbase table <c>bqrcgnatz</c>), read-only, for platform
-/// administrators (<c>Admin.Access</c> at platform scope, which requires a
-/// Google Workspace sign-in). The Quickbase Suppliers table is ScrapGo-wide.
+/// Suppliers (Quickbase table <c>bqrcgnatz</c>), read-only, for holders of
+/// <c>suppliers.view_all</c> signed in with Google Workspace. The Quickbase
+/// Suppliers table is ScrapGo-wide.
 /// </summary>
 [ApiController]
 [Authorize]

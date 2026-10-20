@@ -27,9 +27,10 @@ public sealed class FeatureConfiguration : IEntityTypeConfiguration<Feature>
             .HasConversion<string>()
             .IsRequired();
 
+        // No database default: with one, EF would leave a seeded false out of
+        // the insert and the default would silently unlock the feature.
         builder.Property(f => f.IsToggleable)
-            .IsRequired()
-            .HasDefaultValue(true);
+            .IsRequired();
 
         builder.Property(f => f.UpdatedAt)
             .HasColumnType("timestamptz")
@@ -55,5 +56,17 @@ public sealed class FeatureConfiguration : IEntityTypeConfiguration<Feature>
             .HasForeignKey(f => f.UpdatedByUserId)
             .OnDelete(DeleteBehavior.SetNull)
             .HasConstraintName("fk_features_updated_by_user_id");
+
+        builder.HasData(AccessModelSeed.Features.Select(f => new
+        {
+            f.Id,
+            f.Key,
+            f.Name,
+            Description = string.Empty,
+            f.State,
+            f.IsToggleable,
+            UpdatedAt = AccessModelSeed.SeededAt,
+            UpdatedByUserId = (int?)null,
+        }));
     }
 }

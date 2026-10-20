@@ -7,7 +7,7 @@ namespace ScrapGo.Core.Modules.Identity.Api.Authorization;
 /// so the check has no scope; it also needs a Google Workspace sign-in on the
 /// request (403 <c>workspace_sign_in_required</c> otherwise).
 /// </summary>
-/// <example><c>[RequirePermission(Permissions.UserRead)]</c> on <c>GET api/users</c>.</example>
+/// <example><c>[RequirePermission(Permissions.UsersView)]</c> on <c>GET api/users</c>.</example>
 /// <remarks>
 /// Implements <see cref="IAuthorizationRequirementData"/>, so no named policy
 /// has to be registered per permission. Always prefer this over checking role

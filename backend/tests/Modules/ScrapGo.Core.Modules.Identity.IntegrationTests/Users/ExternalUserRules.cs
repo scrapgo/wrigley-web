@@ -14,7 +14,7 @@ public class ExternalUserRules
             var (platformUid, _) = await fixture.SeedPlatformAdministratorAsync();
             var (_, externalId) = await fixture.SeedUserAsync("customer@acme.example");
             var platformAdminRoleId = await fixture.DbContext.Roles.AsNoTracking()
-                .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator)
+                .Where(r => r.Key == DefaultRoleNames.SiteAdmin)
                 .Select(r => r.Id)
                 .SingleAsync();
 

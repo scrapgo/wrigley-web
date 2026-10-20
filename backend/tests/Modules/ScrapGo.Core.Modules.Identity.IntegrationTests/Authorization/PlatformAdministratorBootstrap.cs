@@ -37,7 +37,7 @@ public class PlatformAdministratorBootstrap
 
             Assert.Equal(1, await fixture.DbContext.UserRoles.AsNoTracking().CountAsync(ur =>
                 ur.UserId == userId
-                && ur.Role.Name == DefaultRoleNames.PlatformAdministrator));
+                && ur.Role.Key == DefaultRoleNames.SiteAdmin));
 
             var audit = await fixture.DbContext.AuditLogs.AsNoTracking()
                 .Where(a => a.EventType == IdentityAuditEventTypes.PlatformAdministratorBootstrapped)

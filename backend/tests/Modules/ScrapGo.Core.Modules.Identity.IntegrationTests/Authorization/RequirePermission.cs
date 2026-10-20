@@ -22,7 +22,7 @@ public class RequirePermission
         public async Task An_admin_access_requirement_is_allowed_with_admin_access()
         {
             var (uid, userId) = await fixture.SeedUserAsync();
-            await fixture.GrantPermissionsAsync(userId, Permissions.AdminAccess);
+            await fixture.GrantPermissionsAsync(userId, Permissions.UsersManage);
 
             var response = await fixture.SendAsync(HttpMethod.Get, "/api/_test/platform-scoped", fixture.CreateToken(uid));
 

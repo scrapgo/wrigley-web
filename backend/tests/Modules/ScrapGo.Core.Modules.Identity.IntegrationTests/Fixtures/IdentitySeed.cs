@@ -25,12 +25,12 @@ public static class IdentitySeed
         return (uid, user.Id);
     }
 
-    /// <summary>A new internal user holding the built-in PlatformAdministrator.</summary>
+    /// <summary>A new internal user holding the seeded <c>site_admin</c> role.</summary>
     public static async Task<(string Uid, int UserId)> SeedPlatformAdministratorAsync(this IdentitySpecFixture fixture)
     {
         var (uid, userId) = await fixture.SeedUserAsync("platform-admin@scrapgo.example", UserType.Internal);
         var roleId = await fixture.DbContext.Roles
-            .Where(r => r.Name == DefaultRoleNames.PlatformAdministrator)
+            .Where(r => r.Key == DefaultRoleNames.SiteAdmin)
             .Select(r => r.Id)
             .SingleAsync();
         await fixture.AssignRoleAsync(userId, roleId);
@@ -47,7 +47,7 @@ public static class IdentitySeed
         await fixture.DbContext.SaveChangesAsync();
 
         var permissionIds = await fixture.DbContext.Permissions
-            .Where(p => permissionNames.Contains(p.Name))
+            .Where(p => permissionNames.Contains(p.Key))
             .Select(p => p.Id)
             .ToListAsync();
 

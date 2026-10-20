@@ -11,14 +11,13 @@ public class PermissionCatalogSeed
 
     public class Given_the_migration_has_applied(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
-        // The migration still seeds the removed application, module and catalog permissions.
-        [Fact(Skip = "B5 resets schema")]
+        [Fact]
         public async Task The_permissions_table_holds_exactly_the_catalog() =>
             Assert.Equal(
                 SpecPermissions.CatalogRows.Order(StringComparer.Ordinal),
-                (await fixture.DbContext.Permissions.Select(p => p.Name).ToListAsync()).Order(StringComparer.Ordinal));
+                (await fixture.DbContext.Permissions.Select(p => p.Key).ToListAsync()).Order(StringComparer.Ordinal));
 
-        [Fact(Skip = "B5 resets schema")]
+        [Fact]
         public async Task Get_permissions_returns_the_whole_catalog()
         {
             var response = await fixture.SendAsync(HttpMethod.Get, $"/{PermissionsPath}", fixture.CreateToken(Guid.NewGuid().ToString()));
@@ -26,9 +25,7 @@ public class PermissionCatalogSeed
 
             var names = (await response.Content.ReadFromJsonAsync<List<NameOnly>>())!.Select(p => p.Name);
 
-            // Retired permissions stay in the table but are never listed.
-            Assert.Equal(SpecPermissions.Listed.Order(StringComparer.Ordinal), names.Order(StringComparer.Ordinal));
-            Assert.DoesNotContain(names, Permissions.IsRetired);
+            Assert.Equal(SpecPermissions.CatalogRows.Order(StringComparer.Ordinal), names.Order(StringComparer.Ordinal));
         }
 
         private sealed record NameOnly(string Name);

@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore.Design;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using ScrapGo.Core.Shared.Infrastructure.Audit;
 using ScrapGo.Core.Shared.Infrastructure.Persistence;
 
@@ -34,15 +33,6 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
     public DbSet<Invitation> Invitations => Set<Invitation>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
-
-    /// <remarks>
-    /// Temporary, until B6 resets the migrations: the model has dropped the
-    /// application, module, catalog, organization, membership and invitation
-    /// tables but the migrations still create them, and EF refuses to migrate
-    /// a model that differs from its snapshot.
-    /// </remarks>
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) =>
-        optionsBuilder.ConfigureWarnings(warnings => warnings.Ignore(RelationalEventId.PendingModelChangesWarning));
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

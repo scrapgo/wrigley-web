@@ -185,9 +185,9 @@ public class ReadingSuppliers
     {
         // Modules can't reference each other, so the string is pinned to Identity's catalog here.
         [Fact]
-        public void Supplier_read_is_the_admin_access_permission()
+        public void Supplier_read_is_the_suppliers_view_all_permission()
         {
-            Assert.Equal(ScrapGo.Core.Modules.Identity.Domain.Authorization.Permissions.AdminAccess, SupplierPermissions.PlatformRead);
+            Assert.Equal(ScrapGo.Core.Modules.Identity.Domain.Authorization.Permissions.SuppliersViewAll, SupplierPermissions.ViewAll);
         }
     }
 }

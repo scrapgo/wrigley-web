@@ -189,6 +189,35 @@ public static class SupplierResponses
         }
         """;
 
+    /// <summary>The Other Prospect Information query for record 17511 (sample values); Related Supplier (Office) is empty.</summary>
+    public const string OtherProspectInformation = """
+        {
+          "data": [
+            {
+              "3": { "value": 17511 },
+              "77": { "value": "Cold Call" },
+              "152": { "value": "1st Class Auto Salvage - Orlando" },
+              "175": { "value": "John Smith" },
+              "157": { "value": "" },
+              "215": { "value": false }
+            }
+          ],
+          "fields": [],
+          "metadata": { "numFields": 6, "numRecords": 1, "skip": 0, "totalRecords": 1 }
+        }
+        """;
+
+    /// <summary>Supplier 17511's most recent activity (Call Notes table, newest first, top 1; sample values).</summary>
+    public const string LatestActivity = """
+        {
+          "data": [
+            { "1": { "value": "2026-10-06T18:30:00Z" }, "3": { "value": 845 }, "19": { "value": 17511 }, "57": { "value": "john@scrapgo.com" } }
+          ],
+          "fields": [],
+          "metadata": { "numFields": 4, "numRecords": 1, "skip": 0, "totalRecords": 3 }
+        }
+        """;
+
     /// <summary>The ITS dispatch records linked to supplier 17511 (sample values), deliberately not in date order.</summary>
     public const string DispatchRecords = """
         {

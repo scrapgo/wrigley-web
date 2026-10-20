@@ -61,6 +61,15 @@ public static class SuppliersTable
     public const int TargetPoNumber = 358;
     public const int PriceChangeFromPrior = 363;
 
+    // Other Prospect Information (Documents & Other), all text except Out of Business.
+    public const int LeadSource = 77;
+    public const int LastReassignedSupplier = 152;
+    public const int RelatedSupplierOffice = 157;
+    public const int LastModifiedBy = 175;
+
+    /// <summary>Out of Business? (checkbox).</summary>
+    public const int OutOfBusiness = 215;
+
     public const int MainEmail = 301;
     public const int PaymentTerms = 320;
 
@@ -100,6 +109,12 @@ public static class SuppliersTable
         RecordId, TargetMaterial, TargetBreakEven, TargetOffer, TargetUom, TrucksPerWeek, TargetFreightPerUom,
         TargetFreightCost, TargetConsumerPrice, PriceInNetTons, PriceInLbs, PriceInCwt, PriceInGrossTons,
         TargetPoNumber, PriceChangeFromPrior,
+    ];
+
+    /// <summary>The Other Prospect Information view's fields, in the order the portal's query asks for them.</summary>
+    public static readonly IReadOnlyList<int> OtherProspectInformationFields =
+    [
+        RecordId, LeadSource, LastReassignedSupplier, LastModifiedBy, RelatedSupplierOffice, OutOfBusiness,
     ];
 
     /// <summary>The list view's fields.</summary>

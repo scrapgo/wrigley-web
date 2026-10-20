@@ -144,6 +144,24 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
             : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
     }
 
+    /// <summary>
+    /// One supplier's Other Prospect Information (Documents &amp; Other): lead source,
+    /// reassignment, office, out of business, and its most recent activity.
+    /// </summary>
+    [HttpGet("{recordId:int}/other-prospect-information")]
+    [ProducesResponseType<SupplierOtherProspectInformationResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> GetOtherProspectInformation(int recordId, CancellationToken cancellationToken)
+    {
+        var result = await suppliers.GetOtherProspectInformationAsync(SupplierScope.Platform, recordId, cancellationToken);
+
+        return result is { Outcome: SupplierOutcome.Success, OtherProspectInformation: { } information }
+            ? Ok(information)
+            : SupplierProblems.For(result.Outcome, SupplierPermissions.PlatformRead);
+    }
+
     /// <summary>One supplier's call and prospect status: last call result, objection, call back date, notes.</summary>
     [HttpGet("{recordId:int}/call-prospect-status")]
     [ProducesResponseType<SupplierCallProspectStatusResponse>(StatusCodes.Status200OK)]

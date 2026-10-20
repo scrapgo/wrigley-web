@@ -408,6 +408,7 @@ Each record endpoint exists in both route forms. For example,
 | `/{recordId}/call-notes-history` | The supplier's call notes, newest first, a list from the **Call Notes** table (below). Empty when it has none, never 404 |
 | `/{recordId}/linked-its-dispatch-records` | Documents & Other: the ITS dispatch records linked to the supplier, newest ship date first, a list from the **ITS Dispatch Records** table (below). Empty when there are none, never 404 |
 | `/linked-its-dispatch-records/statuses` | Dispatch status dropdown options |
+| `/{recordId}/other-prospect-information` | Documents & Other: Other Prospect Information, the supplier's fields plus its most recent activity from the **Call Notes** table (below) |
 | `/{recordId}/contacts` | The supplier's contacts, main contact first, a list from the **Contacts** table (below). Empty when it has none, never 404 |
 | `/payment-terms` · `/dead-freight` · `/last-call-results` · `/supplier-objections` | Dropdown options: `[{ "value": "Net 5", "label": "Net 5" }, …]` (value and label are the same exact text) |
 
@@ -554,6 +555,22 @@ The query lists field 10 twice (`"select": [3,15,6,10,10,7,8,14,18,20,19]`), exa
 | Status | 8 | `status` | enum `DispatchStatus` |
 
 The query adds field 6 (Load #) to the portal's original select: `[3, 6, 241, 432, 433, 28, 508, 378, 14, 15, 8]`.
+
+**Other Prospect Information** (`otherProspectInformation`, Documents & Other). Quickbase can't join tables, so this runs two queries. First the Suppliers table with `{3.EX.'<recordId>'}` (404 when there is no row, and the second query is skipped). Then the supplier's most recent activity from the Call Notes table `br8tgw3tp`, with `{19.EX.'<recordId>'}`, sorted by field 1 descending, top 1. `freshness` is the less fresh of the two reads.
+
+| Field | Id | API name | Type |
+| --- | --- | --- | --- |
+| Record ID# | 3 | `recordId` | number |
+| Lead Source | 77 | `leadSource` | text |
+| Last Reassigned Supplier | 152 | `lastReassignedSupplier` | text |
+| Last Modified By | 175 | `lastModifiedBy` | text |
+| Related Supplier (Office) | 157 | `relatedSupplierOffice` | text |
+| Out of Business? | 215 | `outOfBusiness` | checkbox |
+| *(latest activity)* | | `latestActivity` | object, `null` when the supplier has no activities |
+| Activities Record ID# | 3 | `latestActivity.recordId` | number |
+| Supplier ID | 19 | `latestActivity.supplierId` | number |
+| Supplier Assigned To | 57 | `latestActivity.supplierAssignedTo` | text |
+| Last Reassigned (Date Created) | 1 | `latestActivity.lastReassigned` | date/time (UTC) |
 
 ### Dropdowns (enums)
 

@@ -240,6 +240,39 @@ public sealed record SupplierDispatchRecordDto(
 public sealed record SupplierDispatchRecordsResponse(
     int SupplierRecordId, IReadOnlyList<SupplierDispatchRecordDto> DispatchRecords, DataFreshness Freshness);
 
+/// <summary>
+/// A supplier's most recent activity (Quickbase Call Notes table <c>br8tgw3tp</c>,
+/// newest Date Created first). Null means empty in Quickbase.
+/// </summary>
+/// <param name="RecordId">Field 3, the activity's Record ID# (numeric).</param>
+/// <param name="SupplierId">Field 19: the supplier's Record ID# (numeric).</param>
+/// <param name="SupplierAssignedTo">Field 57 (text).</param>
+/// <param name="LastReassigned">Field 1, Quickbase's built-in Date Created (UTC).</param>
+public sealed record SupplierLatestActivityDto(int RecordId, int? SupplierId, string? SupplierAssignedTo, DateTimeOffset? LastReassigned);
+
+/// <summary>
+/// A supplier's Other Prospect Information (Documents &amp; Other): fields from the
+/// Quickbase Suppliers table plus its most recent activity. Null means empty in Quickbase.
+/// </summary>
+/// <param name="LeadSource">Field 77 (text).</param>
+/// <param name="LastReassignedSupplier">Field 152, "Last Reassigned Supplier" (text).</param>
+/// <param name="LastModifiedBy">Field 175 (text).</param>
+/// <param name="RelatedSupplierOffice">Field 157, "Related Supplier (Office)" (text).</param>
+/// <param name="OutOfBusiness">Field 215, "Out of Business?" (checkbox); null only if Quickbase sent no value.</param>
+/// <param name="LatestActivity">The supplier's most recent activity; null when it has none.</param>
+public sealed record SupplierOtherProspectInformationDto(
+    int RecordId,
+    string? LeadSource,
+    string? LastReassignedSupplier,
+    string? LastModifiedBy,
+    string? RelatedSupplierOffice,
+    bool? OutOfBusiness,
+    SupplierLatestActivityDto? LatestActivity);
+
+/// <param name="Freshness">The less fresh of the two Quickbase reads (supplier and latest activity).</param>
+public sealed record SupplierOtherProspectInformationResponse(
+    SupplierOtherProspectInformationDto OtherProspectInformation, DataFreshness Freshness);
+
 public sealed record SupplierCallProspectStatusResponse(SupplierCallProspectStatusDto CallProspectStatus, DataFreshness Freshness);
 
 public sealed record SupplierListResponse(

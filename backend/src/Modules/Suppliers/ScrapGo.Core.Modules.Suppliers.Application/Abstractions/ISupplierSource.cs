@@ -23,6 +23,13 @@ public interface ISupplierSource
     /// <exception cref="SupplierSourceUnavailableException">The source failed and nothing cached could be served.</exception>
     Task<Sourced<SupplierTargetPricingProgressRailDto?>> FindTargetPricingProgressRailAsync(int recordId, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// One supplier's Other Prospect Information by Record ID#, with its most recent
+    /// activity (Call Notes table); null value when there is no such supplier.
+    /// </summary>
+    /// <exception cref="SupplierSourceUnavailableException">The source failed and nothing cached could be served.</exception>
+    Task<Sourced<SupplierOtherProspectInformationDto?>> FindOtherProspectInformationAsync(int recordId, CancellationToken cancellationToken);
+
     /// <summary>Every in-stock item of a supplier (In-Stock Items table, by Related Supplier); empty when it has none.</summary>
     /// <exception cref="SupplierSourceUnavailableException">The source failed and nothing cached could be served.</exception>
     Task<Sourced<IReadOnlyList<SupplierInStockItemDto>?>> ListInStockItemsAsync(int supplierRecordId, CancellationToken cancellationToken);

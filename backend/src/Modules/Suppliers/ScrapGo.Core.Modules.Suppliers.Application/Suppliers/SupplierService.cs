@@ -38,6 +38,9 @@ public sealed record SupplierTargetPricingProgressRailResult(
 public sealed record SupplierYardCapabilitiesResult(
     SupplierOutcome Outcome, SupplierYardCapabilitiesResponse? YardCapabilities = null);
 
+public sealed record SupplierOtherProspectInformationResult(
+    SupplierOutcome Outcome, SupplierOtherProspectInformationResponse? OtherProspectInformation = null);
+
 public sealed record SupplierCallProspectStatusResult(
     SupplierOutcome Outcome, SupplierCallProspectStatusResponse? CallProspectStatus = null);
 
@@ -109,6 +112,19 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
         var (outcome, found) = await ReadRecordAsync(scope, recordId, source.FindTargetPricingProgressRailAsync, cancellationToken);
         return found is { Value: { } pricing }
             ? new(outcome, new SupplierTargetPricingProgressRailResponse(pricing, found.Freshness))
+            : new(outcome);
+    }
+
+    /// <summary>
+    /// The supplier's Other Prospect Information (Documents &amp; Other): lead source,
+    /// reassignment, office, out of business, and its most recent activity.
+    /// </summary>
+    public async Task<SupplierOtherProspectInformationResult> GetOtherProspectInformationAsync(
+        SupplierScope scope, int recordId, CancellationToken cancellationToken)
+    {
+        var (outcome, found) = await ReadRecordAsync(scope, recordId, source.FindOtherProspectInformationAsync, cancellationToken);
+        return found is { Value: { } information }
+            ? new(outcome, new SupplierOtherProspectInformationResponse(information, found.Freshness))
             : new(outcome);
     }
 

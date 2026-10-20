@@ -13,8 +13,17 @@ public static class CallNotesTable
     /// <summary>The supplier's Record ID# (Suppliers table field 3).</summary>
     public const int RelatedSupplier = 19;
 
+    /// <summary>Supplier Assigned To (text).</summary>
+    public const int SupplierAssignedTo = 57;
+
     /// <summary>The fields, in the order the portal's query asks for them.</summary>
     public static readonly IReadOnlyList<int> Fields = [RecordId, DateCreated, Notes, RelatedSupplier];
+
+    /// <summary>
+    /// The latest activity's fields for Other Prospect Information. Date Created
+    /// (field 1) is shown there as "Last Reassigned".
+    /// </summary>
+    public static readonly IReadOnlyList<int> LatestActivityFields = [RecordId, RelatedSupplier, SupplierAssignedTo, DateCreated];
 
     /// <summary><c>{19.EX.'17511'}</c>: every call note of this supplier.</summary>
     public static string BySupplier(int supplierRecordId) => $"{{{RelatedSupplier}.EX.'{supplierRecordId}'}}";

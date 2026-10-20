@@ -58,6 +58,59 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
         return new(pricing, Freshness(result));
     }
 
+    public async Task<Sourced<SupplierOtherProspectInformationDto?>> FindOtherProspectInformationAsync(
+        int recordId, CancellationToken cancellationToken)
+    {
+        var supplierResult = await QueryAsync(
+            new QuickbaseQuery(SuppliersTable.TableId, SuppliersTable.OtherProspectInformationFields, SuppliersTable.ByRecordId(recordId)),
+            cancellationToken);
+
+        using var supplierDocument = JsonDocument.Parse(supplierResult.ResponseJson);
+        var found = Rows(supplierDocument)
+            .Select(row => new QuickbaseRecord(row))
+            .Where(record => record.Int(SuppliersTable.RecordId) is not null)
+            .Cast<QuickbaseRecord?>()
+            .FirstOrDefault();
+        if (found is not { } supplier)
+        {
+            // No such supplier: skip the activities query.
+            return new(null, Freshness(supplierResult));
+        }
+
+        // Quickbase can't join tables, so the most recent activity is a second query.
+        var activityResult = await QueryAsync(
+            new QuickbaseQuery(
+                CallNotesTable.TableId,
+                CallNotesTable.LatestActivityFields,
+                CallNotesTable.BySupplier(recordId),
+                [new QuickbaseSort(CallNotesTable.DateCreated, QuickbaseSortOrder.Descending)],
+                Skip: 0,
+                Top: 1),
+            cancellationToken);
+
+        using var activityDocument = JsonDocument.Parse(activityResult.ResponseJson);
+        var latestActivity = Rows(activityDocument)
+            .Select(row => new QuickbaseRecord(row))
+            .Where(record => record.Int(CallNotesTable.RecordId) is not null)
+            .Select(record => new SupplierLatestActivityDto(
+                record.Int(CallNotesTable.RecordId)!.Value,
+                record.Int(CallNotesTable.RelatedSupplier),
+                record.Text(CallNotesTable.SupplierAssignedTo),
+                record.DateTime(CallNotesTable.DateCreated)))
+            .FirstOrDefault();
+
+        var information = new SupplierOtherProspectInformationDto(
+            supplier.Int(SuppliersTable.RecordId)!.Value,
+            supplier.Text(SuppliersTable.LeadSource),
+            supplier.Text(SuppliersTable.LastReassignedSupplier),
+            supplier.Text(SuppliersTable.LastModifiedBy),
+            supplier.Text(SuppliersTable.RelatedSupplierOffice),
+            supplier.Bool(SuppliersTable.OutOfBusiness),
+            latestActivity);
+
+        return new(information, LeastFresh(supplierResult, activityResult));
+    }
+
     public async Task<Sourced<IReadOnlyList<SupplierInStockItemDto>?>> ListInStockItemsAsync(
         int supplierRecordId, CancellationToken cancellationToken)
     {
@@ -362,4 +415,22 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
     }
 
     private static DataFreshness Freshness(QuickbaseQueryResult result) => new(result.Source.ToString(), result.FetchedAt);
+
+    /// <summary>
+    /// Freshness of a response built from two queries: the earlier fetch, and the
+    /// worse source (StaleCache, then Cache, then Quickbase).
+    /// </summary>
+    private static DataFreshness LeastFresh(QuickbaseQueryResult first, QuickbaseQueryResult second)
+    {
+        static int Staleness(QuickbaseResultSource source) => source switch
+        {
+            QuickbaseResultSource.StaleCache => 2,
+            QuickbaseResultSource.Cache => 1,
+            _ => 0,
+        };
+
+        var source = Staleness(first.Source) >= Staleness(second.Source) ? first.Source : second.Source;
+        var fetchedAt = first.FetchedAt <= second.FetchedAt ? first.FetchedAt : second.FetchedAt;
+        return new(source.ToString(), fetchedAt);
+    }
 }

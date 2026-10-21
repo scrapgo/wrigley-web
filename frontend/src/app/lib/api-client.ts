@@ -16,6 +16,10 @@ const GCIP_API_KEY = import.meta.env.VITE_GCIP_API_KEY ?? ''
 const GCIP_SIGN_IN_URL =
     'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword'
 
+const GCIP_SIGN_UP_URL = 'https://identitytoolkit.googleapis.com/v1/accounts:signUp'
+
+const GCIP_SEND_OOB_CODE_URL = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode'
+
 /** Exchanges a GCIP refresh token for a new ID token. */
 const GCIP_REFRESH_URL = 'https://securetoken.googleapis.com/v1/token'
 
@@ -109,6 +113,10 @@ function gcipErrorMessage(code: string | undefined): string {
         case 'FEDERATED_USER_ID_ALREADY_LINKED':
         case 'NEED_CONFIRMATION':
             return 'An account with this email already uses a different sign-in method. Sign in with that method, or ask an administrator to link Google to your account.'
+        case 'EMAIL_EXISTS':
+            return 'An account with this email already exists. Sign in instead.'
+        case 'WEAK_PASSWORD':
+            return 'Choose a password of at least 6 characters.'
         case 'BLOCKING_FUNCTION_ERROR_RESPONSE':
             return 'Sign-in was blocked by the sign-in check. Please try again, or contact an administrator.'
         default:
@@ -290,6 +298,45 @@ class ApiClient {
         }
 
         return sessionFrom(body.idToken, body.refreshToken, body.expiresIn)
+    }
+
+    /**
+     * Create an email/password account in GCIP (an invited external user). The
+     * new account's email is unverified until they follow the verification link.
+     */
+    async signUp(email: string, password: string): Promise<AuthSession> {
+        if (!GCIP_API_KEY) {
+            throw new ApiError('Authentication is not configured (missing VITE_GCIP_API_KEY).', 0, 'missing_gcip_api_key')
+        }
+
+        const response = await fetch(`${GCIP_SIGN_UP_URL}?key=${GCIP_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password, returnSecureToken: true }),
+        })
+
+        const body = (await response.json()) as GcipSignInResponse | { error?: { message?: string } }
+        if (!response.ok || !('idToken' in body)) {
+            const code = 'error' in body ? body.error?.message?.split(' ')[0] : undefined
+            throw new ApiError(gcipErrorMessage(code), response.status, code)
+        }
+
+        return sessionFrom(body.idToken, body.refreshToken, body.expiresIn)
+    }
+
+    /** Sends GCIP's email-verification link to the account behind `idToken`. */
+    async sendEmailVerification(idToken: string): Promise<void> {
+        const response = await fetch(`${GCIP_SEND_OOB_CODE_URL}?key=${GCIP_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ requestType: 'VERIFY_EMAIL', idToken }),
+        })
+
+        if (!response.ok) {
+            const body = (await response.json().catch(() => ({}))) as { error?: { message?: string } }
+            const code = body.error?.message
+            throw new ApiError(code ? `Could not send the verification email (${code}).` : 'Could not send the verification email.', response.status, code)
+        }
     }
 
     /**

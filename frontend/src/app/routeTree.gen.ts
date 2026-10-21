@@ -16,6 +16,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as NoAccessRouteImport } from './routes/no-access'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SuppliersRouteImport } from './routes/suppliers'
+import { Route as InviteAcceptRouteImport } from './routes/invite.accept'
 import { Route as SuppliersRecordIdRouteImport } from './routes/suppliers_.$recordId'
 import { Route as AdminUsersUserIdRouteImport } from './routes/admin_.users.$userId'
 
@@ -54,6 +55,11 @@ const SuppliersRoute = SuppliersRouteImport.update({
   path: '/suppliers',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InviteAcceptRoute = InviteAcceptRouteImport.update({
+  id: '/invite/accept',
+  path: '/invite/accept',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SuppliersRecordIdRoute = SuppliersRecordIdRouteImport.update({
   id: '/suppliers_/$recordId',
   path: '/suppliers/$recordId',
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/no-access': typeof NoAccessRoute
   '/settings': typeof SettingsRoute
   '/suppliers': typeof SuppliersRoute
+  '/invite/accept': typeof InviteAcceptRoute
   '/suppliers/$recordId': typeof SuppliersRecordIdRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
 }
@@ -84,6 +91,7 @@ export interface FileRoutesByTo {
   '/no-access': typeof NoAccessRoute
   '/settings': typeof SettingsRoute
   '/suppliers': typeof SuppliersRoute
+  '/invite/accept': typeof InviteAcceptRoute
   '/suppliers/$recordId': typeof SuppliersRecordIdRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
 }
@@ -96,6 +104,7 @@ export interface FileRoutesById {
   '/no-access': typeof NoAccessRoute
   '/settings': typeof SettingsRoute
   '/suppliers': typeof SuppliersRoute
+  '/invite/accept': typeof InviteAcceptRoute
   '/suppliers_/$recordId': typeof SuppliersRecordIdRoute
   '/admin_/users/$userId': typeof AdminUsersUserIdRoute
 }
@@ -109,6 +118,7 @@ export interface FileRouteTypes {
     | '/no-access'
     | '/settings'
     | '/suppliers'
+    | '/invite/accept'
     | '/suppliers/$recordId'
     | '/admin/users/$userId'
   fileRoutesByTo: FileRoutesByTo
@@ -120,6 +130,7 @@ export interface FileRouteTypes {
     | '/no-access'
     | '/settings'
     | '/suppliers'
+    | '/invite/accept'
     | '/suppliers/$recordId'
     | '/admin/users/$userId'
   id:
@@ -131,6 +142,7 @@ export interface FileRouteTypes {
     | '/no-access'
     | '/settings'
     | '/suppliers'
+    | '/invite/accept'
     | '/suppliers_/$recordId'
     | '/admin_/users/$userId'
   fileRoutesById: FileRoutesById
@@ -143,6 +155,7 @@ export interface RootRouteChildren {
   NoAccessRoute: typeof NoAccessRoute
   SettingsRoute: typeof SettingsRoute
   SuppliersRoute: typeof SuppliersRoute
+  InviteAcceptRoute: typeof InviteAcceptRoute
   SuppliersRecordIdRoute: typeof SuppliersRecordIdRoute
   AdminUsersUserIdRoute: typeof AdminUsersUserIdRoute
 }
@@ -198,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SuppliersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/invite/accept': {
+      id: '/invite/accept'
+      path: '/invite/accept'
+      fullPath: '/invite/accept'
+      preLoaderRoute: typeof InviteAcceptRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/suppliers_/$recordId': {
       id: '/suppliers_/$recordId'
       path: '/suppliers/$recordId'
@@ -223,6 +243,7 @@ const rootRouteChildren: RootRouteChildren = {
   NoAccessRoute: NoAccessRoute,
   SettingsRoute: SettingsRoute,
   SuppliersRoute: SuppliersRoute,
+  InviteAcceptRoute: InviteAcceptRoute,
   SuppliersRecordIdRoute: SuppliersRecordIdRoute,
   AdminUsersUserIdRoute: AdminUsersUserIdRoute,
 }

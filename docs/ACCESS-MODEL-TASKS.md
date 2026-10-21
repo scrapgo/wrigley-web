@@ -436,7 +436,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*F5 · Accept-invitation page\*\*
+\- \[x] \*\*F5 · Accept-invitation page\*\*
 
 &#x20; > Add `/invite/accept?token=…`: store the token in `sessionStorage`, then offer "Create a password" (GCIP `signUp`, then send the verification email and ask the user to verify and return) or "Continue with Google". After sign-in, F4's flow sends the token to `POST /api/session`. Show clear errors for expired, used or mismatched invitations.
 

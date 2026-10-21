@@ -18,7 +18,8 @@ export const Route = createFileRoute('/settings')({
 })
 
 function SettingsComponent() {
-    const { user, logout } = useAuth()
+    const { me, logout } = useAuth()
+    const user = me?.user
 
     return (
         <AppShell
@@ -42,16 +43,16 @@ function SettingsComponent() {
                         />
                         <Field
                             icon={ShieldCheck}
-                            label="Classification"
+                            label="Type"
                             value={
                                 <Badge
                                     variant={
-                                        user?.classification === 'Internal'
+                                        user?.userType === 'Internal'
                                             ? 'success'
                                             : 'neutral'
                                     }
                                 >
-                                    {user?.classification || 'Unknown'}
+                                    {user?.userType || 'Unknown'}
                                 </Badge>
                             }
                         />

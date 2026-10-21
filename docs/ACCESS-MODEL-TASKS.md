@@ -416,7 +416,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*F3 · Access context, `can()` and gated navigation\*\*
+\- \[x] \*\*F3 · Access context, `can()` and gated navigation\*\*
 
 &#x20; > Replace the `CurrentUser` type with the `/api/me` shape (section 9 of the spec). Add `useAccess()` with `can(...anyOf)` and `isOn(feature)`, a `<Can anyOf={…}>` component, and a `RequirePermission` route wrapper that renders "not found". Build the app-shell menu from one `nav` list where each entry has `anyOf` permissions: Dashboard `dashboard.view`; Suppliers `suppliers.view\_all|view\_own`; Users `users.view`; Invitations `users.invite|users.view`; Roles `roles.view`; Features `features.view`; Audit log `audit.view`. Refetch `/api/me` on window focus, every 5 minutes, and after any 403.
 

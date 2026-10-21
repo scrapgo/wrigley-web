@@ -2,10 +2,15 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Construction } from 'lucide-react'
 
 import { AppShell } from '../components/app-shell'
+import { RequirePermission } from '../components/access'
 import { EmptyState } from '../components/ui/empty-state'
 
 export const Route = createFileRoute('/admin_/users/$userId')({
-    component: UserDetailComponent,
+    component: () => (
+        <RequirePermission anyOf={['users.view']}>
+            <UserDetailComponent />
+        </RequirePermission>
+    ),
     beforeLoad: async () => {
         const token = localStorage.getItem('authToken')
         if (!token) {

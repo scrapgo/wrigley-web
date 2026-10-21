@@ -2,10 +2,19 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 import { Construction } from 'lucide-react'
 
 import { AppShell } from '../components/app-shell'
+import { RequirePermission } from '../components/access'
+import { ADMIN_PERMISSIONS, ADMIN_TABS, type AdminTab } from '../lib/nav'
 import { EmptyState } from '../components/ui/empty-state'
 
 export const Route = createFileRoute('/admin')({
-    component: AdminComponent,
+    component: () => (
+        <RequirePermission anyOf={ADMIN_PERMISSIONS}>
+            <AdminComponent />
+        </RequirePermission>
+    ),
+    validateSearch: (search: Record<string, unknown>): { tab?: AdminTab } => ({
+        tab: ADMIN_TABS.find((tab) => tab === search.tab),
+    }),
     beforeLoad: async () => {
         const token = localStorage.getItem('authToken')
         if (!token) {

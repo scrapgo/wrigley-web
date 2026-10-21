@@ -1,95 +1,23 @@
 import { useState, type FormEvent, type ReactNode } from "react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
-import {
-    LayoutDashboard,
-    TrendingUp,
-    Target,
-    Truck,
-    Users,
-    MessageSquare,
-    FileText,
-    ShieldCheck,
-    Settings,
-    LogOut,
-    Menu,
-    X,
-    Bell,
-    Search,
-    ChevronRight,
-    ChevronsUpDown,
-    Check,
-    Building2,
-} from "lucide-react"
+import { Menu, X, Bell, Search, ChevronRight, ChevronsUpDown, Check, Building2, LogOut } from "lucide-react"
 
 import { cn } from "../lib/utils"
+import { NAV, type NavItem, type NavKey } from "../lib/nav"
 import { BrandLogo } from "./brand-logo"
 import { Button } from "./ui/button"
 import { useAuth } from "../hooks/useAuth"
-import { useAdminAccess } from "../hooks/useAdminAccess"
+import { useAccess } from "../hooks/useAccess"
 
-export type NavKey =
-    | "home"
-    | "pricing"
-    | "opportunities"
-    | "loads"
-    | "suppliers"
-    | "messages"
-    | "documents"
-    | "admin"
-    | "settings"
+export type { NavKey }
 
-interface NavItem {
-    key: NavKey
-    label: string
-    icon: React.ComponentType<{ className?: string }>
-    badge?: string
-}
-
-interface NavSection {
-    label: string
-    items: NavItem[]
-}
-
-const NAV_SECTIONS: NavSection[] = [
-    {
-        label: "Workspace",
-        items: [
-            { key: "home", label: "Home", icon: LayoutDashboard },
-            { key: "pricing", label: "Pricing", icon: TrendingUp },
-            { key: "opportunities", label: "Opportunities", icon: Target, badge: "12" },
-            { key: "loads", label: "Loads & Freight", icon: Truck, badge: "24" },
-            { key: "suppliers", label: "Suppliers", icon: Users },
-        ],
-    },
-    {
-        label: "Engage",
-        items: [
-            { key: "messages", label: "Messages", icon: MessageSquare, badge: "3" },
-            { key: "documents", label: "Documents", icon: FileText },
-        ],
-    },
-    {
-        label: "Administration",
-        items: [
-            { key: "admin", label: "Access & Roles", icon: ShieldCheck },
-            { key: "settings", label: "Settings", icon: Settings },
-        ],
-    },
-]
+const NAV_SECTIONS: NavItem["section"][] = ["Workspace", "Administration"]
 
 interface Workspace {
     id: string
     name: string
     kind: string
-}
-
-/** Route path for each nav key. Keys without a route yet are omitted. */
-const NAV_PATHS: Partial<Record<NavKey, string>> = {
-    home: "/dashboard",
-    suppliers: "/suppliers",
-    admin: "/admin",
-    settings: "/settings",
 }
 
 const WORKSPACES: Workspace[] = [
@@ -110,11 +38,13 @@ export function AppShell({ active, title, subtitle, actions, children }: AppShel
     const [mobileOpen, setMobileOpen] = useState(false)
     const [workspace, setWorkspace] = useState<Workspace>(WORKSPACES[0])
     const [globalSearch, setGlobalSearch] = useState("")
-    const { user, logout } = useAuth()
-    const { isAdmin } = useAdminAccess()
+    const { me, logout } = useAuth()
+    const { can } = useAccess()
     const navigate = useNavigate()
+    const user = me?.user
+    const navItems = NAV.filter((item) => can(...item.anyOf))
 
-    const initials = (user?.email || "SG")
+    const initials = (user?.displayName || user?.email || "SG")
         .split(/[\s@.]+/)
         .filter(Boolean)
         .slice(0, 2)
@@ -135,7 +65,7 @@ export function AppShell({ active, title, subtitle, actions, children }: AppShel
                     active={active}
                     workspace={workspace}
                     onWorkspaceChange={setWorkspace}
-                    isAdmin={isAdmin}
+                    navItems={navItems}
                 />
             </aside>
 
@@ -160,7 +90,7 @@ export function AppShell({ active, title, subtitle, actions, children }: AppShel
                             workspace={workspace}
                             onWorkspaceChange={setWorkspace}
                             onNavigate={() => setMobileOpen(false)}
-                            isAdmin={isAdmin}
+                            navItems={navItems}
                         />
                     </aside>
                 </div>
@@ -205,19 +135,23 @@ export function AppShell({ active, title, subtitle, actions, children }: AppShel
                                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-card" />
                             </button>
 
-                            <div className="hidden items-center gap-3 rounded-full border border-border bg-card py-1 pl-1 pr-3 sm:flex">
+                            <Link
+                                to="/settings"
+                                aria-label="Your profile and settings"
+                                className="hidden items-center gap-3 rounded-full border border-border bg-card py-1 pl-1 pr-3 transition-colors hover:bg-muted sm:flex"
+                            >
                                 <span className="flex h-8 w-8 items-center justify-center rounded-full brand-gradient text-xs font-bold text-white">
                                     {initials || "SG"}
                                 </span>
                                 <span className="leading-tight">
                                     <span className="block text-xs font-semibold text-ink-900">
-                                        {user?.email || "ScrapGo User"}
+                                        {user?.displayName || user?.email || "ScrapGo User"}
                                     </span>
                                     <span className="block text-[0.6875rem] text-muted-foreground">
-                                        {user?.classification || "Member"}
+                                        {user?.userType || "Member"}
                                     </span>
                                 </span>
-                            </div>
+                            </Link>
 
                             <Button
                                 variant="ghost"
@@ -258,13 +192,14 @@ function SidebarContent({
     workspace,
     onWorkspaceChange,
     onNavigate,
-    isAdmin,
+    navItems,
 }: {
     active: NavKey
     workspace: Workspace
     onWorkspaceChange: (workspace: Workspace) => void
     onNavigate?: () => void
-    isAdmin: boolean
+    /** The entries the caller may see. */
+    navItems: NavItem[]
 }) {
     return (
         <>
@@ -328,68 +263,48 @@ function SidebarContent({
             </div>
 
             <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-3">
-                {NAV_SECTIONS.filter(
-                    (section) => section.label !== "Administration" || isAdmin
-                ).map((section) => (
-                    <div key={section.label} className="space-y-1">
-                        <p className="px-3 pb-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-steel-500">
-                            {section.label}
-                        </p>
-                        {section.items.map((item) => {
-                            const Icon = item.icon
-                            const isActive = item.key === active
-                            const path = NAV_PATHS[item.key]
-                            const itemClassName = cn(
-                                "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                                isActive
-                                    ? "bg-brand-500/15 text-white"
-                                    : "text-steel-300 hover:bg-white/5 hover:text-white"
-                            )
-                            const content = (
-                                <>
-                                    <Icon
-                                        className={cn(
-                                            "h-5 w-5 shrink-0",
-                                            isActive
-                                                ? "text-brand-400"
-                                                : "text-steel-400 group-hover:text-steel-200"
-                                        )}
-                                    />
-                                    <span className="flex-1">{item.label}</span>
-                                    {item.badge && (
-                                        <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[0.6875rem] font-bold text-white">
-                                            {item.badge}
-                                        </span>
-                                    )}
-                                    {isActive && <ChevronRight className="h-4 w-4 text-brand-400" />}
-                                </>
-                            )
+                {NAV_SECTIONS.map((section) => {
+                    const items = navItems.filter((item) => item.section === section)
+                    if (items.length === 0) {
+                        return null
+                    }
 
-                            return path ? (
-                                <Link
-                                    key={item.key}
-                                    to={path}
-                                    onClick={() => onNavigate?.()}
-                                    className={itemClassName}
-                                >
-                                    {content}
-                                </Link>
-                            ) : (
-                                <a
-                                    key={item.key}
-                                    href="#"
-                                    onClick={(e) => {
-                                        e.preventDefault()
-                                        onNavigate?.()
-                                    }}
-                                    className={itemClassName}
-                                >
-                                    {content}
-                                </a>
-                            )
-                        })}
-                    </div>
-                ))}
+                    return (
+                        <div key={section} className="space-y-1">
+                            <p className="px-3 pb-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-steel-500">
+                                {section}
+                            </p>
+                            {items.map((item) => {
+                                const Icon = item.icon
+                                const isActive = item.key === active
+
+                                return (
+                                    <Link
+                                        key={item.key}
+                                        to={item.to}
+                                        search={item.tab ? { tab: item.tab } : {}}
+                                        onClick={() => onNavigate?.()}
+                                        className={cn(
+                                            "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                                            isActive
+                                                ? "bg-brand-500/15 text-white"
+                                                : "text-steel-300 hover:bg-white/5 hover:text-white"
+                                        )}
+                                    >
+                                        <Icon
+                                            className={cn(
+                                                "h-5 w-5 shrink-0",
+                                                isActive ? "text-brand-400" : "text-steel-400 group-hover:text-steel-200"
+                                            )}
+                                        />
+                                        <span className="flex-1">{item.label}</span>
+                                        {isActive && <ChevronRight className="h-4 w-4 text-brand-400" />}
+                                    </Link>
+                                )
+                            })}
+                        </div>
+                    )
+                })}
             </nav>
 
             <div className="border-t border-white/10 p-4">

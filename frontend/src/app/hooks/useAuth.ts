@@ -1,15 +1,23 @@
 import React, { useState, useEffect, useContext, createContext, useCallback, useRef } from 'react'
 import type { ReactNode } from 'react'
-import { apiClient, REFRESH_MARGIN_MS, type AuthSession, type CurrentUser } from '../lib/api-client'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiClient, REFRESH_MARGIN_MS, type AuthSession, type Me } from '../lib/api-client'
+
+/** React Query key for GET /api/me. */
+export const meQueryKey = ['me'] as const
+
+/** Access can change at any time (an admin edits roles or features), so re-read it this often. */
+const ME_REFETCH_INTERVAL_MS = 5 * 60 * 1000
 
 interface AuthContextType {
-    user: CurrentUser | null
+    /** The caller (GET /api/me), or null when signed out. */
+    me: Me | null
     login: (email: string, password: string) => Promise<void>
     /** Sign in with a Google ID token from Google Identity Services. */
     loginWithGoogle: (googleIdToken: string) => Promise<void>
     logout: () => void
-    /** Re-reads the caller's user record. */
-    refreshUser: () => Promise<void>
+    /** Re-reads GET /api/me. */
+    refreshMe: () => Promise<void>
     isAuthenticated: boolean
     /** True while the stored session is being validated against the API. */
     isLoading: boolean
@@ -18,12 +26,21 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-    const [user, setUser] = useState<CurrentUser | null>(null)
-    // Only "loading" when there is a stored session to validate.
-    const [isLoading, setIsLoading] = useState(() => apiClient.restoreSession() !== null)
+    const queryClient = useQueryClient()
+    const [hasSession, setHasSession] = useState(() => apiClient.restoreSession() !== null)
     const [expiresAt, setExpiresAt] = useState<number | null>(() => apiClient.getSession()?.expiresAt ?? null)
     // True between an explicit sign-out and the session-change notification it causes.
     const signingOut = useRef(false)
+
+    const meQuery = useQuery({
+        queryKey: meQueryKey,
+        queryFn: () => apiClient.getMe(),
+        enabled: hasSession,
+        staleTime: 0,
+        refetchOnWindowFocus: true,
+        refetchInterval: ME_REFETCH_INTERVAL_MS,
+    })
+    const me = hasSession ? (meQuery.data ?? null) : null
 
     // Track the session: refreshes move the expiry; a cleared session means the
     // user is signed out. A refresh that failed (rather than a sign-out the user
@@ -33,19 +50,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             apiClient.onSessionChange((session) => {
                 setExpiresAt(session?.expiresAt ?? null)
                 if (session === null) {
-                    setUser(null)
+                    setHasSession(false)
+                    queryClient.removeQueries({ queryKey: meQueryKey })
                     if (!signingOut.current && window.location.pathname !== '/login') {
                         window.location.assign('/login')
                     }
                     signingOut.current = false
                 }
             }),
-        []
+        [queryClient]
     )
+
+    // A 403 anywhere may mean the caller's access changed: re-read it.
+    useEffect(
+        () => apiClient.onForbidden(() => void queryClient.invalidateQueries({ queryKey: meQueryKey })),
+        [queryClient]
+    )
+
+    // A stored session the API rejects on first load is discarded.
+    useEffect(() => {
+        if (hasSession && meQuery.isError && !meQuery.data) {
+            signingOut.current = true
+            apiClient.clearSession()
+        }
+    }, [hasSession, meQuery.isError, meQuery.data])
 
     // Refresh shortly before the ID token expires, so an idle tab stays signed in.
     useEffect(() => {
-        if (expiresAt === null || user === null) {
+        if (expiresAt === null || me === null) {
             return
         }
 
@@ -56,49 +88,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }, delay)
 
         return () => window.clearTimeout(timer)
-    }, [expiresAt, user])
-
-    // On mount, validate any stored session against the API (refreshing it if it
-    // has expired). A session the backend rejects is discarded.
-    useEffect(() => {
-        if (!apiClient.getSession()) {
-            return
-        }
-
-        let cancelled = false
-
-        apiClient
-            .getCurrentUser()
-            .then((me) => {
-                if (!cancelled) setUser(me)
-            })
-            .catch(() => {
-                signingOut.current = true
-                apiClient.clearSession()
-                if (!cancelled) setUser(null)
-            })
-            .finally(() => {
-                if (!cancelled) setIsLoading(false)
-            })
-
-        return () => {
-            cancelled = true
-        }
-    }, [])
+    }, [expiresAt, me])
 
     // Prove a fresh GCIP session works against our API before persisting it.
-    const completeSignIn = useCallback(async (session: AuthSession) => {
-        apiClient.adoptSession(session)
-        try {
-            const me = await apiClient.getCurrentUser()
-            apiClient.persistSession()
-            setUser(me)
-        } catch (error) {
-            signingOut.current = true
-            apiClient.clearSession()
-            throw error
-        }
-    }, [])
+    const completeSignIn = useCallback(
+        async (session: AuthSession) => {
+            apiClient.adoptSession(session)
+            try {
+                await queryClient.fetchQuery({ queryKey: meQueryKey, queryFn: () => apiClient.getMe(), staleTime: 0 })
+                apiClient.persistSession()
+                setHasSession(true)
+            } catch (error) {
+                signingOut.current = true
+                apiClient.clearSession()
+                throw error
+            }
+        },
+        [queryClient]
+    )
 
     const login = useCallback(
         async (email: string, password: string) => {
@@ -114,24 +121,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         [completeSignIn]
     )
 
-    const refreshUser = useCallback(async () => {
-        setUser(await apiClient.getCurrentUser())
-    }, [])
+    const refreshMe = useCallback(() => queryClient.invalidateQueries({ queryKey: meQueryKey }), [queryClient])
 
     const logout = useCallback(() => {
         signingOut.current = true
         apiClient.clearSession()
-        setUser(null)
     }, [])
 
     const value: AuthContextType = {
-        user,
+        me,
         login,
         loginWithGoogle,
         logout,
-        refreshUser,
-        isAuthenticated: user !== null,
-        isLoading,
+        refreshMe,
+        isAuthenticated: me !== null,
+        isLoading: hasSession && meQuery.isPending,
     }
 
     return React.createElement(AuthContext.Provider, { value }, children)

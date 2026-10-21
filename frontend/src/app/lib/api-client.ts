@@ -39,29 +39,24 @@ function sessionFrom(idToken: string, refreshToken: string, expiresInSeconds: st
     return { idToken, refreshToken, expiresAt: Date.now() + Number(expiresInSeconds) * 1000 }
 }
 
-/** The caller's own user record, as returned by GET /api/users/me. */
-export interface CurrentUser {
-    id: number
-    identityPlatformUid: string
-    email: string
-    status: string
-    classification: string
-    workspaceSignInRequired: boolean
-    roles: { roleId: number; name: string; organizationId: number | null; applicationId: number | null; expiresAt: string | null }[]
-    // One entry per scope the caller holds anything in. organizationId null = platform scope.
-    permissions: { organizationId: number | null; applicationId: number | null; permissions: string[] }[]
-    organizations: {
-        organizationId: number;
-        name: string;
-        permissions: string[];
-        applications: {
-            applicationId: number;
-            key: string;
-            name: string;
-            modules: { moduleId: number; key: string; name: string }[];
-            permissions: string[];
-        }[];
-    }[];
+/** The caller as GET /api/me returns them (ACCESS-MODEL.md section 9). */
+export interface Me {
+    user: {
+        id: number
+        identityPlatformUid: string
+        email: string
+        displayName: string | null
+        /** `Internal` or `External`. */
+        userType: string
+        status: string
+        lastSignInAt: string | null
+    }
+    /** Role keys, e.g. `scrapgo_user`. */
+    roles: string[]
+    /** Effective permission keys: granted by a role, and their feature is on. */
+    permissions: string[]
+    /** Keys of the features that are on for the caller. */
+    features: string[]
 }
 
 /** GCIP sign-in response (subset we care about). */
@@ -124,11 +119,14 @@ function gcipErrorMessage(code: string | undefined): string {
 
 type SessionListener = (session: AuthSession | null) => void
 
+const ME_ENDPOINT = '/api/me'
+
 class ApiClient {
     private baseUrl: string
     private session: AuthSession | null = null
     private refreshing: Promise<AuthSession> | null = null
     private listeners = new Set<SessionListener>()
+    private forbiddenListeners = new Set<() => void>()
 
     constructor(baseUrl: string) {
         this.baseUrl = baseUrl
@@ -187,6 +185,12 @@ class ApiClient {
     onSessionChange(listener: SessionListener): () => void {
         this.listeners.add(listener)
         return () => this.listeners.delete(listener)
+    }
+
+    /** Called after any 403 from an endpoint other than /api/me: the caller's access may have changed. */
+    onForbidden(listener: () => void): () => void {
+        this.forbiddenListeners.add(listener)
+        return () => this.forbiddenListeners.delete(listener)
     }
 
     private notify() {
@@ -342,6 +346,12 @@ class ApiClient {
             response = await this.send(endpoint, options)
         }
 
+        if (response.status === 403 && endpoint !== ME_ENDPOINT) {
+            for (const listener of this.forbiddenListeners) {
+                listener()
+            }
+        }
+
         if (!response.ok) {
             let problem: ProblemDetails | undefined
             try {
@@ -375,13 +385,9 @@ class ApiClient {
         })
     }
 
-    /**
-     * GET /api/users/me — returns the caller's user record, auto-provisioning
-     * it on first sight. This is the proof that the token is valid and the
-     * backend recognises the caller.
-     */
-    async getCurrentUser(): Promise<CurrentUser> {
-        return this.fetchWithAuth<CurrentUser>('/api/users/me')
+    /** GET /api/me: the caller's user, roles, effective permissions and features. */
+    async getMe(): Promise<Me> {
+        return this.fetchWithAuth<Me>(ME_ENDPOINT)
     }
 }
 

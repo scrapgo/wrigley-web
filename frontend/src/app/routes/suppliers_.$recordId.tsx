@@ -1,10 +1,15 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { AppShell } from '../components/app-shell'
+import { RequirePermission } from '../components/access'
 import { SupplierDetailPanel } from '../components/suppliers/supplier-detail-panel'
 
 export const Route = createFileRoute('/suppliers_/$recordId')({
-    component: SupplierDetailComponent,
+    component: () => (
+        <RequirePermission anyOf={['suppliers.view_all', 'suppliers.view_own']}>
+            <SupplierDetailComponent />
+        </RequirePermission>
+    ),
     beforeLoad: async () => {
         const token = localStorage.getItem('authToken')
         if (!token) {

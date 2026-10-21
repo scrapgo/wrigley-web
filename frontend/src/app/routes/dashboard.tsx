@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 
 import { AppShell } from '../components/app-shell'
+import { RequirePermission } from '../components/access'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge'
@@ -38,7 +39,11 @@ import { cn } from '../lib/utils'
 import { useAuth } from '../hooks/useAuth'
 
 export const Route = createFileRoute('/dashboard')({
-    component: DashboardComponent,
+    component: () => (
+        <RequirePermission anyOf={['dashboard.view']}>
+            <DashboardComponent />
+        </RequirePermission>
+    ),
     beforeLoad: async () => {
         const token = localStorage.getItem('authToken')
         if (!token) {

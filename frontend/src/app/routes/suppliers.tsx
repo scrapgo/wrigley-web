@@ -1,10 +1,15 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { AppShell } from '../components/app-shell'
+import { RequirePermission } from '../components/access'
 import { SuppliersPanel } from '../components/suppliers/suppliers-panel'
 
 export const Route = createFileRoute('/suppliers')({
-    component: SuppliersComponent,
+    component: () => (
+        <RequirePermission anyOf={['suppliers.view_all', 'suppliers.view_own']}>
+            <SuppliersComponent />
+        </RequirePermission>
+    ),
     validateSearch: (search: Record<string, unknown>): { search?: string } => ({
         search: typeof search.search === 'string' && search.search ? search.search : undefined,
     }),

@@ -46,9 +46,14 @@ public interface ISupplierSource
     /// <exception cref="SupplierSourceUnavailableException">The source failed and nothing cached could be served.</exception>
     Task<Sourced<IReadOnlyList<SupplierDispatchRecordDto>?>> ListDispatchRecordsAsync(int supplierRecordId, CancellationToken cancellationToken);
 
-    /// <summary>Suppliers with a name, sorted by name, optionally filtered by a name substring, one page at a time.</summary>
+    /// <summary>
+    /// Suppliers with a name, sorted by name, optionally filtered by a name
+    /// substring, one page at a time.
+    /// </summary>
+    /// <param name="recordIds">Only these Record IDs (the caller's scope); null for every supplier. Never empty.</param>
     /// <exception cref="SupplierSourceUnavailableException">The source failed and nothing cached could be served.</exception>
-    Task<Sourced<SupplierPage>> ListAsync(string? search, int skip, int top, CancellationToken cancellationToken);
+    Task<Sourced<SupplierPage>> ListAsync(
+        string? search, int skip, int top, IReadOnlyCollection<int>? recordIds, CancellationToken cancellationToken);
 }
 
 /// <summary>A value plus how fresh it is (Quickbase data is served through a cache).</summary>

@@ -306,7 +306,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*B13 · Supplier scoping\*\*
+\- \[x] \*\*B13 · Supplier scoping\*\*
 
 &#x20; > Protect every `/api/suppliers…` read with `suppliers.view\_all|suppliers.view\_own`.
 

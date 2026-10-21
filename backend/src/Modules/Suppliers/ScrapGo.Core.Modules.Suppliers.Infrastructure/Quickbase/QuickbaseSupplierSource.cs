@@ -209,13 +209,14 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
         return new(records, Freshness(result));
     }
 
-    public async Task<Sourced<SupplierPage>> ListAsync(string? search, int skip, int top, CancellationToken cancellationToken)
+    public async Task<Sourced<SupplierPage>> ListAsync(
+        string? search, int skip, int top, IReadOnlyCollection<int>? recordIds, CancellationToken cancellationToken)
     {
         var result = await QueryAsync(
             new QuickbaseQuery(
                 SuppliersTable.TableId,
                 SuppliersTable.ListFields,
-                SuppliersTable.NamedLike(search),
+                SuppliersTable.NamedLike(search, recordIds),
                 [new QuickbaseSort(SuppliersTable.Account)],
                 Skip: skip,
                 Top: top),

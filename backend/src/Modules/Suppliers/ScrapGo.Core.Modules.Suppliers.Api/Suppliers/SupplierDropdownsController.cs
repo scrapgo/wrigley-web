@@ -1,15 +1,14 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ScrapGo.Core.Modules.Suppliers.Api.Suppliers;
 
 /// <summary>
 /// Dropdown options for the call and prospect status form. Static and not
-/// Quickbase data, so any signed-in user may read them. Each option's
+/// Quickbase data, so anyone with a supplier view permission may read them. Each option's
 /// <c>value</c> is what supplier responses carry; <c>label</c> is what to show.
 /// </summary>
 [ApiController]
-[Authorize]
+[RequirePermission(SupplierPermissions.ViewAll, SupplierPermissions.ViewOwn)]
 [Route("api/suppliers")]
 [Produces("application/json")]
 public sealed class SupplierDropdownsController : ControllerBase

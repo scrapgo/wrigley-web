@@ -1,14 +1,13 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ScrapGo.Core.Modules.Suppliers.Api.Suppliers;
 
 /// <summary>
 /// Reference data for the supplier forms. Static and not Quickbase data, so
-/// any signed-in user may read it.
+/// anyone with a supplier view permission may read it.
 /// </summary>
 [ApiController]
-[Authorize]
+[RequirePermission(SupplierPermissions.ViewAll, SupplierPermissions.ViewOwn)]
 [Route("api/suppliers/payment-terms")]
 [Produces("application/json")]
 public sealed class PaymentTermsController : ControllerBase

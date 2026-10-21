@@ -68,13 +68,13 @@ public class CallProspectStatusSpecs
     public class Given_a_caller_without_supplier_access(SuppliersSpecFixture fixture) : IClassFixture<SuppliersSpecFixture>
     {
         [Fact]
-        public async Task A_user_who_is_not_a_platform_administrator_gets_four_hundred_three_and_no_query_runs()
+        public async Task A_user_without_a_supplier_view_permission_gets_four_hundred_three_and_no_query_runs()
         {
-            var (uid, _) = await fixture.SeedUserAsync();
+            var token = fixture.CreateToken((await fixture.SeedUserAsync()).Uid);
             var before = fixture.Quickbase.Queries.Count;
 
             var response = await fixture.SendAsync(
-                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath("/17511/call-prospect-status"), fixture.CreateToken(uid));
+                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath("/17511/call-prospect-status"), token);
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
             Assert.Equal(before, fixture.Quickbase.Queries.Count);
@@ -130,8 +130,7 @@ public class CallProspectStatusSpecs
         [Fact]
         public async Task List_every_option_in_order()
         {
-            var (uid, _) = await fixture.SeedUserAsync();
-            var token = fixture.CreateToken(uid);
+            var token = await fixture.SeedExternalSupplierUserAsync();
 
             var lastCall = await ReadOptionsAsync(await fixture.SendAsync(HttpMethod.Get, "/api/suppliers/last-call-results", token));
             var objections = await ReadOptionsAsync(await fixture.SendAsync(HttpMethod.Get, "/api/suppliers/supplier-objections", token));

@@ -69,10 +69,10 @@ public class DispatchRecordsSpecs
         [Fact]
         public async Task The_status_options_endpoint_lists_every_status_in_order()
         {
-            var (uid, _) = await fixture.SeedUserAsync();
+            var token = await fixture.SeedExternalSupplierUserAsync();
 
             var response = await fixture.SendAsync(
-                HttpMethod.Get, "/api/suppliers/linked-its-dispatch-records/statuses", fixture.CreateToken(uid));
+                HttpMethod.Get, "/api/suppliers/linked-its-dispatch-records/statuses", token);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var values = (await response.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray()
@@ -88,13 +88,13 @@ public class DispatchRecordsSpecs
     public class Given_a_caller_without_supplier_access(SuppliersSpecFixture fixture) : IClassFixture<SuppliersSpecFixture>
     {
         [Fact]
-        public async Task A_user_who_is_not_a_platform_administrator_gets_four_hundred_three_and_no_query_runs()
+        public async Task A_user_without_a_supplier_view_permission_gets_four_hundred_three_and_no_query_runs()
         {
-            var (uid, _) = await fixture.SeedUserAsync();
+            var token = fixture.CreateToken((await fixture.SeedUserAsync()).Uid);
             var before = fixture.Quickbase.Queries.Count;
 
             var response = await fixture.SendAsync(
-                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(Path), fixture.CreateToken(uid));
+                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(Path), token);
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
             Assert.Equal(before, fixture.Quickbase.Queries.Count);

@@ -78,8 +78,8 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 
 **QuickbaseEngine**: implements `IQuickbaseQueryService`, cache-aside over the Quickbase REST API, backed by `quickbase.query_caches`. Its Api project has no controllers.
 
-**Suppliers** (Application, Infrastructure, Api; no Domain or database, since Quickbase owns the data): read endpoints over the Quickbase Suppliers table `bqrcgnatz`, under `/api/suppliers`, for holders of `suppliers.view_all` for now. Supplier scoping (B13 in `docs/ACCESS-MODEL-TASKS.md`) adds `suppliers.view_own`.
-- `GET /api/suppliers` returns names sorted by name, with `search`, `skip` and `top` (1–1000, default 100).
+**Suppliers** (Application, Infrastructure, Api; no Domain or database, since Quickbase owns the data): read endpoints over the Quickbase Suppliers table `bqrcgnatz`, under `/api/suppliers`, every route (dropdowns included) behind `[RequirePermission(SupplierPermissions.ViewAll, SupplierPermissions.ViewOwn)]`. `suppliers.view_all` sees every supplier; `suppliers.view_own` only the caller's linked Record IDs (B13).
+- `GET /api/suppliers` returns names sorted by name, with `search`, `skip` and `top` (1–1000, default 100). A scoped caller's query gets `({3.EX.'id'}OR…)AND` in front (`SuppliersTable.NamedLike`); an empty scope is an empty page (`freshness.source` `None`) without a Quickbase call.
 - `GET …/suppliers/{recordId}` returns one supplier's details.
 - `GET …/suppliers/{recordId}/call-prospect-status` returns call & prospect status (fields 197, 192, 193, 236, 181, 238, 97).
 - `GET …/suppliers/{recordId}/yard-capabilities` returns yard capabilities (13 checkboxes).
@@ -89,7 +89,7 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 - `GET …/suppliers/{recordId}/call-notes-history` returns the supplier's notes from the **Call Notes** table `br8tgw3tp` (`{19.EX.'<recordId>'}`), newest first (sorted in the API). An empty list, never 404.
 - `GET …/suppliers/{recordId}/linked-its-dispatch-records` returns the ITS dispatch records linked to the supplier from table `bspsb9kpm` (`{366.EX.'<recordId>'}`), newest ship date first; `consumer` is "Consumer - City, State". An empty list, never 404.
 - `GET …/suppliers/{recordId}/other-prospect-information` returns Other Prospect Information (Documents & Other): Suppliers fields 77, 152, 175, 157 (text) and 215 (checkbox), plus `latestActivity` from the **Call Notes** table `br8tgw3tp` (`{19.EX.'<recordId>'}`, field 1 descending, top 1; fields 3, 19, 57, 1), or `null` when there is none. This is two queries, because Quickbase can't join: an unknown supplier gives 404 without the second query, and `freshness` is the less fresh of the two.
-- All of them share `SupplierService.ReadRecordAsync`: the access check, then 404 / 502.
+- All of them share `SupplierService.ReadRecordAsync`: the access check, then 404 `supplier_not_found` for a record outside the caller's scope (before Quickbase is called, and indistinguishable from a missing one), then 404 / 502.
 - `ISupplierSource` (Application) is implemented by `QuickbaseSupplierSource` (Infrastructure), which holds the field ids (`SuppliersTable`) and the JSON mapping.
 - Errors: 403 `missing_permission`, 404 `supplier_not_found`, 502 `quickbase_unavailable`.
 - **Every supplier dropdown is sent and accepted as its exact text.** Each enum member carries the text in `[JsonStringEnumMemberName("…")]`, which is the single source for the JSON value, the label (`DropdownCatalog<TEnum>.FromJsonNames()`) and the Quickbase text.
@@ -129,7 +129,7 @@ This section describes an interim model, being replaced by [`../docs/ACCESS-MODE
 
 ### Permissions and resolution
 
-- **`[RequirePermission(params string[] anyOf)]`** sets a `perm:a|b` policy; `PermissionPolicyProvider` builds it on demand (any of the keys), and `PermissionHandler` checks it against `ICurrentAccess`. The only role-key literals allowed are in `DefaultRoleNames`; code checks permission keys only.
+- **`[RequirePermission(params string[] anyOf)]`** (Shared.Infrastructure/Authorization, so any module can use it) sets a `perm:a|b` policy (`PermissionPolicies`); `PermissionPolicyProvider` builds it on demand (any of the keys), and `PermissionHandler` checks it against `ICurrentAccess`. The only role-key literals allowed are in `DefaultRoleNames`; code checks permission keys only.
 - **Denials:** `PermissionDeniedResultHandler` turns every authorization 403 into ProblemDetails with `reason: missing_permission` and writes an `access.denied` audit row (method, path, required keys).
 - **The disabled-user gate** (`DisabledUserGateMiddleware` → `EvaluateUserStatusGateHandler`) reads the same `ICurrentAccess`: a known user who isn't Active gets 403 `account_disabled` (audited as `access.denied`). Status changes evict the user from the cache, so they apply on the very next request.
 - **Sessions (B10):** `POST /api/session` (`SessionController` → `StartSessionHandler`) ends every sign-in and is the only place users are created. An unknown UID becomes an Internal user with `scrapgo_user` only when the token's provider is `google.com`, `email_verified` is true and `hd` is on the allow-list, exactly once via `InsertIfAbsentAsync`; anything else is 403 `no_access` with no row. A known user's sign-in is recorded (`session.started`). `GET /api/me` (`MeController` → `GetMeHandler`) returns `{ user, roles, permissions, features }` and never creates a user (403 `no_access` for an unknown UID).

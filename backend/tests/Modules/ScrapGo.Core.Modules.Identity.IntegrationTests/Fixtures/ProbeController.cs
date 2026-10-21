@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using ScrapGo.Core.Modules.Identity.Api.Authorization;
+using ScrapGo.Core.Shared.Infrastructure.Authorization;
 
 namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Fixtures;
 

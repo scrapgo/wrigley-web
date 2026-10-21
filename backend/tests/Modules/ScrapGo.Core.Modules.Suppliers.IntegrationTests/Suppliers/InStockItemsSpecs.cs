@@ -72,13 +72,13 @@ public class InStockItemsSpecs
     public class Given_a_caller_without_supplier_access(SuppliersSpecFixture fixture) : IClassFixture<SuppliersSpecFixture>
     {
         [Fact]
-        public async Task A_user_who_is_not_a_platform_administrator_gets_four_hundred_three_and_no_query_runs()
+        public async Task A_user_without_a_supplier_view_permission_gets_four_hundred_three_and_no_query_runs()
         {
-            var (uid, _) = await fixture.SeedUserAsync();
+            var token = fixture.CreateToken((await fixture.SeedUserAsync()).Uid);
             var before = fixture.Quickbase.Queries.Count;
 
             var response = await fixture.SendAsync(
-                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(Path), fixture.CreateToken(uid));
+                HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(Path), token);
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
             Assert.Equal(before, fixture.Quickbase.Queries.Count);
@@ -94,9 +94,9 @@ public class InStockItemsSpecs
         [InlineData("truck-types", "Dump Trailer", "Flatbread Trailer", 6)]
         public async Task Each_options_endpoint_lists_its_exact_text_in_order(string route, string first, string last, int count)
         {
-            var (uid, _) = await fixture.SeedUserAsync();
+            var token = await fixture.SeedExternalSupplierUserAsync();
 
-            var response = await fixture.SendAsync(HttpMethod.Get, $"/api/suppliers/in-stock-items/{route}", fixture.CreateToken(uid));
+            var response = await fixture.SendAsync(HttpMethod.Get, $"/api/suppliers/in-stock-items/{route}", token);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var options = (await response.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray()
@@ -123,9 +123,9 @@ public class InStockItemsSpecs
         [InlineData("dirty-or-clean")]
         public async Task The_removed_dropdowns_no_longer_have_options_endpoints(string route)
         {
-            var (uid, _) = await fixture.SeedUserAsync();
+            var token = await fixture.SeedExternalSupplierUserAsync();
 
-            var response = await fixture.SendAsync(HttpMethod.Get, $"/api/suppliers/in-stock-items/{route}", fixture.CreateToken(uid));
+            var response = await fixture.SendAsync(HttpMethod.Get, $"/api/suppliers/in-stock-items/{route}", token);
 
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }

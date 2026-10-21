@@ -32,7 +32,11 @@ public sealed record SupplierDto(
     int? DeliveredBefore90Days,
     DeadFreight? DeadFreight);
 
-/// <param name="Source"><c>Cache</c>, <c>Quickbase</c> (fetched just now) or <c>StaleCache</c> (Quickbase failed; an older copy was served).</param>
+/// <param name="Source">
+/// <c>Cache</c>, <c>Quickbase</c> (fetched just now), <c>StaleCache</c> (Quickbase
+/// failed; an older copy was served) or <c>None</c> (nothing was fetched: the
+/// caller's supplier scope is empty).
+/// </param>
 /// <param name="FetchedAt">When the data was fetched from Quickbase.</param>
 public sealed record DataFreshness(string Source, DateTimeOffset FetchedAt);
 

@@ -57,7 +57,7 @@ public class TargetPricingProgressRailSpecs
     public class Given_a_caller_without_supplier_access(SuppliersSpecFixture fixture) : IClassFixture<SuppliersSpecFixture>
     {
         [Fact]
-        public async Task A_user_who_is_not_a_platform_administrator_gets_four_hundred_three_and_no_query_runs()
+        public async Task A_user_without_a_supplier_view_permission_gets_four_hundred_three_and_no_query_runs()
         {
             var (uid, _) = await fixture.SeedUserAsync();
             var before = fixture.Quickbase.Queries.Count;

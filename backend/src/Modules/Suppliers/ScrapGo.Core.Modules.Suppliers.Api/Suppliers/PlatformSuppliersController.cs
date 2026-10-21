@@ -1,15 +1,15 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ScrapGo.Core.Modules.Suppliers.Api.Suppliers;
 
 /// <summary>
 /// Suppliers (Quickbase table <c>bqrcgnatz</c>), read-only, for holders of
-/// <c>suppliers.view_all</c> signed in with Google Workspace. The Quickbase
-/// Suppliers table is ScrapGo-wide.
+/// <c>suppliers.view_all</c> (every supplier) or <c>suppliers.view_own</c>
+/// (only their linked suppliers). A supplier outside the caller's scope is 404
+/// <c>supplier_not_found</c>, on the record and on every sub-resource.
 /// </summary>
 [ApiController]
-[Authorize]
+[RequirePermission(SupplierPermissions.ViewAll, SupplierPermissions.ViewOwn)]
 [Route("api/suppliers")]
 [Produces("application/json")]
 public sealed class PlatformSuppliersController(SupplierService suppliers) : ControllerBase

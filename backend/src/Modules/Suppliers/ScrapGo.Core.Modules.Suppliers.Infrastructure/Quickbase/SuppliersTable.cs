@@ -127,12 +127,18 @@ public static class SuppliersTable
 
     /// <summary>
     /// Suppliers with a name (<c>{8.XEX.''}</c>), optionally also containing
-    /// <paramref name="search"/> (<c>{8.CT.'...'}</c>).
+    /// <paramref name="search"/> (<c>{8.CT.'...'}</c>), and optionally only
+    /// the given Record IDs (<c>({3.EX.'1'}OR{3.EX.'2'})</c>, ascending, so equal
+    /// scopes share a cache entry).
     /// </summary>
-    public static string NamedLike(string? search) =>
-        search is null
+    public static string NamedLike(string? search, IReadOnlyCollection<int>? recordIds = null)
+    {
+        var where = search is null
             ? $"{{{Account}.XEX.''}}"
             : $"{{{Account}.XEX.''}}AND{{{Account}.CT.'{EscapeValue(search)}'}}";
+
+        return recordIds is null ? where : $"({string.Join("OR", recordIds.Order().Select(ByRecordId))})AND{where}";
+    }
 
     /// <summary>Quickbase query values are single-quoted; a backslash escapes a quote or another backslash.</summary>
     public static string EscapeValue(string value) => value.Replace("\\", "\\\\").Replace("'", "\\'");

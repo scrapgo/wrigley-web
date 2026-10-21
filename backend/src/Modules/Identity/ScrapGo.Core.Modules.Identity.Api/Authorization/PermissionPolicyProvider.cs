@@ -9,23 +9,23 @@ namespace ScrapGo.Core.Modules.Identity.Api.Authorization;
 /// <c>perm:a|b</c> needs any of <c>a</c> or <c>b</c>. Every other policy name,
 /// and the default and fallback policies, come from the default provider.
 /// </summary>
+/// <remarks>
+/// The name format (<see cref="PermissionPolicies"/>) and
+/// <see cref="RequirePermissionAttribute"/> live in Shared.Infrastructure, so
+/// other modules protect their endpoints without referencing Identity.
+/// </remarks>
 public sealed class PermissionPolicyProvider(IOptions<AuthorizationOptions> options) : IAuthorizationPolicyProvider
 {
-    public const string Prefix = "perm:";
-
     private readonly DefaultAuthorizationPolicyProvider _fallback = new(options);
-
-    public static string PolicyName(IEnumerable<string> anyOf) => Prefix + string.Join('|', anyOf);
 
     public Task<AuthorizationPolicy?> GetPolicyAsync(string policyName)
     {
-        if (!policyName.StartsWith(Prefix, StringComparison.Ordinal))
+        if (!PermissionPolicies.TryParse(policyName, out var anyOf))
         {
             return _fallback.GetPolicyAsync(policyName);
         }
 
-        var anyOf = policyName[Prefix.Length..].Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (anyOf.Length == 0)
+        if (anyOf.Count == 0)
         {
             return Task.FromResult<AuthorizationPolicy?>(null);
         }

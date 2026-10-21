@@ -1,5 +1,5 @@
 // Suppliers come from Quickbase (bqrcgnatz) through the shared query service,
-// only for platform administrators (Admin.Access at platform scope) for now.
+// for holders of suppliers.view_all or suppliers.view_own (B13 scopes the latter).
 using ScrapGo.Core.Modules.Suppliers.Application.Suppliers;
 
 namespace ScrapGo.Core.Modules.Suppliers.IntegrationTests.Suppliers;
@@ -160,7 +160,7 @@ public class ReadingSuppliers
     {
         // Denied before Quickbase is touched.
         [Fact]
-        public async Task A_user_who_is_not_a_platform_administrator_gets_four_hundred_three_and_no_query_runs()
+        public async Task A_user_without_a_supplier_view_permission_gets_four_hundred_three_and_no_query_runs()
         {
             var (uid, _) = await fixture.SeedUserAsync();
             var before = fixture.Quickbase.Queries.Count;
@@ -185,9 +185,10 @@ public class ReadingSuppliers
     {
         // Modules can't reference each other, so the string is pinned to Identity's catalog here.
         [Fact]
-        public void Supplier_read_is_the_suppliers_view_all_permission()
+        public void The_supplier_view_permissions_match_the_catalog()
         {
             Assert.Equal(ScrapGo.Core.Modules.Identity.Domain.Authorization.Permissions.SuppliersViewAll, SupplierPermissions.ViewAll);
+            Assert.Equal(ScrapGo.Core.Modules.Identity.Domain.Authorization.Permissions.SuppliersViewOwn, SupplierPermissions.ViewOwn);
         }
     }
 }

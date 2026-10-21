@@ -35,11 +35,11 @@ public class DeadFreightSpecs
     public class The_options_endpoint(SuppliersSpecFixture fixture) : IClassFixture<SuppliersSpecFixture>
     {
         [Fact]
-        public async Task Lists_the_dropdown_options_in_order_for_any_signed_in_user()
+        public async Task Lists_the_dropdown_options_in_order_for_any_supplier_viewer()
         {
-            var (uid, _) = await fixture.SeedUserAsync();
+            var token = await fixture.SeedExternalSupplierUserAsync();
 
-            var response = await fixture.SendAsync(HttpMethod.Get, "/api/suppliers/dead-freight", fixture.CreateToken(uid));
+            var response = await fixture.SendAsync(HttpMethod.Get, "/api/suppliers/dead-freight", token);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var options = (await response.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray()

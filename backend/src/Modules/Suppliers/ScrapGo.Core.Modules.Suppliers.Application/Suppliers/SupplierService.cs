@@ -6,9 +6,10 @@ public enum SupplierOutcome
 {
     Success,
 
-    /// <summary>The caller lacks <see cref="SupplierPermissions.ViewAll"/>.</summary>
+    /// <summary>The caller holds neither <see cref="SupplierPermissions.ViewAll"/> nor <see cref="SupplierPermissions.ViewOwn"/>.</summary>
     Forbidden,
 
+    /// <summary>No such supplier, or one outside the caller's scope: the two are indistinguishable on purpose.</summary>
     NotFound,
 
     /// <summary>A paging value out of range.</summary>
@@ -48,12 +49,18 @@ public sealed record SupplierCallProspectStatusResult(
 public sealed record ListSuppliersQuery(string? Search, int? Skip, int? Top);
 
 /// <summary>
-/// Supplier reads for the portal. Every call checks the caller through
-/// <see cref="IUserContext"/> before any Quickbase data is touched:
-/// <see cref="SupplierPermissions.ViewAll"/>, until
-/// supplier scoping (B13) arrives.
+/// Supplier reads for the portal, scoped by <see cref="IUserContext.GetSupplierScopeAsync"/>
+/// before any Quickbase data is touched: <see cref="SupplierPermissions.ViewAll"/>
+/// sees every supplier, <see cref="SupplierPermissions.ViewOwn"/> only the
+/// caller's linked Record IDs.
 /// </summary>
-public sealed class SupplierService(IUserContext userContext, ISupplierSource source, ILogger<SupplierService> logger)
+/// <remarks>
+/// A record outside the scope is <see cref="SupplierOutcome.NotFound"/>, the
+/// same as one that doesn't exist, so an external user can't probe for other
+/// suppliers. The list is filtered in the Quickbase query itself.
+/// </remarks>
+public sealed class SupplierService(
+    IUserContext userContext, ISupplierSource source, TimeProvider timeProvider, ILogger<SupplierService> logger)
 {
     public const int DefaultTop = 100;
 
@@ -163,19 +170,22 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
             : new(outcome);
     }
 
-    /// <summary>Checks access, then reads one supplier record; NotFound for a missing record.</summary>
+    /// <summary>
+    /// Checks access and scope, then reads one supplier record; NotFound for a
+    /// missing record or one outside the caller's scope (Quickbase isn't asked).
+    /// </summary>
     private async Task<(SupplierOutcome Outcome, Sourced<T?>? Found)> ReadRecordAsync<T>(
         int recordId,
         Func<int, CancellationToken, Task<Sourced<T?>>> read,
         CancellationToken cancellationToken)
         where T : class
     {
-        if (!await CanReadAsync(cancellationToken))
+        if (await GetScopeAsync(cancellationToken) is not { } scope)
         {
             return (SupplierOutcome.Forbidden, null);
         }
 
-        if (recordId < 1)
+        if (recordId < 1 || !scope.Includes(recordId))
         {
             return (SupplierOutcome.NotFound, null);
         }
@@ -192,9 +202,10 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
         }
     }
 
+    /// <summary>The suppliers in the caller's scope; an empty scope is an empty page, without asking Quickbase.</summary>
     public async Task<SupplierListResult> ListAsync(ListSuppliersQuery query, CancellationToken cancellationToken)
     {
-        if (!await CanReadAsync(cancellationToken))
+        if (await GetScopeAsync(cancellationToken) is not { } scope)
         {
             return new(SupplierOutcome.Forbidden);
         }
@@ -206,11 +217,17 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
             return new(SupplierOutcome.InvalidRequest);
         }
 
+        if (scope.IsEmpty)
+        {
+            return new(SupplierOutcome.Success, new SupplierListResponse(
+                [], skip, top, TotalRecords: 0, new DataFreshness("None", timeProvider.GetUtcNow())));
+        }
+
         var search = string.IsNullOrWhiteSpace(query.Search) ? null : query.Search.Trim();
 
         try
         {
-            var page = await source.ListAsync(search, skip, top, cancellationToken);
+            var page = await source.ListAsync(search, skip, top, scope.IsAll ? null : scope.RecordIds, cancellationToken);
             return new(SupplierOutcome.Success, new SupplierListResponse(
                 page.Value.Items, skip, top, page.Value.TotalRecords, page.Freshness));
         }
@@ -221,6 +238,15 @@ public sealed class SupplierService(IUserContext userContext, ISupplierSource so
         }
     }
 
-    private Task<bool> CanReadAsync(CancellationToken cancellationToken) =>
-        userContext.HasPermissionAsync(SupplierPermissions.ViewAll, cancellationToken);
+    /// <summary>The caller's supplier scope, or null when they hold no supplier view permission at all.</summary>
+    private async Task<SupplierScope?> GetScopeAsync(CancellationToken cancellationToken)
+    {
+        if (!await userContext.HasPermissionAsync(SupplierPermissions.ViewAll, cancellationToken)
+            && !await userContext.HasPermissionAsync(SupplierPermissions.ViewOwn, cancellationToken))
+        {
+            return null;
+        }
+
+        return await userContext.GetSupplierScopeAsync(cancellationToken);
+    }
 }

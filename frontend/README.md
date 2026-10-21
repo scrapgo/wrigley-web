@@ -102,18 +102,14 @@ calls (no Firebase SDK):
 
 | Method                  | How                                                                                                                                                  | Notes                                                                                                                                                                                                             |
 | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Sign in with Google** | Google Identity Services (`lib/google-identity.ts`) returns a Google ID token. `apiClient.signInWithGoogle` exchanges it at `accounts:signInWithIdp` | **Required for platform administrators.** The GCIP `beforeSignIn` blocking function adds the Workspace `hd` claim, which the API checks on every platform request. Shown only when `VITE_GOOGLE_CLIENT_ID` is set |
-| **Email and password**  | `accounts:signInWithPassword`                                                                                                                        | Fine for organization and application work; never gives platform access                                                                                                                                           |
+| **Sign in with Google** | Google Identity Services (`lib/google-identity.ts`) returns a Google ID token. `apiClient.signInWithGoogle` exchanges it at `accounts:signInWithIdp` | How ScrapGo staff sign in: the GCIP `beforeSignIn` blocking function adds the Workspace `hd` claim. External users may use it too. Shown only when `VITE_GOOGLE_CLIENT_ID` is set |
+| **Email and password**  | `accounts:signInWithPassword` (and `accounts:signUp` on the invitation page)                                                                       | For external users, who join by invitation                                                                                                                                                                        |
 
-Either way, the token is checked against **`GET /api/users/me`** before it's
-stored. That call also creates the user's record on their first sign-in. A
-stored token is re-checked on every app load, and one the backend rejects
-(expired, disabled user) is discarded. `useAuth().refreshUser()` re-reads
-`/me`, e.g. after accepting an invitation.
-
-If a platform administrator signs in with email and password, `/me` returns
-`workspaceSignInRequired: true`. The Access & Roles page then shows a
-"Sign in with Google" notice instead of hiding the admin area.
+Every sign-in ends with **`POST /api/session`** (with a pending invitation
+token, if any), then **`GET /api/me`**, before the session is stored. A 403
+`no_access` or `account_disabled` goes to `/no-access`. The session keeps the
+GCIP refresh token and renews the ID token before it expires and on any 401
+(`lib/api-client.ts`), so users stay signed in past an hour.
 
 ### Environment Variables
 
@@ -132,8 +128,8 @@ VITE_GCIP_PROJECT_ID=wrigley-cloud-prod
 # Google). Public. Blank hides "Sign in with Google".
 VITE_GOOGLE_CLIENT_ID=
 
-# Optional: limits Google's account chooser to this Workspace domain (UX only).
-VITE_GOOGLE_HOSTED_DOMAIN=scrapgo.com
+# Keep blank: external users sign in with Google too, and a hint hides them.
+VITE_GOOGLE_HOSTED_DOMAIN=
 ```
 
 Vite reads these only at startup: restart `npm run dev` after changing them.
@@ -152,26 +148,21 @@ backend's CORS allow-list is never exercised.
 - Recent activity table with loading skeletons
 - Responsive layout for mobile and desktop
 
-### Admin portal (Access & Roles)
+### Access and the admin portal
 
-The admin area is at `/admin`. It's shown to platform admins and to users with
-admin permissions in an organization. Gating is in `hooks/useAdminAccess.ts`:
-`can`, `canIn`, `isPlatformAdmin`, `isAppAdmin` and `workspaceSignInRequired`.
+Access follows [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md). The
+caller's permissions and features come from `GET /api/me`, refetched on window
+focus, every 5 minutes and after any 403. In code:
+
+- `useAccess()` (`hooks/useAccess.ts`): `can(...anyOf)` and `isOn(feature)`. Check permission keys only, never role names.
+- `<Can anyOf={…}>` and the `RequirePermission` route wrapper (`components/access.tsx`), which renders "not found" for a page the caller can't use.
+- The menu is one `NAV` list (`lib/nav.ts`), each entry with the permissions that show it.
+
+The admin area is `/admin`, one tab per permission (`?tab=`): **Users**
+(`users.view`; changes need `users.manage`), **Invitations** (`users.invite` or
+`users.view`), **Roles** (`roles.view`), **Features** (`features.view`) and
+**Audit log** (`audit.view`). Invited users accept at `/invite/accept?token=…`.
 The API re-checks everything.
-
-| Screen                                                         | Who                                                                               | What                                                                                                                                                                                                                                                                                                                                  |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Organizations** tab                                          | Platform admins see every organization (search, status filter); others see theirs | New organization (first admin by user id or email; an email of someone who has signed in is used as their id); **Edit** (rename, which regenerates the slug; set administrator); **Applications**; **Deactivate / Reactivate**; **Delete** (deactivated only, confirmed by typing the name); **Manage** (organizations you belong to) |
-| Organization **Applications** dialog                           | Platform admins                                                                   | Assign or remove applications, enable or disable modules, appoint an application administrator                                                                                                                                                                                                                                        |
-| **Applications** tab                                           | Platform admins                                                                   | The catalog of applications and modules; Retire / Reactivate with `Catalog.Manage`                                                                                                                                                                                                                                                    |
-| **Roles**, **Permissions**, **Users** tabs                     | Admins                                                                            | Organization roles and permission composition; the permission catalog; user administration and role assignment                                                                                                                                                                                                                        |
-| Organization page (`/admin/organizations/$id`, via **Manage**) | Members with admin rights                                                         | Rename, members; **Applications** card where application administrators see who has access and grant or revoke roles, optionally until a date                                                                                                                                                                                         |
-| **Settings → Accept an invitation** (`/invitations?token=…`)   | Anyone invited                                                                    | Paste the token to join; needs the invited email, verified (Google counts)                                                                                                                                                                                                                                                            |
-
-Step-by-step instructions with test data are in
-[`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md). Status and
-remaining gaps are in [`ADMIN-FRONTEND-STATUS.md`](ADMIN-FRONTEND-STATUS.md) and
-[`ADMIN-FRONTEND-GAPS-v2.md`](ADMIN-FRONTEND-GAPS-v2.md).
 
 API calls live in `lib/admin-api.ts` and React Query hooks in
 `hooks/useAdminQueries.ts`. Error `reason` codes map to messages in
@@ -180,8 +171,8 @@ API calls live in `lib/admin-api.ts` and React Query hooks in
 ### Routing
 
 - File-based routing with TanStack Router; `routeTree.gen.ts` is generated by `tsr generate` (run by `dev` and `build`), so don't edit it.
-- An `admin_.` prefix (e.g. `admin_.organizations.$organizationId.tsx`) makes a page a sibling of `/admin` rather than nested in it, because `/admin` has no `<Outlet />`.
-- Protected routes redirect to `/login` without a stored token.
+- An `admin_.` prefix (e.g. `admin_.users.$userId.tsx`) makes a page a sibling of `/admin` rather than nested in it, because `/admin` has no `<Outlet />`.
+- Protected routes redirect to `/login` without a stored session, and wrap their page in `RequirePermission`.
 
 ## Available Scripts
 
@@ -193,4 +184,4 @@ API calls live in `lib/admin-api.ts` and React Query hooks in
 
 ## Browser Support
 
-The application is designed for modern browsers and optimized for mobile devices. It follows a mobile-first approach with responsive design principles.
+The portal is designed for modern browsers and optimized for mobile devices. It follows a mobile-first approach with responsive design principles.

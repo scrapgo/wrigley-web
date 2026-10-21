@@ -4,9 +4,9 @@
 // token and throws `ApiError` (with the backend's ProblemDetails `reason`) on
 // failure. This module holds no React state — see `useSupplierQueries` for hooks.
 //
-// The backend Suppliers module is read-only today. These are the platform-wide
-// routes (`GET /api/suppliers`), which require `Admin.Access` at platform scope
-// and a Google Workspace sign-in.
+// The backend Suppliers module is read-only today. Every route needs
+// `suppliers.view_all` (every supplier) or `suppliers.view_own` (only the
+// caller's linked suppliers; anything else is 404).
 
 import { apiClient } from './api-client'
 
@@ -331,7 +331,7 @@ export interface DropdownOption {
 /*  Reads                                                                      */
 /* -------------------------------------------------------------------------- */
 
-/** Platform administrators: suppliers with a name, sorted by name, one page at a time. */
+/** The caller's suppliers with a name, sorted by name, one page at a time. */
 export function listSuppliers(
     search?: string,
     skip: number = 0,
@@ -345,7 +345,7 @@ export function listSuppliers(
     return apiClient.fetchWithAuth<SupplierListResponse>(`/api/suppliers?${params.toString()}`)
 }
 
-/** Platform administrators: one supplier by its Quickbase Record ID#. */
+/** One supplier by its Quickbase Record ID# (404 when it isn't in the caller's scope). */
 export function getSupplier(recordId: number): Promise<SupplierResponse> {
     return apiClient.fetchWithAuth<SupplierResponse>(`/api/suppliers/${recordId}`)
 }

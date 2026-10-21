@@ -496,7 +496,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*F11 · Frontend cleanup\*\*
+\- \[x] \*\*F11 · Frontend cleanup\*\*
 
 &#x20; > Search for leftovers: `organization`, `application`, `platform`, `workspaceSignInRequired`, `Admin.Access`. Remove them. Update `frontend/AGENTS.md`, `FRONTEND-IMPLEMENTATION-STATUS.md` and `.env.example` (the `VITE\_GOOGLE\_HOSTED\_DOMAIN` note now says it must stay blank because external users also sign in with Google).
 

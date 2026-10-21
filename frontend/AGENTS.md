@@ -38,24 +38,11 @@ The frontend communicates **exclusively** with the `ScrapGo.Core.Api`. It has no
 
 - **PWA Capabilities:** Service Workers for offline caching of critical data.
 
-## Admin Portal — Current Status
+## Access model
 
-The admin area (`/admin`, `/settings`) is now fully implemented leveraging the
-complete backend APIs provided by `ScrapGo.Core.Api`.
+The portal follows [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md):
 
-| Frontend feature            | Depends on                                            | Status                                            |
-| --------------------------- | ----------------------------------------------------- | ------------------------------------------------- |
-| Admin nav + route gate      | `CurrentUserDto.permissions` (extend `/api/users/me`) | Implemented: real permission-based access control |
-| Organizations list/create   | `GET/POST /api/organizations`                         | Implemented                                       |
-| Organization detail/rename  | `GET/PUT /api/organizations/{id}`                     | Implemented                                       |
-| Organization members        | `GET/POST/DELETE /api/organizations/{id}/members`     | Implemented                                       |
-| Roles table                 | `GET /api/organizations/{id}/roles`                   | Implemented: server-side role listing             |
-| Role create/edit/delete     | `POST/PUT/DELETE /api/roles`                          | Implemented                                       |
-| Role permission composition | `GET /api/roles/{id}/permissions` (read-back)         | Implemented: server-side permission read-back     |
-| Permission catalog          | `GET /api/permissions`                                | Implemented                                       |
-| User administration         | `GET /api/users`, role assignment, enable/disable     | Implemented: platform user management             |
-| Role assignment             | `POST/DELETE /api/users/{id}/roles`                   | Implemented                                       |
-| Settings / profile          | `GET /api/users/me`, linked-provider link             | Implemented                                       |
-
-All interim workarounds (local role registry, `classification` gate) have been
-removed and replaced with server-side implementations.
+- **Sign-in:** every sign-in ends with `POST /api/session` (with a pending invitation token from `sessionStorage`), then `GET /api/me`. Refusals (`no_access`, `account_disabled`) go to `/no-access`. The session's refresh token keeps users signed in (`lib/api-client.ts`, `hooks/useAuth.ts`).
+- **Gating:** use `useAccess()` (`can(...anyOf)`, `isOn(feature)`), `<Can>` and `RequirePermission` (`components/access.tsx`). Check permission keys only, never role names. Menu entries and admin tabs come from the one `NAV` list in `lib/nav.ts`.
+- **Admin:** `/admin` tabs (Users, Invitations, Roles, Features, Audit log) and `/admin/users/$userId`, over the `/api/admin/…` endpoints in `lib/admin-api.ts`.
+- **Invitations:** invitees accept at `/invite/accept?token=…`.

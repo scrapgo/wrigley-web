@@ -324,7 +324,7 @@ function DashboardComponent() {
                         )}
                         <ul className="w-full space-y-2.5">
                             {[
-                                { label: 'Verify your organization', done: true },
+                                { label: 'Verify your email', done: true },
                                 { label: 'Invite your team', done: true },
                                 { label: 'Connect Quickbase tables', done: false },
                                 { label: 'Set pricing alerts', done: false },

@@ -2,10 +2,11 @@
 // hands back a Google ID token, which api-client exchanges with GCIP
 // (accounts:signInWithIdp) for the GCIP ID token our API accepts.
 //
-// Platform administration needs this path: the GCIP beforeSignIn blocking
-// function copies the Workspace domain (hd) from Google's token into the GCIP
-// token, and the API checks it against INTERNAL_HD_ALLOWLIST on every request.
-// Email/password sign-ins never carry hd.
+// ScrapGo staff sign in this way: the GCIP beforeSignIn blocking function
+// copies the Workspace domain (hd) from Google's token into the GCIP token, and
+// POST /api/session creates an Internal user only for an allow-listed hd.
+// External users may also sign in with Google (or email/password) to accept an
+// invitation.
 
 const GIS_SCRIPT_URL = 'https://accounts.google.com/gsi/client'
 

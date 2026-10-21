@@ -60,7 +60,7 @@ export function useSuppliers(search: string, skip: number, top: number, enabled 
     })
 }
 
-/** Platform administrators: one supplier's details. */
+/** One supplier's details (404 when it isn't in the caller's scope). */
 export function useSupplier(recordId: number) {
     return useQuery({
         queryKey: supplierKeys.detail(recordId),

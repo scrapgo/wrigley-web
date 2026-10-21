@@ -51,6 +51,9 @@ const REASON_MESSAGES: Record<string, string> = {
     last_site_admin: 'This would leave no active Site Admin. Assign or enable another one first.',
     role_type_mismatch: 'Internal users hold internal roles, and external users external roles.',
     supplier_links_external_only: 'Supplier links are for external users; internal users see every supplier.',
+    // Invitations
+    role_not_external: 'Invitations are for external users: choose an external role.',
+    invitation_not_pending: 'That invitation was already accepted or revoked.',
     // Suppliers
     supplier_not_found: 'No supplier with that record id.',
     quickbase_unavailable: "Quickbase didn't answer and no cached copy was available. Try again shortly.",

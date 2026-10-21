@@ -1,6 +1,11 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
+    createInvitation,
+    listInvitableRoles,
+    listInvitations,
+    resendInvitation,
+    revokeInvitation,
     disableUser,
     enableUser,
     getUser,
@@ -23,6 +28,9 @@ export const adminKeys = {
     userList: (query: UserListQuery) => ['admin', 'users', query] as const,
     userDetail: (id: number) => ['admin', 'user', id] as const,
     roles: ['admin', 'roles'] as const,
+    invitations: ['admin', 'invitations'] as const,
+    invitationList: (page: number, pageSize: number) => ['admin', 'invitations', page, pageSize] as const,
+    invitableRoles: ['admin', 'invitations', 'roles'] as const,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -55,6 +63,22 @@ export function useRoles(enabled = true) {
     return useQuery({
         queryKey: adminKeys.roles,
         queryFn: listRoles,
+        enabled,
+    })
+}
+
+export function useInvitations(page: number, pageSize: number) {
+    return useQuery({
+        queryKey: adminKeys.invitationList(page, pageSize),
+        queryFn: () => listInvitations(page, pageSize),
+        placeholderData: keepPreviousData,
+    })
+}
+
+export function useInvitableRoles(enabled = true) {
+    return useQuery({
+        queryKey: adminKeys.invitableRoles,
+        queryFn: listInvitableRoles,
         enabled,
     })
 }
@@ -107,4 +131,24 @@ export function useSetUserSuppliers() {
             setUserSuppliers(id, supplierRecordIds),
         onSuccess: (detail, { id }) => invalidate(id, detail),
     })
+}
+
+function useInvalidateInvitations() {
+    const queryClient = useQueryClient()
+    return () => void queryClient.invalidateQueries({ queryKey: adminKeys.invitations })
+}
+
+export function useCreateInvitation() {
+    const invalidate = useInvalidateInvitations()
+    return useMutation({ mutationFn: createInvitation, onSuccess: invalidate })
+}
+
+export function useResendInvitation() {
+    const invalidate = useInvalidateInvitations()
+    return useMutation({ mutationFn: (id: number) => resendInvitation(id), onSuccess: invalidate })
+}
+
+export function useRevokeInvitation() {
+    const invalidate = useInvalidateInvitations()
+    return useMutation({ mutationFn: (id: number) => revokeInvitation(id), onSuccess: invalidate })
 }

@@ -60,6 +60,20 @@ public class InvitationSpecs
         }
 
         [Fact]
+        public async Task They_can_list_the_invitable_roles_which_are_external_only()
+        {
+            var inviterUid = await SeedScrapGoUserAsync(fixture);
+
+            var response = await fixture.SendAsync(HttpMethod.Get, $"{InvitationsPath}/roles", fixture.CreateToken(inviterUid));
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var keys = (await response.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray().Select(r => r.GetProperty("key").GetString()).ToList();
+            Assert.Contains(DefaultRoleNames.User, keys);
+            Assert.DoesNotContain(DefaultRoleNames.ScrapGoUser, keys);
+            Assert.DoesNotContain(DefaultRoleNames.SiteAdmin, keys);
+        }
+
+        [Fact]
         public async Task They_can_list_invitations()
         {
             var inviterUid = await SeedScrapGoUserAsync(fixture);
@@ -126,6 +140,16 @@ public class InvitationSpecs
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
             Assert.Equal("missing_permission", await IdentitySpecFixture.ReadProblemReasonAsync(response));
             Assert.False(await fixture.DbContext.Invitations.AnyAsync(i => i.Email == email));
+        }
+
+        [Fact]
+        public async Task They_cannot_list_the_invitable_roles()
+        {
+            var uid = await SeedExternalUserAsync(fixture);
+
+            var response = await fixture.SendAsync(HttpMethod.Get, $"{InvitationsPath}/roles", fixture.CreateToken(uid));
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
 
         [Fact]

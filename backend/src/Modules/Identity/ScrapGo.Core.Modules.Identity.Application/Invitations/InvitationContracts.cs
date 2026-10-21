@@ -39,6 +39,9 @@ public sealed record InvitationDto(
         status == InvitationStatus.Pending && expiresAt <= now ? InvitationStatus.Expired : status;
 }
 
+/// <summary>A role an invitation can grant: an external role.</summary>
+public sealed record InvitableRoleDto(int Id, string Key, string Name, string? Description);
+
 /// <summary>What create and resend return: the invitation and the link the admin can copy (it carries the token).</summary>
 public sealed record IssuedInvitationDto(InvitationDto Invitation, string AcceptLink);
 

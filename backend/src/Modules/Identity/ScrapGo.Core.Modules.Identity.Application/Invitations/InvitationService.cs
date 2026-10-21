@@ -24,6 +24,17 @@ public sealed class InvitationService(
     IOptions<InvitationOptions> options,
     TimeProvider timeProvider)
 {
+    /// <summary>
+    /// The roles an invitation can grant (external roles only), for the invite
+    /// form. Needs only <c>users.invite</c>, not <c>roles.view</c>.
+    /// </summary>
+    public async Task<IReadOnlyList<InvitableRoleDto>> ListInvitableRolesAsync(CancellationToken cancellationToken) =>
+        [
+            .. (await roles.ListRolesAsync(cancellationToken))
+                .Where(role => role.UserType == nameof(UserType.External))
+                .Select(role => new InvitableRoleDto(role.Id, role.Key, role.Name, role.Description)),
+        ];
+
     public async Task<PagedResult<InvitationDto>?> ListAsync(ListInvitationsQuery query, CancellationToken cancellationToken)
     {
         var page = new PageRequest(query.Page, query.PageSize);

@@ -50,12 +50,13 @@ export const supplierKeys = {
 /*  Queries                                                                    */
 /* -------------------------------------------------------------------------- */
 
-/** Platform administrators: a page of suppliers, optionally filtered by name. */
-export function useSuppliers(search: string, skip: number, top: number) {
+/** A page of the caller's suppliers, optionally filtered by name. */
+export function useSuppliers(search: string, skip: number, top: number, enabled = true) {
     return useQuery({
         queryKey: supplierKeys.list(search, skip, top),
         queryFn: () => listSuppliers(search || undefined, skip, top),
         placeholderData: (previous) => previous,
+        enabled,
     })
 }
 

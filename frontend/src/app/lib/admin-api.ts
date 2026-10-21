@@ -64,6 +64,37 @@ export interface Role {
     holderCount: number
 }
 
+export type InvitationStatus = 'Pending' | 'Accepted' | 'Revoked' | 'Expired'
+
+export interface Invitation {
+    id: number
+    email: string
+    roleId: number
+    roleKey: string
+    supplierRecordIds: number[]
+    /** Effective status: a lapsed Pending invitation reads as Expired. */
+    status: InvitationStatus
+    expiresAt: string
+    invitedByUserId: number
+    acceptedByUserId: number | null
+    acceptedAt: string | null
+    createdAt: string
+}
+
+/** Create and resend return the accept link (it carries the token, shown only then). */
+export interface IssuedInvitation {
+    invitation: Invitation
+    acceptLink: string
+}
+
+/** A role an invitation can grant (external roles only). */
+export interface InvitableRole {
+    id: number
+    key: string
+    name: string
+    description: string | null
+}
+
 export interface UserListQuery {
     search?: string
     type?: UserType
@@ -119,6 +150,33 @@ export function setUserSuppliers(id: number, supplierRecordIds: number[]): Promi
         method: 'PUT',
         body: JSON.stringify({ supplierRecordIds }),
     })
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Invitations (users.view or users.invite to read, users.invite to change)   */
+/* -------------------------------------------------------------------------- */
+
+export function listInvitations(page: number, pageSize: number): Promise<PagedResult<Invitation>> {
+    return apiClient.fetchWithAuth<PagedResult<Invitation>>(`/api/admin/invitations?page=${page}&pageSize=${pageSize}`)
+}
+
+export function listInvitableRoles(): Promise<InvitableRole[]> {
+    return apiClient.fetchWithAuth<InvitableRole[]>('/api/admin/invitations/roles')
+}
+
+export function createInvitation(input: { email: string; roleId: number; supplierRecordIds: number[] }): Promise<IssuedInvitation> {
+    return apiClient.fetchWithAuth<IssuedInvitation>('/api/admin/invitations', {
+        method: 'POST',
+        body: JSON.stringify(input),
+    })
+}
+
+export function resendInvitation(id: number): Promise<IssuedInvitation> {
+    return apiClient.fetchWithAuth<IssuedInvitation>(`/api/admin/invitations/${id}/resend`, { method: 'POST' })
+}
+
+export function revokeInvitation(id: number): Promise<void> {
+    return apiClient.fetchWithAuth<void>(`/api/admin/invitations/${id}`, { method: 'DELETE' })
 }
 
 /* -------------------------------------------------------------------------- */

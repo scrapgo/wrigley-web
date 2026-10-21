@@ -37,6 +37,14 @@ public sealed class InvitationsController(InvitationService invitations) : Contr
             : InvalidRequest(
                 $"page must be 1 or more, pageSize 1 to {PageRequest.MaxPageSize}, and status one of: {string.Join(", ", Enum.GetNames<InvitationStatus>())}.");
 
+    /// <summary>The roles an invitation can grant (external roles), for the invite form.</summary>
+    [HttpGet("roles")]
+    [RequirePermission(PermissionCatalog.UsersInvite)]
+    [ProducesResponseType<IReadOnlyList<InvitableRoleDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ListRoles(CancellationToken cancellationToken) =>
+        Ok(await invitations.ListInvitableRolesAsync(cancellationToken));
+
     [HttpGet("{id:int}")]
     [RequirePermission(PermissionCatalog.UsersView, PermissionCatalog.UsersInvite)]
     [ProducesResponseType<InvitationDto>(StatusCodes.Status200OK)]

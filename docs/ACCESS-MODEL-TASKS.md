@@ -456,7 +456,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*F7 · Admin › Invitations\*\*
+\- \[x] \*\*F7 · Admin › Invitations\*\*
 
 &#x20; > Invitations tab (`users.invite|users.view`): a form for email, role (external roles only) and one or more suppliers (search by name, store the Record ID); a table of invitations with status and expiry; Resend and Revoke; and a "Copy link" button using the link returned by the API.
 

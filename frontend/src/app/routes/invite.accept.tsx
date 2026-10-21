@@ -34,6 +34,7 @@ function AcceptInvitationComponent() {
     const googleButtonRef = useRef<HTMLDivElement>(null)
 
     const [step, setStep] = useState<Step>('choose')
+    const [displayName, setDisplayName] = useState('')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')
@@ -94,6 +95,8 @@ function AcceptInvitationComponent() {
         setError('')
         try {
             const session = await apiClient.signUp(email, password)
+            // On the GCIP account, so the token after verification carries it as `name`.
+            await apiClient.setDisplayName(session.idToken, displayName.trim())
             await apiClient.sendEmailVerification(session.idToken)
             setStep('verify')
         } catch (err) {
@@ -156,6 +159,19 @@ function AcceptInvitationComponent() {
 
             {(step === 'create' || step === 'signin') && (
                 <form onSubmit={step === 'create' ? createAccount : signIn} className="mt-6 space-y-4 text-left">
+                    {step === 'create' && (
+                        <div className="space-y-2">
+                            <Label htmlFor="invite-name">Your name</Label>
+                            <Input
+                                id="invite-name"
+                                autoComplete="name"
+                                required
+                                maxLength={100}
+                                value={displayName}
+                                onChange={(e) => setDisplayName(e.target.value)}
+                            />
+                        </div>
+                    )}
                     <div className="space-y-2">
                         <Label htmlFor="invite-email">Email address</Label>
                         <Input id="invite-email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />

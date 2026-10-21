@@ -72,8 +72,17 @@ public class User
 
     public bool IsActive => Status == UserStatus.Active;
 
-    public void RecordSignIn(string? signInProvider, DateTimeOffset now)
+    /// <param name="displayName">
+    /// The token's <c>name</c>, when it carries one: kept in step with the GCIP
+    /// profile. A sign-in without a name leaves the stored one alone.
+    /// </param>
+    public void RecordSignIn(string? signInProvider, DateTimeOffset now, string? displayName = null)
     {
+        if (!string.IsNullOrWhiteSpace(displayName))
+        {
+            DisplayName = displayName.Trim();
+        }
+
         SignInProvider = signInProvider;
         LastSignInAt = now;
         UpdatedAt = now;

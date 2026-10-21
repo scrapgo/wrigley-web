@@ -20,6 +20,8 @@ const GCIP_SIGN_UP_URL = 'https://identitytoolkit.googleapis.com/v1/accounts:sig
 
 const GCIP_SEND_OOB_CODE_URL = 'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode'
 
+const GCIP_UPDATE_URL = 'https://identitytoolkit.googleapis.com/v1/accounts:update'
+
 /** Exchanges a GCIP refresh token for a new ID token. */
 const GCIP_REFRESH_URL = 'https://securetoken.googleapis.com/v1/token'
 
@@ -322,6 +324,24 @@ class ApiClient {
         }
 
         return sessionFrom(body.idToken, body.refreshToken, body.expiresIn)
+    }
+
+    /**
+     * Sets the GCIP account's display name. Later ID tokens carry it as the
+     * `name` claim, which POST /api/session stores on the user.
+     */
+    async setDisplayName(idToken: string, displayName: string): Promise<void> {
+        const response = await fetch(`${GCIP_UPDATE_URL}?key=${GCIP_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken, displayName, returnSecureToken: false }),
+        })
+
+        if (!response.ok) {
+            const body = (await response.json().catch(() => ({}))) as { error?: { message?: string } }
+            const code = body.error?.message
+            throw new ApiError(code ? `Could not save your name (${code}).` : 'Could not save your name.', response.status, code)
+        }
     }
 
     /** Sends GCIP's email-verification link to the account behind `idToken`. */

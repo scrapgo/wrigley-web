@@ -208,7 +208,7 @@ public sealed class StartSessionHandler(
             return new(StartSessionOutcome.AccountDisabled);
         }
 
-        user.RecordSignIn(command.SignInProvider, timeProvider.GetUtcNow());
+        user.RecordSignIn(command.SignInProvider, timeProvider.GetUtcNow(), command.DisplayName);
         auditLog.Record(new AuditEvent(
             IdentityAuditEventTypes.SessionStarted,
             UserId: user.Id,

@@ -338,7 +338,25 @@ Errors are ProblemDetails with a `reason` extension (`ProblemResults`). Every 40
 
 
 
-The Identity schema moves to this model with one forward migration, `AccessModelV1` (B6-alt, chosen because deployed environments have users to keep). It runs with the other Identity migrations; \*\*no schema needs dropping\*\*.
+The Identity schema reaches this model in one of two ways. Either way, back up the database first (for example `pg\_dump --schema=identity --schema=audit --format=custom` through the Cloud SQL Auth Proxy), then run the migrations in order: `AuditDbContext`, then `IdentityDbContext` (commands in `backend/AGENTS.md`, "Common Commands").
+
+
+
+\*\*Reset (the default; R1 in `ACCESS-MODEL-TASKS.md`).\*\* Drop the `identity` schema, then run the migrations. The Identity history table lives inside the schema, so every Identity migration runs again from the start and ends with `AccessModelV1` and its seed.
+
+
+
+\- Every user is deleted. Staff are created again on their next Google Workspace sign-in (`POST /api/session`); external users need new invitations.
+
+\- Also clear `audit.audit\_logs` (`TRUNCATE audit.audit\_logs RESTART IDENTITY`). New users get ids from 1 again, and audit rows refer to users by id only, so old rows would otherwise show the wrong person.
+
+\- Then restore an administrator: sign in once with a scrapgo.com Google account, and run `bootstrap-site-admin --uid <uid>`.
+
+\- Done on dev on 2026-10-21 (instance `wrigley-postgres`, database `identity\_platform`). That run also applied the pending Audit migration `UnmapOrganizationId`.
+
+
+
+\*\*Forward-only (keeps users).\*\* Run the migrations without dropping anything; `AccessModelV1` converts the old schema in place (B6-alt).
 
 
 
@@ -350,7 +368,11 @@ The Identity schema moves to this model with one forward migration, `AccessModel
 
 \- It gives existing users the new system roles: every internal user gets `scrapgo\_user`, former platform-scoped PlatformAdministrators also get `site\_admin`, and every external user gets `user` (with no supplier links: link them, or they see no suppliers).
 
-\- It is forward-only. Back up the database before it runs; its `Down` throws.
+\- It is forward-only: its `Down` throws.
+
+
+
+Whichever path an environment takes, the app deployed against it must run this code: older code breaks against the new schema.
 
 
 

@@ -58,6 +58,12 @@ public enum InvitationOutcome
     /// <summary>The role is internal; invitations are for external users only.</summary>
     RoleNotExternal,
 
+    /// <summary>
+    /// The email's domain is on <c>INTERNAL_HD_ALLOWLIST</c>: staff join as Internal
+    /// users by signing in with Google, never as External users by invitation.
+    /// </summary>
+    InternalEmail,
+
     /// <summary>The email already has a pending invitation.</summary>
     AlreadyPending,
 

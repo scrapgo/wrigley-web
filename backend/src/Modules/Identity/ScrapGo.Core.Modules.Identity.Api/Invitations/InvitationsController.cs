@@ -104,6 +104,10 @@ public sealed class InvitationsController(InvitationService invitations) : Contr
         InvitationOutcome.RoleNotExternal => ProblemResults.Create(
             StatusCodes.Status400BadRequest, "Role not external",
             "Invitations are for external users; choose an external role.", "role_not_external").ToActionResult(),
+        InvitationOutcome.InternalEmail => ProblemResults.Create(
+            StatusCodes.Status400BadRequest, "Internal email",
+            "ScrapGo staff don't need an invitation: they sign in with their Google Workspace account.",
+            "internal_email_not_invitable").ToActionResult(),
         InvitationOutcome.AlreadyPending => ProblemResults.Create(
             StatusCodes.Status409Conflict, "Invitation pending",
             "This email already has a pending invitation. Resend or revoke it.", "invitation_pending").ToActionResult(),

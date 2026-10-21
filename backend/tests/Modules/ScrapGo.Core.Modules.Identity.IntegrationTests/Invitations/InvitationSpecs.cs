@@ -102,6 +102,21 @@ public class InvitationSpecs
             Assert.False(await fixture.DbContext.Invitations.AnyAsync(i => i.Email == email));
         }
 
+        // Staff join as Internal users via Google sign-in; an invitation would make them External.
+        [Theory]
+        [InlineData("staff@scrapgo.example")]
+        [InlineData("Staff@SCRAPGO.EXAMPLE")]
+        public async Task An_email_on_the_internal_domain_is_rejected(string email)
+        {
+            var inviterUid = await SeedScrapGoUserAsync(fixture);
+
+            var response = await CreateAsync(fixture, inviterUid, email, await ExternalRoleIdAsync(fixture), [17511]);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal("internal_email_not_invitable", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+            Assert.False(await fixture.DbContext.Invitations.AnyAsync(i => i.Email == email.ToLowerInvariant()));
+        }
+
         [Fact]
         public async Task No_supplier_record_ids_is_rejected()
         {

@@ -242,7 +242,7 @@ No other endpoint creates users. `GET /api/me` returns 403 `no\_access` for an u
 
 
 
-Invitations: created by `users.invite` (Site Admin and ScrapGo User), external role only, one or more supplier Record IDs, 32 random bytes base64url token, only its SHA-256 stored, 7-day expiry. Acceptance requires the token, `email\_verified`, and the token's email matching the invitation email (case-insensitive). Resending issues a new token.
+Invitations: created by `users.invite` (Site Admin and ScrapGo User), external role only, never to an email on an `INTERNAL\_HD\_ALLOWLIST` domain (staff join as Internal by signing in with Google; 400 `internal\_email\_not\_invitable`), one or more supplier Record IDs, 32 random bytes base64url token, only its SHA-256 stored, 7-day expiry. Acceptance requires the token, `email\_verified`, and the token's email matching the invitation email (case-insensitive). Resending issues a new token.
 
 
 

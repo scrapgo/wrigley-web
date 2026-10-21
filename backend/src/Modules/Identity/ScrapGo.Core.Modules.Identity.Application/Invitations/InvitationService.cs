@@ -1,6 +1,7 @@
 using System.Net.Mail;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
+using ScrapGo.Core.Modules.Identity.Application.Users;
 using ScrapGo.Core.Shared.Kernel.Paging;
 
 namespace ScrapGo.Core.Modules.Identity.Application.Invitations;
@@ -22,6 +23,7 @@ public sealed class InvitationService(
     IUnitOfWork unitOfWork,
     IAuditLog<IdentityModule> auditLog,
     IOptions<InvitationOptions> options,
+    IOptions<InternalHdAllowlistOptions> internalDomains,
     TimeProvider timeProvider)
 {
     /// <summary>
@@ -60,6 +62,13 @@ public sealed class InvitationService(
             || supplierRecordIds.Any(id => id <= 0))
         {
             return new(InvitationOutcome.InvalidRequest);
+        }
+
+        // An invitation always creates an External user, so a staff address would
+        // become External; staff sign in with Google instead (POST /api/session).
+        if (internalDomains.Value.Contains(DomainOf(command.Email!)))
+        {
+            return new(InvitationOutcome.InternalEmail);
         }
 
         if (await roles.FindActiveRoleAsync(command.RoleId, cancellationToken) is not { } role)
@@ -178,6 +187,8 @@ public sealed class InvitationService(
 
     private async Task<string> RoleKeyOfAsync(int roleId, CancellationToken cancellationToken) =>
         (await roles.FindActiveRoleAsync(roleId, cancellationToken))?.Key ?? string.Empty;
+
+    private static string DomainOf(string email) => email.Trim()[(email.Trim().LastIndexOf('@') + 1)..];
 
     private static bool IsWellFormedEmail(string? email) =>
         !string.IsNullOrWhiteSpace(email)

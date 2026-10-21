@@ -21,6 +21,7 @@ const REASON_MESSAGES: Record<string, string> = {
     supplier_links_external_only: 'Supplier links are for external users; internal users see every supplier.',
     // Invitations
     role_not_external: 'Invitations are for external users: choose an external role.',
+    internal_email_not_invitable: "ScrapGo staff don't need an invitation: they sign in with their Google Workspace account.",
     invitation_pending: 'This email already has a pending invitation. Resend or revoke it.',
     invitation_not_pending: 'That invitation was already accepted or revoked.',
     // Roles

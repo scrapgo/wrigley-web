@@ -348,7 +348,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*B16 · Admin features API\*\*
+\- \[x] \*\*B16 · Admin features API\*\*
 
 &#x20; > Implement `GET /api/admin/features`, `PUT /api/admin/features/{id}` (`{ state }`; 409 `feature\_locked` for locked features) and `PUT /api/admin/features/{id}/targets` (`{ userIds, roleIds }`). Audit, then `EvictAll()`. Test: switching `supplier\_edit` to `Targeted` for one user changes that user's `/api/me` and nobody else's.
 

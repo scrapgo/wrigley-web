@@ -57,6 +57,7 @@ public static class IdentityInfrastructureServiceCollectionExtensions
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IInvitationRepository, InvitationRepository>();
+        services.AddScoped<IFeatureRepository, FeatureRepository>();
         services.AddScoped<IUnitOfWork, IdentityUnitOfWork>();
         services.AddScoped<IAuditLog<IdentityModule>, AuditLogRecorder<IdentityModule, IdentityDbContext>>();
     }

@@ -26,6 +26,12 @@ public static class IdentityAuditEventTypes
 
     public const string UserEnabled = "user.enabled";
 
+    /// <summary><c>PUT /api/admin/features/{id}</c> changed a feature's toggle (metadata: from, to).</summary>
+    public const string FeatureStateChanged = "feature.state_changed";
+
+    /// <summary><c>PUT /api/admin/features/{id}/targets</c> changed who a feature targets.</summary>
+    public const string FeatureTargetsChanged = "feature.targets_changed";
+
     /// <summary><c>PUT /api/admin/roles/{id}/permissions</c> changed what a role grants (metadata: added and removed keys).</summary>
     public const string RolePermissionsChanged = "role.permissions_changed";
 

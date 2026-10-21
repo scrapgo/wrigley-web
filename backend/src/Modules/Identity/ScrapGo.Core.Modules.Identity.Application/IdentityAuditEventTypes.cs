@@ -22,13 +22,15 @@ public static class IdentityAuditEventTypes
     /// <summary>A request was refused for a missing permission (ACCESS-MODEL.md section 10).</summary>
     public const string AccessDenied = "access.denied";
 
-    public const string UserDisabled = "user_disabled";
+    public const string UserDisabled = "user.disabled";
 
-    public const string UserEnabled = "user_enabled";
+    public const string UserEnabled = "user.enabled";
 
-    public const string RoleAssigned = "role_assigned";
+    /// <summary><c>PUT /api/admin/users/{id}/roles</c> changed the user's roles (metadata: added and removed keys).</summary>
+    public const string UserRolesChanged = "user.roles_changed";
 
-    public const string RoleRevoked = "role_revoked";
+    /// <summary><c>PUT /api/admin/users/{id}/suppliers</c> changed the user's supplier links (metadata: added and removed Record IDs).</summary>
+    public const string UserSuppliersChanged = "user.suppliers_changed";
 
     /// <summary>The <c>bootstrap-site-admin</c> command assigned site_admin.</summary>
     public const string SiteAdminBootstrapped = "site_admin.bootstrapped";

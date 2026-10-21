@@ -26,7 +26,7 @@ public static class IdentitySeed
     }
 
     /// <summary>A new internal user holding the seeded <c>site_admin</c> role.</summary>
-    public static async Task<(string Uid, int UserId)> SeedPlatformAdministratorAsync(this IdentitySpecFixture fixture)
+    public static async Task<(string Uid, int UserId)> SeedSiteAdminAsync(this IdentitySpecFixture fixture)
     {
         var (uid, userId) = await fixture.SeedUserAsync("platform-admin@scrapgo.example", UserType.Internal);
         var roleId = await fixture.DbContext.Roles

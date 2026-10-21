@@ -61,7 +61,7 @@ empty for this function.
 
 1. Sign in to the portal with "Sign in with Google" using a `@scrapgo.com` account.
 2. In the browser dev tools, take the token from `localStorage.authToken` and decode it (for example at jwt.io). It should contain `"hd": "scrapgo.com"` and `firebase.sign_in_provider: "google.com"`.
-3. `GET /api/users/me` now shows the platform roles. Platform routes no longer return 403 `workspace_sign_in_required`.
+3. `POST /api/session` then `GET /api/me` show the roles. Platform routes no longer return 403 `workspace_sign_in_required`.
 
 **Use a `@scrapgo.com` account as platform admin.** A personal Google account
 (such as `@gmail.com`) has no `hd`, so it never gets platform access. Sign in

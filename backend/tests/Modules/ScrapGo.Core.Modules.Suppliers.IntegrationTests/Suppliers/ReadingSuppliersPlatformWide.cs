@@ -11,7 +11,7 @@ public class ReadingSuppliersPlatformWide
         [Fact]
         public async Task Get_by_record_id_returns_the_supplier()
         {
-            var (uid, _) = await fixture.SeedPlatformAdministratorAsync();
+            var (uid, _) = await fixture.SeedSiteAdminAsync();
             fixture.Quickbase.RespondWith(SupplierResponses.FirstClassAutoSalvage);
 
             var response = await fixture.SendAsync(HttpMethod.Get, "/api/suppliers/17511", fixture.CreateToken(uid));
@@ -25,7 +25,7 @@ public class ReadingSuppliersPlatformWide
         [Fact]
         public async Task The_list_pages_and_searches()
         {
-            var (uid, _) = await fixture.SeedPlatformAdministratorAsync();
+            var (uid, _) = await fixture.SeedSiteAdminAsync();
             fixture.Quickbase.RespondWith(SupplierResponses.NameList);
 
             var response = await fixture.SendAsync(HttpMethod.Get, "/api/suppliers?search=Auto&top=10", fixture.CreateToken(uid));
@@ -40,7 +40,7 @@ public class ReadingSuppliersPlatformWide
         [Fact]
         public async Task An_unknown_record_returns_four_hundred_four()
         {
-            var (uid, _) = await fixture.SeedPlatformAdministratorAsync();
+            var (uid, _) = await fixture.SeedSiteAdminAsync();
             fixture.Quickbase.RespondWith(SupplierResponses.Empty);
 
             var response = await fixture.SendAsync(HttpMethod.Get, "/api/suppliers/99999999", fixture.CreateToken(uid));

@@ -26,20 +26,6 @@ public class AdminContracts
         }
     }
 
-    public class Given_an_assign_role_command
-    {
-        [Fact]
-        public void A_positive_role_id_is_well_formed() =>
-            Assert.True(new AssignRoleCommand("uid", UserId: 1, RoleId: 5).IsWellFormed);
-
-        [Theory]
-        [InlineData(null)]
-        [InlineData(0)]
-        [InlineData(-3)]
-        public void A_missing_or_non_positive_id_is_not(int? roleId) =>
-            Assert.False(new AssignRoleCommand("uid", UserId: 1, roleId).IsWellFormed);
-    }
-
     public class Given_a_page_request
     {
         [Fact]

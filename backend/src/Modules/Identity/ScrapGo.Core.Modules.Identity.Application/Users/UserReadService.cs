@@ -2,71 +2,60 @@ using ScrapGo.Core.Shared.Kernel.Paging;
 
 namespace ScrapGo.Core.Modules.Identity.Application.Users;
 
+/// <param name="Type">Optional; must name a <see cref="UserType"/> (case-insensitive).</param>
 /// <param name="Status">Optional; must name a <see cref="UserStatus"/> (case-insensitive).</param>
-public sealed record ListUsersQuery(string? Search, string? Status, int? Page, int? PageSize);
-
-public enum UserReadOutcome
-{
-    Success,
-
-    /// <summary>A page value out of range, or an unknown status.</summary>
-    InvalidRequest,
-
-    NotFound,
-}
-
-public sealed record UserListResult(UserReadOutcome Outcome, PagedResult<UserSummaryDto>? Users = null);
-
-public sealed record UserDetailResult(UserReadOutcome Outcome, UserDetailDto? User = null);
+public sealed record ListUsersQuery(string? Search, string? Type, string? Status, int? Page, int? PageSize);
 
 /// <summary>
-/// Platform-wide user reads for the admin portal.
+/// Admin user reads (<c>GET /api/admin/users</c>). The routes require
+/// <c>users.view</c>, checked before these methods run.
 /// </summary>
-/// <remarks>
-/// Every user on the platform is visible here, so the routes require
-/// <c>users.view</c> (<c>[RequirePermission(...)]</c>),
-/// checked before these methods run.
-/// </remarks>
 public sealed class UserReadService(IUserRepository users, IRoleRepository roles)
 {
-    public async Task<UserListResult> ListAsync(ListUsersQuery query, CancellationToken cancellationToken)
+    /// <returns>Null for a bad page, type or status (400 <c>invalid_request</c>).</returns>
+    public async Task<PagedResult<UserSummaryDto>?> ListAsync(ListUsersQuery query, CancellationToken cancellationToken)
     {
         var page = new PageRequest(query.Page, query.PageSize);
-        if (!page.IsValid || !TryParseStatus(query.Status, out var status))
+        if (!page.IsValid
+            || !TryParse<UserType>(query.Type, out var type)
+            || !TryParse<UserStatus>(query.Status, out var status))
         {
-            return new(UserReadOutcome.InvalidRequest);
+            return null;
         }
 
-        var result = await users.ListAsync(new UserListFilter(query.Search, status), page, cancellationToken);
-
-        return new(UserReadOutcome.Success, result);
+        return await users.ListAsync(new UserListFilter(query.Search, status, type), page, cancellationToken);
     }
 
-    public async Task<UserDetailResult> GetAsync(int userId, CancellationToken cancellationToken)
+    /// <returns>Null when there is no such user.</returns>
+    public async Task<UserDetailDto?> GetAsync(int userId, CancellationToken cancellationToken)
     {
         if (await users.GetByIdAsync(userId, cancellationToken) is not { } user)
         {
-            return new(UserReadOutcome.NotFound);
+            return null;
         }
 
-        return new(UserReadOutcome.Success, UserDetailDto.From(user, await roles.ListUserRolesAsync(userId, cancellationToken)));
+        return UserDetailDto.From(
+            user,
+            await roles.ListUserRolesAsync(userId, cancellationToken),
+            await users.ListSupplierRecordIdsAsync(userId, cancellationToken));
     }
 
-    /// <summary>Names only ("Active", "disabled"); numeric strings are rejected rather than cast to the enum.</summary>
-    private static bool TryParseStatus(string? value, out UserStatus? status)
+    /// <summary>Names only ("Active", "external"); numeric strings are rejected rather than cast to the enum.</summary>
+    private static bool TryParse<TEnum>(string? value, out TEnum? parsed)
+        where TEnum : struct, Enum
     {
-        status = null;
+        parsed = null;
         if (string.IsNullOrWhiteSpace(value))
         {
             return true;
         }
 
-        if (value.Any(char.IsDigit) || !Enum.TryParse<UserStatus>(value, ignoreCase: true, out var parsed))
+        if (value.Any(char.IsDigit) || !Enum.TryParse<TEnum>(value, ignoreCase: true, out var result))
         {
             return false;
         }
 
-        status = parsed;
+        parsed = result;
         return true;
     }
 }

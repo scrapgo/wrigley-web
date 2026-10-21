@@ -24,9 +24,6 @@ public interface IRoleRepository
     /// </summary>
     Task<int> CountActiveHoldersAsync(int roleId, int excludingUserId, CancellationToken cancellationToken);
 
-    /// <summary>Every user holding the role, active or not.</summary>
-    Task<IReadOnlyList<int>> ListHolderIdsAsync(int roleId, CancellationToken cancellationToken);
-
     /// <summary>True if the user holds the role.</summary>
     Task<bool> IsHeldByAsync(int userId, int roleId, CancellationToken cancellationToken);
 
@@ -45,12 +42,15 @@ public interface IRoleRepository
     /// <summary>Every permission key in the catalog, ordered.</summary>
     Task<IReadOnlyList<string>> ListPermissionKeysAsync(CancellationToken cancellationToken);
 
-    /// <summary>Every active role the user holds, ordered by role name.</summary>
-    Task<IReadOnlyList<AssignedRoleDto>> ListUserRolesAsync(int userId, CancellationToken cancellationToken);
+    /// <summary>Every role the user holds, ordered by role name.</summary>
+    Task<IReadOnlyList<UserRoleDto>> ListUserRolesAsync(int userId, CancellationToken cancellationToken);
 
-    /// <summary>A tracked assignment, or null.</summary>
-    Task<UserRole?> FindUserRoleAsync(int userId, int roleId, CancellationToken cancellationToken);
+    /// <summary>The user's role assignments, tracked, with their <see cref="UserRole.Role"/>, for changing them.</summary>
+    Task<IReadOnlyList<UserRole>> ListUserRoleAssignmentsAsync(int userId, CancellationToken cancellationToken);
 
-    /// <summary>Stages removal of an assignment found by <see cref="FindUserRoleAsync"/>. Callers must invalidate the holder's permission cache after saving.</summary>
+    /// <summary>The roles with these ids, untracked; ids with no role are simply missing from the result.</summary>
+    Task<IReadOnlyList<Role>> FindRolesAsync(IReadOnlyCollection<int> roleIds, CancellationToken cancellationToken);
+
+    /// <summary>Stages removal of an assignment found by <see cref="ListUserRoleAssignmentsAsync"/>. Callers evict the holder's cached access after saving.</summary>
     void RemoveUserRole(UserRole userRole);
 }

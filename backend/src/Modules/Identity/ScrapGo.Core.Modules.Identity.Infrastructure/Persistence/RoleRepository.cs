@@ -30,14 +30,6 @@ public sealed class RoleRepository(IdentityDbContext dbContext) : IRoleRepositor
         .Distinct()
         .CountAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<int>> ListHolderIdsAsync(int roleId, CancellationToken cancellationToken) =>
-        await dbContext.UserRoles
-            .AsNoTracking()
-            .Where(ur => ur.RoleId == roleId)
-            .Select(ur => ur.UserId)
-            .Distinct()
-            .ToListAsync(cancellationToken);
-
     public Task<bool> IsHeldByAsync(int userId, int roleId, CancellationToken cancellationToken) =>
         dbContext.UserRoles.AsNoTracking().AnyAsync(ur => ur.UserId == userId && ur.RoleId == roleId, cancellationToken);
 
@@ -67,16 +59,19 @@ public sealed class RoleRepository(IdentityDbContext dbContext) : IRoleRepositor
             .Select(p => p.Key)
             .ToListAsync(cancellationToken);
 
-    public async Task<IReadOnlyList<AssignedRoleDto>> ListUserRolesAsync(int userId, CancellationToken cancellationToken) =>
+    public async Task<IReadOnlyList<UserRoleDto>> ListUserRolesAsync(int userId, CancellationToken cancellationToken) =>
         await dbContext.UserRoles
             .AsNoTracking()
             .Where(ur => ur.UserId == userId)
             .OrderBy(ur => ur.Role.Name)
-            .Select(ur => new AssignedRoleDto(ur.RoleId, ur.Role.Name))
+            .Select(ur => new UserRoleDto(ur.RoleId, ur.Role.Key, ur.Role.Name))
             .ToListAsync(cancellationToken);
 
-    public Task<UserRole?> FindUserRoleAsync(int userId, int roleId, CancellationToken cancellationToken) =>
-        dbContext.UserRoles.SingleOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == roleId, cancellationToken);
+    public async Task<IReadOnlyList<UserRole>> ListUserRoleAssignmentsAsync(int userId, CancellationToken cancellationToken) =>
+        await dbContext.UserRoles.Include(ur => ur.Role).Where(ur => ur.UserId == userId).ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<Role>> FindRolesAsync(IReadOnlyCollection<int> roleIds, CancellationToken cancellationToken) =>
+        await dbContext.Roles.AsNoTracking().Where(r => roleIds.Contains(r.Id)).ToListAsync(cancellationToken);
 
     public void RemoveUserRole(UserRole userRole) => dbContext.UserRoles.Remove(userRole);
 }

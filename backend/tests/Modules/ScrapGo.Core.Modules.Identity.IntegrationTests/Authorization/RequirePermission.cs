@@ -27,7 +27,7 @@ public class RequirePermission
         [Fact]
         public async Task A_seeded_role_satisfies_a_seeded_permission()
         {
-            var (uid, _) = await fixture.SeedPlatformAdministratorAsync();
+            var (uid, _) = await fixture.SeedSiteAdminAsync();
 
             var response = await fixture.SendAsync(HttpMethod.Get, "/api/_test/platform-scoped", fixture.CreateToken(uid));
 

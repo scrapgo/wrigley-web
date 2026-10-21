@@ -16,8 +16,14 @@ public interface IUserRepository
     /// <summary>Stages supplier links for an External user; written by the next save.</summary>
     void AddSupplierLinks(IEnumerable<UserSupplier> links);
 
-    /// <summary>A lightweight projection, because the status gate runs on every authenticated request.</summary>
-    Task<UserStatusSnapshot?> GetStatusByUidAsync(string identityPlatformUid, CancellationToken cancellationToken);
+    /// <summary>Stages removal of links found by <see cref="ListSupplierLinksAsync"/>.</summary>
+    void RemoveSupplierLinks(IEnumerable<UserSupplier> links);
+
+    /// <summary>The user's supplier links, tracked, for changing them.</summary>
+    Task<IReadOnlyList<UserSupplier>> ListSupplierLinksAsync(int userId, CancellationToken cancellationToken);
+
+    /// <summary>The user's linked supplier Record IDs, ascending.</summary>
+    Task<IReadOnlyList<int>> ListSupplierRecordIdsAsync(int userId, CancellationToken cancellationToken);
 
     Task<int?> GetIdByUidAsync(string identityPlatformUid, CancellationToken cancellationToken);
 
@@ -39,4 +45,3 @@ public interface IUserRepository
 /// <param name="WasCreated">True only when this call inserted the row (first sighting of the UID).</param>
 public sealed record ProvisionedUser(User User, bool WasCreated);
 
-public sealed record UserStatusSnapshot(int UserId, UserStatus Status, UserType UserType = UserType.External);

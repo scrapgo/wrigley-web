@@ -16,7 +16,7 @@ public sealed class SuppliersSpecFixture : IdentitySpecFixture
     /// <summary>A token for someone who sees every supplier: a Site Admin (<c>suppliers.view_all</c>).</summary>
     public async Task<string> SeedSupplierReaderAsync()
     {
-        var (uid, _) = await this.SeedPlatformAdministratorAsync();
+        var (uid, _) = await this.SeedSiteAdminAsync();
         return CreateToken(uid);
     }
 

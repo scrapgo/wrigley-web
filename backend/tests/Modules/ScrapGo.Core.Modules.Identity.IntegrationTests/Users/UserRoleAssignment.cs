@@ -1,261 +1,248 @@
-// ADMIN-API-STATUS Task 7: assign and revoke user roles, audited, effective on the next request.
+// B14: PUT /api/admin/users/{id}/roles and /suppliers (users.manage) replace the whole set.
+using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Users;
 
 public class UserRoleAssignment
 {
-    public class Given_a_platform_administrator_and_an_internal_user(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    public class Given_a_site_admin_and_an_internal_user(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
-        public async Task Assigning_a_role_returns_two_hundred_and_writes_one_row_and_one_audit_entry()
+        public async Task Setting_roles_returns_the_user_writes_the_rows_and_one_audit_entry()
         {
-            var (adminUid, adminId) = await SeedPlatformAdministratorAsync(fixture);
-            var (_, targetId) = await SeedInternalUserAsync(fixture);
-            var roleId = await CreateRoleAsync(fixture, Permissions.UsersView);
+            var (adminUid, adminId) = await fixture.SeedSiteAdminAsync();
+            var (_, userId) = await fixture.SeedUserAsync($"staff-{Guid.NewGuid():N}@scrapgo.example", UserType.Internal);
+            var scrapGoUserId = await RoleIdAsync(fixture, DefaultRoleNames.ScrapGoUser);
 
-            var response = await AssignAsync(fixture, adminUid, targetId, roleId);
+            var response = await SetRolesAsync(fixture, adminUid, userId, scrapGoUserId);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            Assert.Equal(1, await AssignmentCountAsync(fixture, targetId, roleId));
-            var audit = Assert.Single(await AuditAsync(fixture, IdentityAuditEventTypes.RoleAssigned, targetId));
-            Assert.Equal(adminId, audit.UserId);
-            using var metadata = JsonDocument.Parse(audit.Metadata!);
-            Assert.Equal(targetId, metadata.RootElement.GetProperty("targetUserId").GetInt32());
-            Assert.Equal(roleId, metadata.RootElement.GetProperty("roleId").GetInt32());
-        }
-
-        [Fact]
-        public async Task Assigning_the_same_role_twice_is_idempotent()
-        {
-            var (adminUid, _) = await SeedPlatformAdministratorAsync(fixture);
-            var (_, targetId) = await SeedInternalUserAsync(fixture);
-            var roleId = await CreateRoleAsync(fixture, Permissions.UsersView);
-            (await AssignAsync(fixture, adminUid, targetId, roleId)).EnsureSuccessStatusCode();
-
-            var response = await AssignAsync(fixture, adminUid, targetId, roleId);
-
-            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            Assert.Equal(1, await AssignmentCountAsync(fixture, targetId, roleId));
-            Assert.Single(await AuditAsync(fixture, IdentityAuditEventTypes.RoleAssigned, targetId));
-        }
-
-        [Fact]
-        public async Task Revoking_returns_two_hundred_four_removes_the_row_and_writes_an_audit_entry()
-        {
-            var (adminUid, adminId) = await SeedPlatformAdministratorAsync(fixture);
-            var (_, targetId) = await SeedInternalUserAsync(fixture);
-            var roleId = await CreateRoleAsync(fixture, Permissions.UsersView);
-            (await AssignAsync(fixture, adminUid, targetId, roleId)).EnsureSuccessStatusCode();
-
-            var response = await RevokeAsync(fixture, adminUid, targetId, roleId);
-
-            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-            Assert.Equal(0, await AssignmentCountAsync(fixture, targetId, roleId));
-            var audit = Assert.Single(await AuditAsync(fixture, IdentityAuditEventTypes.RoleRevoked, targetId));
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal([DefaultRoleNames.ScrapGoUser], body.GetProperty("roles").EnumerateArray().Select(r => r.GetProperty("key").GetString()));
+            Assert.Equal([DefaultRoleNames.ScrapGoUser], await RoleKeysOfAsync(fixture, userId));
+            var audit = Assert.Single(await AuditAsync(fixture, IdentityAuditEventTypes.UserRolesChanged, userId));
             Assert.Equal(adminId, audit.UserId);
         }
 
         [Fact]
-        public async Task Revoking_a_role_the_user_does_not_hold_is_idempotent()
+        public async Task Setting_the_same_roles_again_writes_nothing()
         {
-            var (adminUid, _) = await SeedPlatformAdministratorAsync(fixture);
-            var (_, targetId) = await SeedInternalUserAsync(fixture);
-            var roleId = await CreateRoleAsync(fixture, Permissions.UsersView);
+            var (adminUid, _) = await fixture.SeedSiteAdminAsync();
+            var (_, userId) = await fixture.SeedUserAsync($"staff-{Guid.NewGuid():N}@scrapgo.example", UserType.Internal);
+            var scrapGoUserId = await RoleIdAsync(fixture, DefaultRoleNames.ScrapGoUser);
+            await SetRolesAsync(fixture, adminUid, userId, scrapGoUserId);
 
-            var response = await RevokeAsync(fixture, adminUid, targetId, roleId);
+            var response = await SetRolesAsync(fixture, adminUid, userId, scrapGoUserId);
 
-            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-            Assert.Empty(await AuditAsync(fixture, IdentityAuditEventTypes.RoleRevoked, targetId));
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Single(await AuditAsync(fixture, IdentityAuditEventTypes.UserRolesChanged, userId));
         }
 
-        // No stale permissions: the very next request sees the change, both ways.
+        [Fact]
+        public async Task An_empty_list_removes_every_role()
+        {
+            var (adminUid, _) = await fixture.SeedSiteAdminAsync();
+            var (_, userId) = await fixture.SeedUserAsync($"staff-{Guid.NewGuid():N}@scrapgo.example", UserType.Internal);
+            await SetRolesAsync(fixture, adminUid, userId, await RoleIdAsync(fixture, DefaultRoleNames.ScrapGoUser));
+
+            var response = await SetRolesAsync(fixture, adminUid, userId);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Empty(await RoleKeysOfAsync(fixture, userId));
+        }
+
         [Fact]
         public async Task The_change_takes_effect_on_the_users_next_request()
         {
-            var (adminUid, _) = await SeedPlatformAdministratorAsync(fixture);
-            var (targetUid, targetId) = await SeedInternalUserAsync(fixture);
-            var roleId = await CreateRoleAsync(fixture, Permissions.UsersView);
-            const string probe = "/api/users";
+            var (adminUid, _) = await fixture.SeedSiteAdminAsync();
+            var (uid, userId) = await fixture.SeedUserAsync($"staff-{Guid.NewGuid():N}@scrapgo.example", UserType.Internal);
+            Assert.Equal(HttpStatusCode.Forbidden, (await fixture.SendAsync(HttpMethod.Get, "/api/_test/platform-scoped", fixture.CreateToken(uid))).StatusCode);
 
-            Assert.Equal(HttpStatusCode.Forbidden, (await fixture.SendAsync(HttpMethod.Get, probe, fixture.CreateToken(targetUid))).StatusCode);
+            await SetRolesAsync(fixture, adminUid, userId, await RoleIdAsync(fixture, DefaultRoleNames.SiteAdmin));
 
-            (await AssignAsync(fixture, adminUid, targetId, roleId)).EnsureSuccessStatusCode();
-            Assert.Equal(HttpStatusCode.OK, (await fixture.SendAsync(HttpMethod.Get, probe, fixture.CreateToken(targetUid))).StatusCode);
-
-            (await RevokeAsync(fixture, adminUid, targetId, roleId)).EnsureSuccessStatusCode();
-            Assert.Equal(HttpStatusCode.Forbidden, (await fixture.SendAsync(HttpMethod.Get, probe, fixture.CreateToken(targetUid))).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await fixture.SendAsync(HttpMethod.Get, "/api/_test/platform-scoped", fixture.CreateToken(uid))).StatusCode);
         }
 
         [Fact]
-        public async Task Assigning_platform_administrator_grants_admin_access_on_the_next_request()
+        public async Task Removing_site_admin_from_one_of_two_active_holders_is_allowed()
         {
-            var (adminUid, _) = await SeedPlatformAdministratorAsync(fixture);
-            var (newUid, newId) = await SeedInternalUserAsync(fixture);
+            var (adminUid, _) = await fixture.SeedSiteAdminAsync();
+            var (_, secondId) = await fixture.SeedSiteAdminAsync();
 
-            var response = await AssignAsync(fixture, adminUid, newId, await PlatformAdministratorRoleIdAsync(fixture));
+            var response = await SetRolesAsync(fixture, adminUid, secondId, await RoleIdAsync(fixture, DefaultRoleNames.ScrapGoUser));
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            Assert.Equal(HttpStatusCode.OK,
-                (await fixture.SendAsync(HttpMethod.Get, "/api/_test/platform-scoped", fixture.CreateToken(newUid))).StatusCode);
+            Assert.Equal([DefaultRoleNames.ScrapGoUser], await RoleKeysOfAsync(fixture, secondId));
+        }
+
+        // Sad paths, kept separate.
+
+        [Fact]
+        public async Task An_external_role_for_an_internal_user_is_a_type_mismatch()
+        {
+            var (adminUid, _) = await fixture.SeedSiteAdminAsync();
+            var (_, userId) = await fixture.SeedUserAsync($"staff-{Guid.NewGuid():N}@scrapgo.example", UserType.Internal);
+
+            var response = await SetRolesAsync(fixture, adminUid, userId, await RoleIdAsync(fixture, DefaultRoleNames.User));
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal("role_type_mismatch", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+            Assert.Empty(await RoleKeysOfAsync(fixture, userId));
         }
 
         [Fact]
-        public async Task Revoking_platform_administrator_from_one_of_two_holders_is_allowed()
+        public async Task An_unknown_role_returns_four_hundred_with_reason_role_not_found()
         {
-            var (adminUid, _) = await SeedPlatformAdministratorAsync(fixture);
-            var (_, secondId) = await SeedPlatformAdministratorAsync(fixture);
+            var (adminUid, _) = await fixture.SeedSiteAdminAsync();
+            var (_, userId) = await fixture.SeedUserAsync($"staff-{Guid.NewGuid():N}@scrapgo.example", UserType.Internal);
 
-            var response = await RevokeAsync(fixture, adminUid, secondId, await PlatformAdministratorRoleIdAsync(fixture));
+            var response = await SetRolesAsync(fixture, adminUid, userId, 999_999);
 
-            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal("role_not_found", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+        }
+
+        [Fact]
+        public async Task A_missing_role_list_returns_four_hundred_with_reason_invalid_request()
+        {
+            var (adminUid, _) = await fixture.SeedSiteAdminAsync();
+            var (_, userId) = await fixture.SeedUserAsync();
+
+            var response = await fixture.SendAsync(HttpMethod.Put, $"/api/admin/users/{userId}/roles", fixture.CreateToken(adminUid), new { });
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal("invalid_request", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+        }
+
+        [Fact]
+        public async Task An_unknown_user_returns_four_hundred_four()
+        {
+            var (adminUid, _) = await fixture.SeedSiteAdminAsync();
+
+            Assert.Equal(HttpStatusCode.NotFound, (await SetRolesAsync(fixture, adminUid, 999_999)).StatusCode);
         }
     }
 
-    // Sad paths, one rule each.
+    // One database per class below: the rule is about every Site Admin there is.
 
-    // Lock-out protection: there is always at least one platform administrator.
-    public class Given_the_only_platform_administrator(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    public class Given_the_only_site_admin(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
-        public async Task Revoking_their_platform_administrator_role_returns_four_hundred_nine()
+        public async Task Removing_their_site_admin_role_returns_four_hundred_nine()
         {
-            var (adminUid, adminId) = await SeedPlatformAdministratorAsync(fixture);
-            var roleId = await PlatformAdministratorRoleIdAsync(fixture);
+            var (adminUid, adminId) = await fixture.SeedSiteAdminAsync();
 
-            var response = await RevokeAsync(fixture, adminUid, adminId, roleId);
+            var response = await SetRolesAsync(fixture, adminUid, adminId);
 
             Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-            Assert.Equal("last_platform_administrator", await IdentitySpecFixture.ReadProblemReasonAsync(response));
-            Assert.Equal(1, await AssignmentCountAsync(fixture, adminId, roleId));
+            Assert.Equal("last_site_admin", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+            Assert.Equal([DefaultRoleNames.SiteAdmin], await RoleKeysOfAsync(fixture, adminId));
         }
     }
 
-    // A disabled holder can't act, so it doesn't count as a remaining administrator.
-    public class Given_the_only_active_platform_administrator(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    public class Given_the_only_active_site_admin(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
-        public async Task Revoking_is_still_blocked_when_the_only_other_holder_is_disabled()
+        public async Task Removing_is_still_blocked_when_the_only_other_holder_is_disabled()
         {
-            var (adminUid, adminId) = await SeedPlatformAdministratorAsync(fixture);
-            var (_, disabledId) = await SeedPlatformAdministratorAsync(fixture);
-            var disabled = await fixture.DbContext.Users.SingleAsync(u => u.Id == disabledId);
-            disabled.Disable(DateTimeOffset.UtcNow);
-            await fixture.DbContext.SaveChangesAsync();
+            var (adminUid, adminId) = await fixture.SeedSiteAdminAsync();
+            var (_, disabledId) = await fixture.SeedSiteAdminAsync();
+            (await fixture.SendAsync(HttpMethod.Post, $"/api/admin/users/{disabledId}/disable", fixture.CreateToken(adminUid))).EnsureSuccessStatusCode();
 
-            var response = await RevokeAsync(fixture, adminUid, adminId, await PlatformAdministratorRoleIdAsync(fixture));
+            var response = await SetRolesAsync(fixture, adminUid, adminId);
 
             Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         }
     }
 
-    // Seeing users isn't managing them: role changes need users.manage.
+    public class Given_an_external_user(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    {
+        [Fact]
+        public async Task Setting_suppliers_replaces_the_links_and_scopes_their_next_request()
+        {
+            var (adminUid, adminId) = await fixture.SeedSiteAdminAsync();
+            var (_, userId) = await fixture.SeedUserAsync($"seller-{Guid.NewGuid():N}@acme.example");
+            (await SetSuppliersAsync(fixture, adminUid, userId, 17511, 9583)).EnsureSuccessStatusCode();
+
+            var response = await SetSuppliersAsync(fixture, adminUid, userId, 9583, 4242);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal([4242, 9583], body.GetProperty("supplierRecordIds").EnumerateArray().Select(i => i.GetInt32()));
+            Assert.Equal(2, (await AuditAsync(fixture, IdentityAuditEventTypes.UserSuppliersChanged, userId)).Count);
+            Assert.All(await AuditAsync(fixture, IdentityAuditEventTypes.UserSuppliersChanged, userId), a => Assert.Equal(adminId, a.UserId));
+        }
+
+        [Fact]
+        public async Task An_external_role_can_be_given()
+        {
+            var (adminUid, _) = await fixture.SeedSiteAdminAsync();
+            var (_, userId) = await fixture.SeedUserAsync($"seller-{Guid.NewGuid():N}@acme.example");
+
+            var response = await SetRolesAsync(fixture, adminUid, userId, await RoleIdAsync(fixture, DefaultRoleNames.User));
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal([DefaultRoleNames.User], await RoleKeysOfAsync(fixture, userId));
+        }
+    }
+
+    public class Given_an_internal_user(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    {
+        [Fact]
+        public async Task Setting_suppliers_returns_four_hundred_with_reason_supplier_links_external_only()
+        {
+            var (adminUid, _) = await fixture.SeedSiteAdminAsync();
+            var (_, userId) = await fixture.SeedUserAsync($"staff-{Guid.NewGuid():N}@scrapgo.example", UserType.Internal);
+
+            var response = await SetSuppliersAsync(fixture, adminUid, userId, 17511);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal("supplier_links_external_only", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+            Assert.False(await fixture.DbContext.UserSuppliers.AnyAsync(s => s.UserId == userId));
+        }
+    }
+
     public class Given_a_user_holding_users_view_but_not_users_manage(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
-        public async Task Assign_and_revoke_return_four_hundred_three_with_reason_platform_admin_required()
+        public async Task Setting_roles_and_suppliers_returns_four_hundred_three()
         {
             var (uid, userId) = await fixture.SeedUserAsync();
             await fixture.GrantPermissionsAsync(userId, Permissions.UsersView);
-            var (_, targetId) = await SeedInternalUserAsync(fixture);
-            var roleId = await CreateRoleAsync(fixture, Permissions.DashboardView);
+            var (_, targetId) = await fixture.SeedUserAsync($"seller-{Guid.NewGuid():N}@acme.example");
 
-            var assign = await AssignAsync(fixture, uid, targetId, roleId);
-            var revoke = await RevokeAsync(fixture, uid, targetId, roleId);
-
-            Assert.Equal(HttpStatusCode.Forbidden, assign.StatusCode);
-            Assert.Equal("platform_admin_required", await IdentitySpecFixture.ReadProblemReasonAsync(assign));
-            Assert.Equal(HttpStatusCode.Forbidden, revoke.StatusCode);
-            Assert.Equal(0, await AssignmentCountAsync(fixture, targetId, roleId));
-        }
-    }
-
-    // Escalation guard: nobody hands out a role richer than they are.
-    public class Given_an_administrator_without_a_permission_the_role_grants(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
-    {
-        [Fact]
-        public async Task Assigning_returns_four_hundred_three_with_reason_cannot_grant_unheld_permission()
-        {
-            var (uid, userId) = await fixture.SeedUserAsync();
-            await fixture.GrantPermissionsAsync(userId, Permissions.UsersManage);
-            var (_, targetId) = await SeedInternalUserAsync(fixture);
-            var roleId = await CreateRoleAsync(fixture, Permissions.UsersView);
-
-            var response = await AssignAsync(fixture, uid, targetId, roleId);
-
-            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-            Assert.Equal("cannot_grant_unheld_permission", await IdentitySpecFixture.ReadProblemReasonAsync(response));
-            Assert.Equal(0, await AssignmentCountAsync(fixture, targetId, roleId));
-        }
-    }
-
-    public class Given_an_unknown_role(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
-    {
-        [Fact]
-        public async Task Assigning_returns_four_hundred_four_with_reason_role_not_found()
-        {
-            var (adminUid, _) = await SeedPlatformAdministratorAsync(fixture);
-            var (_, targetId) = await SeedInternalUserAsync(fixture);
-
-            var response = await AssignAsync(fixture, adminUid, targetId, roleId: 999999);
-
-            Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-            Assert.Equal("role_not_found", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+            Assert.Equal(HttpStatusCode.Forbidden, (await SetRolesAsync(fixture, uid, targetId)).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await SetSuppliersAsync(fixture, uid, targetId, 17511)).StatusCode);
+            Assert.False(await fixture.DbContext.UserSuppliers.AnyAsync(s => s.UserId == targetId));
         }
     }
 
     public class Given_an_unauthenticated_request(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
-        [Fact]
-        public async Task Assign_and_revoke_return_four_hundred_one()
+        [Theory]
+        [InlineData("roles")]
+        [InlineData("suppliers")]
+        public async Task It_returns_four_hundred_one(string resource)
         {
-            var assign = await fixture.Client.PostAsync("/api/users/1/roles", System.Net.Http.Json.JsonContent.Create(new { roleId = 1 }));
-            var revoke = await fixture.Client.DeleteAsync("/api/users/1/roles/1");
+            var response = await fixture.Client.PutAsJsonAsync($"/api/admin/users/1/{resource}", new { });
 
-            Assert.Equal(HttpStatusCode.Unauthorized, assign.StatusCode);
-            Assert.Equal(HttpStatusCode.Unauthorized, revoke.StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         }
     }
 
-    private static Task<HttpResponseMessage> AssignAsync(IdentitySpecFixture fixture, string actorUid, int userId, int roleId) =>
-        fixture.SendAsync(HttpMethod.Post, $"/api/users/{userId}/roles", fixture.CreateToken(actorUid), new { roleId });
+    private static Task<HttpResponseMessage> SetRolesAsync(IdentitySpecFixture fixture, string actorUid, int userId, params int[] roleIds) =>
+        fixture.SendAsync(HttpMethod.Put, $"/api/admin/users/{userId}/roles", fixture.CreateToken(actorUid), new { roleIds });
 
-    private static Task<HttpResponseMessage> RevokeAsync(IdentitySpecFixture fixture, string actorUid, int userId, int roleId) =>
-        fixture.SendAsync(HttpMethod.Delete, $"/api/users/{userId}/roles/{roleId}", fixture.CreateToken(actorUid));
+    private static Task<HttpResponseMessage> SetSuppliersAsync(
+        IdentitySpecFixture fixture, string actorUid, int userId, params int[] supplierRecordIds) =>
+        fixture.SendAsync(HttpMethod.Put, $"/api/admin/users/{userId}/suppliers", fixture.CreateToken(actorUid), new { supplierRecordIds });
 
-    private static Task<(string Uid, int UserId)> SeedInternalUserAsync(IdentitySpecFixture fixture) =>
-        fixture.SeedUserAsync($"staff-{Guid.NewGuid():N}@scrapgo.example", UserType.Internal);
+    private static Task<int> RoleIdAsync(IdentitySpecFixture fixture, string key) =>
+        fixture.DbContext.Roles.AsNoTracking().Where(r => r.Key == key).Select(r => r.Id).SingleAsync();
 
-    /// <summary>A role granting <paramref name="permissions"/>, assigned to nobody.</summary>
-    private static async Task<int> CreateRoleAsync(IdentitySpecFixture fixture, params string[] permissions)
-    {
-        var role = Role.Create($"role_{Guid.NewGuid():N}", "Role", null, UserType.Internal, isSystem: false);
-        fixture.DbContext.Roles.Add(role);
-        await fixture.DbContext.SaveChangesAsync();
-
-        var permissionIds = await fixture.DbContext.Permissions.Where(p => permissions.Contains(p.Key)).Select(p => p.Id).ToListAsync();
-        fixture.DbContext.RolePermissions.AddRange(permissionIds.Select(id => RolePermission.Create(role.Id, id)));
-        await fixture.DbContext.SaveChangesAsync();
-
-        return role.Id;
-    }
-
-    private static Task<int> PlatformAdministratorRoleIdAsync(IdentitySpecFixture fixture) =>
-        fixture.DbContext.Roles
-            .Where(r => r.Key == DefaultRoleNames.SiteAdmin)
-            .Select(r => r.Id)
-            .SingleAsync();
-
-    private static async Task<(string Uid, int UserId)> SeedPlatformAdministratorAsync(IdentitySpecFixture fixture)
-    {
-        var (uid, userId) = await fixture.SeedUserAsync();
-        await fixture.AssignRoleAsync(userId, await PlatformAdministratorRoleIdAsync(fixture));
-
-        return (uid, userId);
-    }
-
-    private static Task<int> AssignmentCountAsync(IdentitySpecFixture fixture, int userId, int roleId) =>
-        fixture.DbContext.UserRoles.AsNoTracking().CountAsync(ur => ur.UserId == userId && ur.RoleId == roleId);
+    private static Task<List<string>> RoleKeysOfAsync(IdentitySpecFixture fixture, int userId) =>
+        fixture.DbContext.UserRoles.AsNoTracking().Where(ur => ur.UserId == userId).Select(ur => ur.Role.Key).ToListAsync();
 
     /// <summary>Audit rows of one type whose metadata names this target user.</summary>
     private static async Task<List<Shared.Infrastructure.Audit.AuditLog>> AuditAsync(IdentitySpecFixture fixture, string eventType, int targetUserId)

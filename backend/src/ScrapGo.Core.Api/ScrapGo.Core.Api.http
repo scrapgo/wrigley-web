@@ -6,9 +6,24 @@
 ### Health (anonymous)
 GET {{host}}/healthz
 
-### The caller's own user record (provisions it on first call)
-GET {{host}}/api/users/me
+### Start a session (creates an Internal user on a Workspace sign-in)
+POST {{host}}/api/session
 Authorization: Bearer {{token}}
+
+### The caller: user, roles, permissions, features
+GET {{host}}/api/me
+Authorization: Bearer {{token}}
+
+### Users (users.view)
+GET {{host}}/api/admin/users?type=External&page=1&pageSize=25
+Authorization: Bearer {{token}}
+
+### Set a user's roles (users.manage; replaces the whole set)
+PUT {{host}}/api/admin/users/1/roles
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "roleIds": [2] }
 
 ### My organizations
 GET {{host}}/api/organizations

@@ -7,6 +7,19 @@ public sealed class UserRepository(IdentityDbContext dbContext) : IUserRepositor
 {
     public void AddSupplierLinks(IEnumerable<UserSupplier> links) => dbContext.UserSuppliers.AddRange(links);
 
+    public void RemoveSupplierLinks(IEnumerable<UserSupplier> links) => dbContext.UserSuppliers.RemoveRange(links);
+
+    public async Task<IReadOnlyList<UserSupplier>> ListSupplierLinksAsync(int userId, CancellationToken cancellationToken) =>
+        await dbContext.UserSuppliers.Where(s => s.UserId == userId).ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<int>> ListSupplierRecordIdsAsync(int userId, CancellationToken cancellationToken) =>
+        await dbContext.UserSuppliers
+            .AsNoTracking()
+            .Where(s => s.UserId == userId)
+            .OrderBy(s => s.SupplierRecordId)
+            .Select(s => s.SupplierRecordId)
+            .ToListAsync(cancellationToken);
+
     public async Task<PagedResult<UserSummaryDto>> ListAsync(UserListFilter filter, PageRequest page, CancellationToken cancellationToken)
     {
         var users = dbContext.Users.AsNoTracking();
@@ -16,10 +29,17 @@ public sealed class UserRepository(IdentityDbContext dbContext) : IUserRepositor
             users = users.Where(u => u.Status == status);
         }
 
+        if (filter.UserType is { } userType)
+        {
+            users = users.Where(u => u.UserType == userType);
+        }
+
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             var pattern = LikePatterns.Contains(filter.Search.Trim());
-            users = users.Where(u => EF.Functions.ILike(u.Email, pattern, LikePatterns.EscapeCharacter));
+            users = users.Where(u =>
+                EF.Functions.ILike(u.Email, pattern, LikePatterns.EscapeCharacter)
+                || (u.DisplayName != null && EF.Functions.ILike(u.DisplayName, pattern, LikePatterns.EscapeCharacter)));
         }
 
         var totalCount = await users.CountAsync(cancellationToken);
@@ -27,11 +47,14 @@ public sealed class UserRepository(IdentityDbContext dbContext) : IUserRepositor
             .OrderBy(u => u.Id)
             .Skip(page.Skip)
             .Take(page.ResolvedPageSize)
-            .Select(u => new { u.Id, u.Email, u.Status, u.CreatedAt })
+            .Select(u => new { u.Id, u.Email, u.DisplayName, u.UserType, u.Status, u.LastSignInAt, u.CreatedAt })
             .ToListAsync(cancellationToken);
 
         return PagedResult<UserSummaryDto>.Create(
-            [.. rows.Select(u => new UserSummaryDto(u.Id, u.Email, DisplayName: null, u.Status.ToString(), u.CreatedAt))], page, totalCount);
+            [.. rows.Select(u => new UserSummaryDto(
+                u.Id, u.Email, u.DisplayName, u.UserType.ToString(), u.Status.ToString(), u.LastSignInAt, u.CreatedAt))],
+            page,
+            totalCount);
     }
 
     /// <summary>
@@ -91,13 +114,6 @@ public sealed class UserRepository(IdentityDbContext dbContext) : IUserRepositor
 
         return new ProvisionedUser(existing, WasCreated: false);
     }
-
-    public Task<UserStatusSnapshot?> GetStatusByUidAsync(string identityPlatformUid, CancellationToken cancellationToken) =>
-        dbContext.Users
-            .AsNoTracking()
-            .Where(u => u.IdentityPlatformUid == identityPlatformUid)
-            .Select(u => new UserStatusSnapshot(u.Id, u.Status, u.UserType))
-            .SingleOrDefaultAsync(cancellationToken);
 
     public Task<int?> GetIdByUidAsync(string identityPlatformUid, CancellationToken cancellationToken) =>
         dbContext.Users

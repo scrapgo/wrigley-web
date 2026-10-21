@@ -52,7 +52,7 @@ public class SiteAdminBootstrap
         [Fact]
         public async Task Bootstrapping_another_internal_user_is_allowed()
         {
-            var (_, disabledAdminId) = await fixture.SeedPlatformAdministratorAsync();
+            var (_, disabledAdminId) = await fixture.SeedSiteAdminAsync();
             var disabledAdmin = await fixture.DbContext.Users.SingleAsync(u => u.Id == disabledAdminId);
             disabledAdmin.Disable(DateTimeOffset.UtcNow);
             await fixture.DbContext.SaveChangesAsync();
@@ -69,7 +69,7 @@ public class SiteAdminBootstrap
         [Fact]
         public async Task Bootstrapping_a_different_user_is_refused_and_writes_nothing()
         {
-            await fixture.SeedPlatformAdministratorAsync();
+            await fixture.SeedSiteAdminAsync();
             var (secondUid, secondUserId) = await fixture.SeedUserAsync("second@scrapgo.example", UserType.Internal);
 
             Assert.Equal(BootstrapSiteAdminOutcome.ActiveSiteAdminExists, await BootstrapAsync(fixture, secondUid));

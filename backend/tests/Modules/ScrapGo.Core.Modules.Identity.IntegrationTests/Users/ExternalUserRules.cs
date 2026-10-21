@@ -9,20 +9,21 @@ public class ExternalUserRules
     public class Given_an_external_user(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
-        public async Task Assigning_them_a_platform_role_returns_four_hundred_with_reason_external_user_not_allowed()
+        public async Task Giving_them_an_internal_role_returns_four_hundred_with_reason_role_type_mismatch()
         {
-            var (platformUid, _) = await fixture.SeedPlatformAdministratorAsync();
+            var (adminUid, _) = await fixture.SeedSiteAdminAsync();
             var (_, externalId) = await fixture.SeedUserAsync("customer@acme.example");
-            var platformAdminRoleId = await fixture.DbContext.Roles.AsNoTracking()
+            var siteAdminRoleId = await fixture.DbContext.Roles.AsNoTracking()
                 .Where(r => r.Key == DefaultRoleNames.SiteAdmin)
                 .Select(r => r.Id)
                 .SingleAsync();
 
             var response = await fixture.SendAsync(
-                HttpMethod.Post, $"/api/users/{externalId}/roles", fixture.CreateToken(platformUid), new { roleId = platformAdminRoleId });
+                HttpMethod.Put, $"/api/admin/users/{externalId}/roles", fixture.CreateToken(adminUid), new { roleIds = new[] { siteAdminRoleId } });
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Equal("external_user_not_allowed", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+            Assert.Equal("role_type_mismatch", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+            Assert.False(await fixture.DbContext.UserRoles.AsNoTracking().AnyAsync(ur => ur.UserId == externalId));
         }
 
         [Fact]

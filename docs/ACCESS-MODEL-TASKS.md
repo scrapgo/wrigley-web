@@ -328,7 +328,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*B14 · Admin users API\*\*
+\- \[x] \*\*B14 · Admin users API\*\*
 
 &#x20; > Implement `GET /api/admin/users` (search, type and status filters, paged), `GET /api/admin/users/{id}`, `POST …/disable`, `POST …/enable`, `PUT …/roles` and `PUT …/suppliers` (section 9). Each change audits and evicts the user's cached access. Enforce: no self-disable; same-type roles only; never remove the last active Site Admin (409, under a row lock); supplier links for External users only. Rewrite `UsersController` and delete what it no longer needs. Port `UserStatusChanges`, `UserRoleAssignment` and `AdminUserReads`.
 

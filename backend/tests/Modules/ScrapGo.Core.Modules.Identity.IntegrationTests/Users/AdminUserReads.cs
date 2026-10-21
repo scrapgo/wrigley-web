@@ -1,4 +1,4 @@
-// ADMIN-API-STATUS Task 5: platform-wide user reads, gated on User.Read at platform scope.
+// B14: GET /api/admin/users and /api/admin/users/{id}, gated on users.view.
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -6,7 +6,7 @@ namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Users;
 
 public class AdminUserReads
 {
-    public class Given_a_platform_user_reader(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    public class Given_a_user_reader(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
         public async Task Get_users_pages_by_id_with_the_total()
@@ -19,7 +19,7 @@ public class AdminUserReads
             }
 
             var response = await fixture.SendAsync(
-                HttpMethod.Get, "/api/users?search=paged-users.example&page=2&pageSize=2", token);
+                HttpMethod.Get, "/api/admin/users?search=paged-users.example&page=2&pageSize=2", token);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -40,12 +40,27 @@ public class AdminUserReads
             await fixture.DbContext.SaveChangesAsync();
 
             var response = await fixture.SendAsync(
-                HttpMethod.Get, "/api/users?search=FILTERED-users&status=disabled", token);
+                HttpMethod.Get, "/api/admin/users?search=FILTERED-users&status=disabled", token);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var item = Assert.Single((await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("items").EnumerateArray());
             Assert.Equal(disabledId, item.GetProperty("id").GetInt32());
             Assert.Equal("Disabled", item.GetProperty("status").GetString());
+        }
+
+        [Fact]
+        public async Task Get_users_filters_by_type()
+        {
+            var token = await PlatformReaderTokenAsync(fixture);
+            var (_, internalId) = await fixture.SeedUserAsync("staff@typed-users.example", UserType.Internal);
+            await fixture.SeedUserAsync("seller@typed-users.example");
+
+            var response = await fixture.SendAsync(HttpMethod.Get, "/api/admin/users?search=typed-users&type=internal", token);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var item = Assert.Single((await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("items").EnumerateArray());
+            Assert.Equal(internalId, item.GetProperty("id").GetInt32());
+            Assert.Equal("Internal", item.GetProperty("userType").GetString());
         }
 
         [Fact]
@@ -55,19 +70,38 @@ public class AdminUserReads
             var (_, userId) = await fixture.SeedUserAsync();
             var roleId = await fixture.GrantPermissionsAsync(userId, SpecPermissions.Alpha);
 
-            var response = await fixture.SendAsync(HttpMethod.Get, $"/api/users/{userId}", token);
+            var response = await fixture.SendAsync(HttpMethod.Get, $"/api/admin/users/{userId}", token);
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var body = await response.Content.ReadFromJsonAsync<JsonElement>();
             Assert.Equal(userId, body.GetProperty("id").GetInt32());
             var role = Assert.Single(body.GetProperty("roles").EnumerateArray());
-            Assert.Equal(roleId, role.GetProperty("roleId").GetInt32());
+            Assert.Equal(roleId, role.GetProperty("id").GetInt32());
+            Assert.StartsWith("spec_role_", role.GetProperty("key").GetString());
+            Assert.Equal(0, body.GetProperty("supplierRecordIds").GetArrayLength());
+        }
+
+        [Fact]
+        public async Task Get_user_returns_an_external_users_supplier_links()
+        {
+            var token = await PlatformReaderTokenAsync(fixture);
+            var (_, userId) = await fixture.SeedUserAsync($"seller-{Guid.NewGuid():N}@acme.example");
+            fixture.DbContext.UserSuppliers.AddRange(
+                UserSupplier.Link(userId, 17511, null, DateTimeOffset.UtcNow),
+                UserSupplier.Link(userId, 9583, null, DateTimeOffset.UtcNow));
+            await fixture.DbContext.SaveChangesAsync();
+
+            var response = await fixture.SendAsync(HttpMethod.Get, $"/api/admin/users/{userId}", token);
+
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal("External", body.GetProperty("userType").GetString());
+            Assert.Equal([9583, 17511], body.GetProperty("supplierRecordIds").EnumerateArray().Select(i => i.GetInt32()));
         }
 
         [Fact]
         public async Task Get_user_for_an_unknown_id_returns_four_hundred_four()
         {
-            var response = await fixture.SendAsync(HttpMethod.Get, "/api/users/999999", await PlatformReaderTokenAsync(fixture));
+            var response = await fixture.SendAsync(HttpMethod.Get, "/api/admin/users/999999", await PlatformReaderTokenAsync(fixture));
 
             Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         }
@@ -77,17 +111,18 @@ public class AdminUserReads
         [InlineData("pageSize=101")]
         [InlineData("status=Banned")]
         [InlineData("status=1")]
+        [InlineData("type=Partner")]
         public async Task Get_users_with_an_invalid_query_returns_four_hundred_with_reason_invalid_request(string query)
         {
-            var response = await fixture.SendAsync(HttpMethod.Get, $"/api/users?{query}", await PlatformReaderTokenAsync(fixture));
+            var response = await fixture.SendAsync(HttpMethod.Get, $"/api/admin/users?{query}", await PlatformReaderTokenAsync(fixture));
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Equal("invalid_request", await IdentitySpecFixture.ReadProblemReasonAsync(response));
         }
     }
 
-    // The bootstrapped PlatformAdministrator holds User.Read at platform scope.
-    public class Given_the_bootstrapped_platform_administrator(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    // site_admin holds users.view.
+    public class Given_a_site_admin(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
         public async Task Get_users_is_allowed()
@@ -99,7 +134,7 @@ public class AdminUserReads
                 .SingleAsync();
             await fixture.AssignRoleAsync(userId, roleId);
 
-            var response = await fixture.SendAsync(HttpMethod.Get, "/api/users", fixture.CreateToken(uid));
+            var response = await fixture.SendAsync(HttpMethod.Get, "/api/admin/users", fixture.CreateToken(uid));
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
@@ -107,11 +142,11 @@ public class AdminUserReads
 
     // Sad paths, kept separate.
 
-    public class Given_an_authenticated_user_without_user_read(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    public class Given_an_authenticated_user_without_users_view(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Theory]
-        [InlineData("/api/users")]
-        [InlineData("/api/users/1")]
+        [InlineData("/api/admin/users")]
+        [InlineData("/api/admin/users/1")]
         public async Task The_admin_reads_return_four_hundred_three(string path)
         {
             var (uid, _) = await fixture.SeedUserAsync();
@@ -125,8 +160,8 @@ public class AdminUserReads
     public class Given_an_unauthenticated_request(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Theory]
-        [InlineData("/api/users")]
-        [InlineData("/api/users/1")]
+        [InlineData("/api/admin/users")]
+        [InlineData("/api/admin/users/1")]
         public async Task The_admin_reads_return_four_hundred_one(string path)
         {
             var response = await fixture.Client.GetAsync(path);
@@ -135,7 +170,7 @@ public class AdminUserReads
         }
     }
 
-    /// <summary>A fresh user holding User.Read.</summary>
+    /// <summary>A fresh user holding users.view.</summary>
     private static async Task<string> PlatformReaderTokenAsync(IdentitySpecFixture fixture)
     {
         var (uid, userId) = await fixture.SeedUserAsync("reader@platform.example");

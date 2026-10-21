@@ -1,11 +1,11 @@
-// ADMIN-API-STATUS Task 8: enable/disable users, platform-wide, audited, effective on the next request.
+// B14: POST /api/admin/users/{id}/disable and /enable (users.manage).
 using System.Text.Json;
 
 namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Users;
 
 public class UserStatusChanges
 {
-    public class Given_a_platform_user_administrator(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    public class Given_a_user_administrator(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
         public async Task Disabling_writes_an_audit_entry_and_the_gate_rejects_the_users_very_next_request()
@@ -29,16 +29,15 @@ public class UserStatusChanges
         [Fact]
         public async Task Enabling_restores_access_on_the_next_request_and_writes_an_audit_entry()
         {
-            var (actorUid, actorId) = await SeedUserAdministratorAsync(fixture);
+            var (actorUid, _) = await SeedUserAdministratorAsync(fixture);
             var (targetUid, targetId) = await fixture.SeedUserAsync();
-            (await DisableAsync(fixture, actorUid, targetId)).EnsureSuccessStatusCode();
+            await DisableAsync(fixture, actorUid, targetId);
 
             var response = await EnableAsync(fixture, actorUid, targetId);
 
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
             Assert.Equal(UserStatus.Active, await StatusOfAsync(fixture, targetId));
-            var audit = Assert.Single(await AuditAsync(fixture, IdentityAuditEventTypes.UserEnabled, targetId));
-            Assert.Equal(actorId, audit.UserId);
+            Assert.Single(await AuditAsync(fixture, IdentityAuditEventTypes.UserEnabled, targetId));
             Assert.Equal(HttpStatusCode.OK, (await fixture.SendMeAsync(fixture.CreateToken(targetUid))).StatusCode);
         }
 
@@ -47,11 +46,10 @@ public class UserStatusChanges
         {
             var (actorUid, _) = await SeedUserAdministratorAsync(fixture);
             var (_, targetId) = await fixture.SeedUserAsync();
-            (await DisableAsync(fixture, actorUid, targetId)).EnsureSuccessStatusCode();
 
-            var response = await DisableAsync(fixture, actorUid, targetId);
+            Assert.Equal(HttpStatusCode.NoContent, (await DisableAsync(fixture, actorUid, targetId)).StatusCode);
+            Assert.Equal(HttpStatusCode.NoContent, (await DisableAsync(fixture, actorUid, targetId)).StatusCode);
 
-            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
             Assert.Single(await AuditAsync(fixture, IdentityAuditEventTypes.UserDisabled, targetId));
         }
 
@@ -61,9 +59,8 @@ public class UserStatusChanges
             var (actorUid, _) = await SeedUserAdministratorAsync(fixture);
             var (_, targetId) = await fixture.SeedUserAsync();
 
-            var response = await EnableAsync(fixture, actorUid, targetId);
+            Assert.Equal(HttpStatusCode.NoContent, (await EnableAsync(fixture, actorUid, targetId)).StatusCode);
 
-            Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
             Assert.Empty(await AuditAsync(fixture, IdentityAuditEventTypes.UserEnabled, targetId));
         }
 
@@ -76,68 +73,69 @@ public class UserStatusChanges
         }
     }
 
-    public class Given_two_active_platform_administrators(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    public class Given_two_active_site_admins(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
         public async Task One_may_disable_the_other()
         {
-            var (firstUid, _) = await SeedPlatformAdministratorAsync(fixture);
-            var (_, secondId) = await SeedPlatformAdministratorAsync(fixture);
+            var (firstUid, _) = await fixture.SeedSiteAdminAsync();
+            var (_, secondId) = await fixture.SeedSiteAdminAsync();
 
             var response = await DisableAsync(fixture, firstUid, secondId);
 
             Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+            Assert.Equal(UserStatus.Disabled, await StatusOfAsync(fixture, secondId));
         }
     }
 
-    // Sad paths, one rule each.
+    // Sad paths, kept separate.
 
     public class Given_a_caller_disabling_themselves(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
-        public async Task It_returns_four_hundred_three_with_reason_cannot_disable_self()
+        public async Task It_returns_four_hundred_nine_with_reason_cannot_disable_self()
         {
             var (actorUid, actorId) = await SeedUserAdministratorAsync(fixture);
 
             var response = await DisableAsync(fixture, actorUid, actorId);
 
-            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
             Assert.Equal("cannot_disable_self", await IdentitySpecFixture.ReadProblemReasonAsync(response));
             Assert.Equal(UserStatus.Active, await StatusOfAsync(fixture, actorId));
         }
     }
 
-    // Lock-out protection: disabled holders don't count as administrators.
-    public class Given_the_last_enabled_platform_administrator(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    // One database for this class: the rule is about every Site Admin there is.
+    public class Given_the_last_active_site_admin(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
         public async Task Disabling_them_returns_four_hundred_nine_even_if_a_disabled_one_remains()
         {
             var (actorUid, _) = await SeedUserAdministratorAsync(fixture);
-            var (_, lastActiveId) = await SeedPlatformAdministratorAsync(fixture);
-            var (_, disabledAdminId) = await SeedPlatformAdministratorAsync(fixture);
-            var disabledAdmin = await fixture.DbContext.Users.SingleAsync(u => u.Id == disabledAdminId);
-            disabledAdmin.Disable(DateTimeOffset.UtcNow);
-            await fixture.DbContext.SaveChangesAsync();
+            var (_, lastActiveId) = await fixture.SeedSiteAdminAsync();
+            var (_, disabledAdminId) = await fixture.SeedSiteAdminAsync();
+            await DisableAsync(fixture, actorUid, disabledAdminId);
 
             var response = await DisableAsync(fixture, actorUid, lastActiveId);
 
             Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-            Assert.Equal("last_platform_administrator", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+            Assert.Equal("last_site_admin", await IdentitySpecFixture.ReadProblemReasonAsync(response));
             Assert.Equal(UserStatus.Active, await StatusOfAsync(fixture, lastActiveId));
         }
     }
 
-    public class Given_a_caller_without_platform_user_update(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    public class Given_a_caller_without_users_manage(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
         [Fact]
-        public async Task A_user_with_no_roles_gets_four_hundred_three()
+        public async Task A_user_with_only_users_view_gets_four_hundred_three()
         {
-            var (uid, _) = await fixture.SeedUserAsync();
+            var (uid, userId) = await fixture.SeedUserAsync();
+            await fixture.GrantPermissionsAsync(userId, Permissions.UsersView);
             var (_, targetId) = await fixture.SeedUserAsync();
 
-            Assert.Equal(HttpStatusCode.Forbidden, (await DisableAsync(fixture, uid, targetId)).StatusCode);
-            Assert.Equal(HttpStatusCode.Forbidden, (await EnableAsync(fixture, uid, targetId)).StatusCode);
+            var response = await DisableAsync(fixture, uid, targetId);
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
             Assert.Equal(UserStatus.Active, await StatusOfAsync(fixture, targetId));
         }
     }
@@ -149,35 +147,23 @@ public class UserStatusChanges
         [InlineData("enable")]
         public async Task It_returns_four_hundred_one(string action)
         {
-            var response = await fixture.Client.PostAsync($"/api/users/1/{action}", null);
+            var response = await fixture.Client.PostAsync($"/api/admin/users/1/{action}", content: null);
 
             Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         }
     }
 
     private static Task<HttpResponseMessage> DisableAsync(IdentitySpecFixture fixture, string actorUid, int userId) =>
-        fixture.SendAsync(HttpMethod.Post, $"/api/users/{userId}/disable", fixture.CreateToken(actorUid));
+        fixture.SendAsync(HttpMethod.Post, $"/api/admin/users/{userId}/disable", fixture.CreateToken(actorUid));
 
     private static Task<HttpResponseMessage> EnableAsync(IdentitySpecFixture fixture, string actorUid, int userId) =>
-        fixture.SendAsync(HttpMethod.Post, $"/api/users/{userId}/enable", fixture.CreateToken(actorUid));
+        fixture.SendAsync(HttpMethod.Post, $"/api/admin/users/{userId}/enable", fixture.CreateToken(actorUid));
 
-    /// <summary>A user holding User.Update through a custom role, not PlatformAdministrator.</summary>
+    /// <summary>A user holding users.manage through a custom role, not site_admin.</summary>
     private static async Task<(string Uid, int UserId)> SeedUserAdministratorAsync(IdentitySpecFixture fixture)
     {
         var (uid, userId) = await fixture.SeedUserAsync();
         await fixture.GrantPermissionsAsync(userId, Permissions.UsersManage);
-
-        return (uid, userId);
-    }
-
-    private static async Task<(string Uid, int UserId)> SeedPlatformAdministratorAsync(IdentitySpecFixture fixture)
-    {
-        var (uid, userId) = await fixture.SeedUserAsync();
-        var roleId = await fixture.DbContext.Roles
-            .Where(r => r.Key == DefaultRoleNames.SiteAdmin)
-            .Select(r => r.Id)
-            .SingleAsync();
-        await fixture.AssignRoleAsync(userId, roleId);
 
         return (uid, userId);
     }

@@ -162,7 +162,7 @@ The command evicts the user's cached access, so their next request already
 carries the Site Admin permissions. No new token is needed.
 
 Further Site Admins are granted by an existing one, not by this command:
-`POST /api/users/{id}/roles` with the `site_admin` role id.
+`PUT /api/admin/users/{id}/roles` with every role they should hold, including `site_admin`.
 
 ### 8. Internal users: Google Workspace sign-in
 
@@ -338,7 +338,7 @@ Inside the container, the proxy on your machine is `host.docker.internal:5434`
 The model is being replaced by [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md), one task at a time (`../docs/ACCESS-MODEL-TASKS.md`). Applications, modules, the catalog, organizations, memberships and organization invitations are already gone. Until the rest lands:
 
 - **Roles are global.** Three system roles are seeded (`site_admin`, `scrapgo_user`, `user`), and a permission counts only while its feature is on for the user.
-- **Site Admins** list users, enable and disable them, and assign or revoke roles (`/api/users…`). The last active Site Admin can't be removed.
+- **Site Admins** list users, enable and disable them, and set their roles and supplier links (`/api/admin/users…`). The last active Site Admin can't be removed.
 - **Nothing is automatic:** nobody gets anything at sign-in.
 
 The rules are in [`AGENTS.md`](AGENTS.md) ("Authorization Model"), and the admin API history in [`ADMIN-API-GAPS-v2.md`](ADMIN-API-GAPS-v2.md).

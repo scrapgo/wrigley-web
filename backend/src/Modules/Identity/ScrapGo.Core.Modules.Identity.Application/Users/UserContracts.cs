@@ -1,43 +1,48 @@
 namespace ScrapGo.Core.Modules.Identity.Application.Users;
 
 /// <summary>One role a user holds.</summary>
-public sealed record AssignedRoleDto(int RoleId, string Name);
+public sealed record UserRoleDto(int Id, string Key, string Name);
 
 /// <summary>Filters for the admin user list. Every filter is optional; omitted means "any".</summary>
-/// <param name="Search">Case-insensitive substring of the email (the only name-like field stored today).</param>
-public sealed record UserListFilter(string? Search = null, UserStatus? Status = null);
+/// <param name="Search">Case-insensitive substring of the email or display name.</param>
+public sealed record UserListFilter(string? Search = null, UserStatus? Status = null, UserType? UserType = null);
 
 /// <summary>A row in the admin user list.</summary>
-/// <param name="DisplayName">
-/// Always null for now: the user record stores no display name yet (only the
-/// email from the GCIP token). Reserved so clients can render it once it is.
-/// </param>
-public sealed record UserSummaryDto(int Id, string Email, string? DisplayName, string Status, DateTimeOffset CreatedAt)
-{
-    public static UserSummaryDto From(User user) =>
-        new(user.Id, user.Email, DisplayName: null, user.Status.ToString(), user.CreatedAt);
-}
-
-/// <summary>The admin view of one user: the summary fields plus every role they hold.</summary>
-/// <param name="DisplayName">Always null for now; see <see cref="UserSummaryDto"/>.</param>
-/// <param name="Roles">Active role assignments.</param>
-public sealed record UserDetailDto(
+public sealed record UserSummaryDto(
     int Id,
     string Email,
     string? DisplayName,
+    string UserType,
     string Status,
-    DateTimeOffset CreatedAt,
-    IReadOnlyList<AssignedRoleDto> Roles)
-{
-    public static UserDetailDto From(User user, IReadOnlyList<AssignedRoleDto> roles) =>
-        new(user.Id, user.Email, DisplayName: null, user.Status.ToString(), user.CreatedAt, roles);
-}
+    DateTimeOffset? LastSignInAt,
+    DateTimeOffset CreatedAt);
 
-/// <param name="ActorUid">The caller's UID from the validated token's <c>sub</c> claim.</param>
-/// <param name="UserId">The user receiving the role, from the route.</param>
-/// <param name="RoleId">From the request body. Required.</param>
-public sealed record AssignRoleCommand(string ActorUid, int UserId, int? RoleId)
+/// <summary>The admin view of one user: who they are, their roles and (External users) their supplier links.</summary>
+/// <param name="SupplierRecordIds">Linked Quickbase supplier Record IDs, ascending; always empty for Internal users.</param>
+public sealed record UserDetailDto(
+    int Id,
+    string IdentityPlatformUid,
+    string Email,
+    string? DisplayName,
+    string UserType,
+    string Status,
+    string? SignInProvider,
+    DateTimeOffset? LastSignInAt,
+    DateTimeOffset CreatedAt,
+    IReadOnlyList<UserRoleDto> Roles,
+    IReadOnlyList<int> SupplierRecordIds)
 {
-    /// <summary>The InvalidRequest check a handler runs before anything else: a positive role id.</summary>
-    public bool IsWellFormed => RoleId is > 0;
+    public static UserDetailDto From(User user, IReadOnlyList<UserRoleDto> roles, IReadOnlyList<int> supplierRecordIds) =>
+        new(
+            user.Id,
+            user.IdentityPlatformUid,
+            user.Email,
+            user.DisplayName,
+            user.UserType.ToString(),
+            user.Status.ToString(),
+            user.SignInProvider,
+            user.LastSignInAt,
+            user.CreatedAt,
+            roles,
+            supplierRecordIds);
 }

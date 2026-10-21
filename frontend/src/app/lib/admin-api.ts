@@ -15,8 +15,22 @@ export type UserType = 'Internal' | 'External'
 
 export type UserStatus = 'Active' | 'Disabled'
 
+export type PermissionAudience = 'Internal' | 'External' | 'Any'
+
 export interface Permission {
+    id: number
+    key: string
     name: string
+    description: string
+    /** Which roles it may be mapped to: internal roles, external roles, or either. */
+    audience: PermissionAudience
+}
+
+/** The permissions one feature owns. */
+export interface PermissionGroup {
+    featureKey: string
+    featureName: string
+    permissions: Permission[]
 }
 
 export interface UserSummary {
@@ -107,8 +121,9 @@ export interface UserListQuery {
 /*  Permissions                                                                */
 /* -------------------------------------------------------------------------- */
 
-export function listPermissions(): Promise<Permission[]> {
-    return apiClient.fetchWithAuth<Permission[]>('/api/permissions')
+/** The permission catalog, grouped by feature (roles.view). */
+export function listPermissionGroups(): Promise<PermissionGroup[]> {
+    return apiClient.fetchWithAuth<PermissionGroup[]>('/api/admin/permissions')
 }
 
 /* -------------------------------------------------------------------------- */
@@ -185,4 +200,12 @@ export function revokeInvitation(id: number): Promise<void> {
 
 export function listRoles(): Promise<Role[]> {
     return apiClient.fetchWithAuth<Role[]>('/api/admin/roles')
+}
+
+/** Replaces what the role grants with exactly these permission keys (roles.manage). */
+export function setRolePermissions(id: number, permissions: string[]): Promise<Role> {
+    return apiClient.fetchWithAuth<Role>(`/api/admin/roles/${id}/permissions`, {
+        method: 'PUT',
+        body: JSON.stringify({ permissions }),
+    })
 }

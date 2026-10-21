@@ -466,7 +466,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*F8 · Admin › Roles\*\*
+\- \[x] \*\*F8 · Admin › Roles\*\*
 
 &#x20; > Roles tab: a grid with permissions grouped by feature down the side, the three roles across the top, and a checkbox at each crossing. Grey out cells whose audience doesn't fit the role's type. Save per role with `PUT /api/admin/roles/{id}/permissions`. Read-only without `roles.manage`. Replace the old `roles-panel.tsx` and `permissions-panel.tsx`.
 

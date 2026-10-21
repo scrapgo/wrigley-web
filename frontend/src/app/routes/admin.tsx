@@ -4,6 +4,7 @@ import { Construction } from 'lucide-react'
 import { AppShell } from '../components/app-shell'
 import { RequirePermission } from '../components/access'
 import { InvitationsPanel } from '../components/admin/invitations-panel'
+import { RolesPanel } from '../components/admin/roles-panel'
 import { UsersPanel } from '../components/admin/users-panel'
 import { EmptyState } from '../components/ui/empty-state'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
@@ -31,6 +32,7 @@ export const Route = createFileRoute('/admin')({
 const PANELS: Partial<Record<AdminTab, () => React.ReactNode>> = {
     users: () => <UsersPanel />,
     invitations: () => <InvitationsPanel />,
+    roles: () => <RolesPanel />,
 }
 
 function AdminComponent() {

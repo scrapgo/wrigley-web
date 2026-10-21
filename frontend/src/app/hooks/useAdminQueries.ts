@@ -9,7 +9,8 @@ import {
     disableUser,
     enableUser,
     getUser,
-    listPermissions,
+    listPermissionGroups,
+    setRolePermissions,
     listRoles,
     listUsers,
     setUserRoles,
@@ -37,10 +38,10 @@ export const adminKeys = {
 /*  Queries                                                                    */
 /* -------------------------------------------------------------------------- */
 
-export function usePermissions() {
+export function usePermissionGroups() {
     return useQuery({
         queryKey: adminKeys.permissions,
-        queryFn: listPermissions,
+        queryFn: listPermissionGroups,
     })
 }
 
@@ -151,4 +152,16 @@ export function useResendInvitation() {
 export function useRevokeInvitation() {
     const invalidate = useInvalidateInvitations()
     return useMutation({ mutationFn: (id: number) => revokeInvitation(id), onSuccess: invalidate })
+}
+
+export function useSetRolePermissions() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: ({ id, permissions }: { id: number; permissions: string[] }) => setRolePermissions(id, permissions),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: adminKeys.roles })
+            // The caller's own access may have changed with the role.
+            void queryClient.invalidateQueries({ queryKey: ['me'] })
+        },
+    })
 }

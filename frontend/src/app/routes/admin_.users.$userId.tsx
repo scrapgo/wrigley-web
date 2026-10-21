@@ -1,10 +1,11 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { Construction } from 'lucide-react'
 
 import { AppShell } from '../components/app-shell'
-import { RoleAssignmentPanel } from '../components/admin/role-assignment-panel'
+import { EmptyState } from '../components/ui/empty-state'
 
 export const Route = createFileRoute('/admin_/users/$userId')({
-    component: UserRoleManagementComponent,
+    component: UserDetailComponent,
     beforeLoad: async () => {
         const token = localStorage.getItem('authToken')
         if (!token) {
@@ -17,19 +18,17 @@ export const Route = createFileRoute('/admin_/users/$userId')({
             throw redirect({ to: '/admin' })
         }
         return { userId }
-    }
+    },
 })
 
-function UserRoleManagementComponent() {
-    const { userId } = Route.useLoaderData()
-
+function UserDetailComponent() {
     return (
-        <AppShell
-            active="admin"
-            title="User Role Management"
-            subtitle="Manage roles and permissions for this user."
-        >
-            <RoleAssignmentPanel userId={userId} />
+        <AppShell active="admin" title="User" subtitle="Roles, supplier links and status.">
+            <EmptyState
+                icon={Construction}
+                title="Admin is being rebuilt"
+                description="User details are moving to the new access model and will be back shortly."
+            />
         </AppShell>
     )
 }

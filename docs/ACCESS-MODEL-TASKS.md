@@ -386,7 +386,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*F1 · Remove organization and application UI\*\*
+\- \[x] \*\*F1 · Remove organization and application UI\*\*
 
 &#x20; > Delete the organization, application and role-assignment admin UI:
 

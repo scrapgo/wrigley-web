@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Link } from '@tanstack/react-router'
 import { ChevronLeft, ChevronRight, Search, Users } from 'lucide-react'
 
@@ -29,12 +29,15 @@ export function SuppliersPanel({ initialSearch = '' }: { initialSearch?: string 
     const { data, isLoading, isError, error, isFetching } = useSuppliers(search, skip, PAGE_SIZE)
 
     // The global topbar search navigates here with a `search` param. If we're
-    // already on this page the component stays mounted, so sync the form state.
-    useEffect(() => {
+    // already on this page the component stays mounted, so sync the form state
+    // during render when the param changes (no effect needed).
+    const [syncedSearch, setSyncedSearch] = useState(initialSearch)
+    if (initialSearch !== syncedSearch) {
+        setSyncedSearch(initialSearch)
         setSearchInput(initialSearch)
         setSearch(initialSearch)
         setSkip(0)
-    }, [initialSearch])
+    }
 
     const onSubmit = (e: FormEvent) => {
         e.preventDefault()

@@ -19,4 +19,13 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // TanStack file routes export `Route` next to their component (the router
+    // plugin handles hot reload for them), and shadcn/ui files export variant
+    // helpers and hooks next to their components.
+    files: ['src/app/routes/**/*.tsx', 'src/app/components/ui/**/*.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

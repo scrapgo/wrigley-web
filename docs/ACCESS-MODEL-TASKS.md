@@ -486,7 +486,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*F10 · Admin › Audit log\*\*
+\- \[x] \*\*F10 · Admin › Audit log\*\*
 
 &#x20; > Audit tab: a read-only paged table (time, actor, action, target, result) with filters for action, actor and date range.
 

@@ -10,6 +10,8 @@ import {
     enableUser,
     getUser,
     listPermissionGroups,
+    listAudit,
+    type AuditQuery,
     listFeatures,
     setFeatureState,
     setFeatureTargets,
@@ -37,6 +39,7 @@ export const adminKeys = {
     invitationList: (page: number, pageSize: number) => ['admin', 'invitations', page, pageSize] as const,
     invitableRoles: ['admin', 'invitations', 'roles'] as const,
     features: ['admin', 'features'] as const,
+    audit: (query: AuditQuery) => ['admin', 'audit', query] as const,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -93,6 +96,14 @@ export function useFeatures() {
     return useQuery({
         queryKey: adminKeys.features,
         queryFn: listFeatures,
+    })
+}
+
+export function useAudit(query: AuditQuery) {
+    return useQuery({
+        queryKey: adminKeys.audit(query),
+        queryFn: () => listAudit(query),
+        placeholderData: keepPreviousData,
     })
 }
 

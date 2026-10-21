@@ -1,13 +1,12 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
-import { Construction } from 'lucide-react'
 
 import { AppShell } from '../components/app-shell'
 import { RequirePermission } from '../components/access'
+import { AuditPanel } from '../components/admin/audit-panel'
 import { FeaturesPanel } from '../components/admin/features-panel'
 import { InvitationsPanel } from '../components/admin/invitations-panel'
 import { RolesPanel } from '../components/admin/roles-panel'
 import { UsersPanel } from '../components/admin/users-panel'
-import { EmptyState } from '../components/ui/empty-state'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { useAccess } from '../hooks/useAccess'
 import { ADMIN_PERMISSIONS, ADMIN_TABS, NAV, type AdminTab } from '../lib/nav'
@@ -29,12 +28,13 @@ export const Route = createFileRoute('/admin')({
     },
 })
 
-/** Each tab's content. Tabs whose screens aren't rebuilt yet show a placeholder. */
-const PANELS: Partial<Record<AdminTab, () => React.ReactNode>> = {
+/** Each tab's content. */
+const PANELS: Record<AdminTab, () => React.ReactNode> = {
     users: () => <UsersPanel />,
     invitations: () => <InvitationsPanel />,
     roles: () => <RolesPanel />,
     features: () => <FeaturesPanel />,
+    audit: () => <AuditPanel />,
 }
 
 function AdminComponent() {
@@ -62,13 +62,7 @@ function AdminComponent() {
                 </TabsList>
                 {tabs.map((item) => (
                     <TabsContent key={item.key} value={item.tab!}>
-                        {PANELS[item.tab!]?.() ?? (
-                            <EmptyState
-                                icon={Construction}
-                                title={`${item.label} is being rebuilt`}
-                                description="This screen is moving to the new access model and will be back shortly."
-                            />
-                        )}
+                        {PANELS[item.tab!]()}
                     </TabsContent>
                 ))}
             </Tabs>

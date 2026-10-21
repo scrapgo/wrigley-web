@@ -127,6 +127,30 @@ export interface Feature {
     targets: { userIds: number[]; roleIds: number[] }
 }
 
+export interface AuditEntry {
+    id: number
+    eventTime: string
+    /** Human, Service or System. */
+    actorType: string
+    actorUserId: number | null
+    /** The acting user's email, when they still exist. */
+    actorEmail: string | null
+    /** The event type, e.g. `user.disabled`. */
+    action: string
+    metadata: Record<string, unknown> | null
+}
+
+export interface AuditQuery {
+    actor?: number
+    action?: string
+    /** ISO 8601, inclusive. */
+    from?: string
+    /** ISO 8601, exclusive. */
+    to?: string
+    page: number
+    pageSize: number
+}
+
 export interface UserListQuery {
     search?: string
     type?: UserType
@@ -233,6 +257,20 @@ export function setFeatureTargets(id: number, userIds: number[], roleIds: number
         method: 'PUT',
         body: JSON.stringify({ userIds, roleIds }),
     })
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Audit log (audit.view)                                                     */
+/* -------------------------------------------------------------------------- */
+
+export function listAudit(query: AuditQuery): Promise<PagedResult<AuditEntry>> {
+    const params = new URLSearchParams({ page: String(query.page), pageSize: String(query.pageSize) })
+    if (query.actor) params.set('actor', String(query.actor))
+    if (query.action) params.set('action', query.action)
+    if (query.from) params.set('from', query.from)
+    if (query.to) params.set('to', query.to)
+
+    return apiClient.fetchWithAuth<PagedResult<AuditEntry>>(`/api/admin/audit?${params.toString()}`)
 }
 
 /* -------------------------------------------------------------------------- */

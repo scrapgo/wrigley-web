@@ -16,6 +16,29 @@ const GCIP_API_KEY = import.meta.env.VITE_GCIP_API_KEY ?? ''
 const GCIP_SIGN_IN_URL =
     'https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword'
 
+/** Exchanges a GCIP refresh token for a new ID token. */
+const GCIP_REFRESH_URL = 'https://securetoken.googleapis.com/v1/token'
+
+/** Refresh this long before the ID token's expiry (GCIP ID tokens last one hour). */
+export const REFRESH_MARGIN_MS = 5 * 60 * 1000
+
+// localStorage keys. `authToken` is also read by the route guards.
+const ID_TOKEN_KEY = 'authToken'
+const REFRESH_TOKEN_KEY = 'authRefreshToken'
+const EXPIRES_AT_KEY = 'authTokenExpiresAt'
+
+/** A GCIP session: the ID token sent to the API and the refresh token that renews it. */
+export interface AuthSession {
+    idToken: string
+    refreshToken: string
+    /** Epoch milliseconds when the ID token expires. */
+    expiresAt: number
+}
+
+function sessionFrom(idToken: string, refreshToken: string, expiresInSeconds: string | number): AuthSession {
+    return { idToken, refreshToken, expiresAt: Date.now() + Number(expiresInSeconds) * 1000 }
+}
+
 /** The caller's own user record, as returned by GET /api/users/me. */
 export interface CurrentUser {
     id: number
@@ -99,27 +122,133 @@ function gcipErrorMessage(code: string | undefined): string {
     }
 }
 
+type SessionListener = (session: AuthSession | null) => void
+
 class ApiClient {
     private baseUrl: string
-    private token: string | null = null
+    private session: AuthSession | null = null
+    private refreshing: Promise<AuthSession> | null = null
+    private listeners = new Set<SessionListener>()
 
     constructor(baseUrl: string) {
         this.baseUrl = baseUrl
     }
 
-    setAuthToken(token: string | null) {
-        this.token = token
+    /** The current session, if any. */
+    getSession(): AuthSession | null {
+        return this.session
     }
 
-    clearAuthToken() {
-        this.token = null
+    /** Loads a session persisted by a previous visit; null when there is none. */
+    restoreSession(): AuthSession | null {
+        const idToken = localStorage.getItem(ID_TOKEN_KEY)
+        if (!idToken) {
+            return null
+        }
+
+        // A session from before refresh tokens were stored has no expiry: treat it as
+        // expired, so the first request refreshes it (or the 401 signs the user out).
+        this.session = {
+            idToken,
+            refreshToken: localStorage.getItem(REFRESH_TOKEN_KEY) ?? '',
+            expiresAt: Number(localStorage.getItem(EXPIRES_AT_KEY) ?? 0),
+        }
+        return this.session
+    }
+
+    /** Uses the session for API calls without persisting it (until `persistSession`). */
+    adoptSession(session: AuthSession) {
+        this.session = session
+        this.notify()
+    }
+
+    /** Stores the current session so it survives a reload. */
+    persistSession() {
+        if (!this.session) {
+            return
+        }
+
+        localStorage.setItem(ID_TOKEN_KEY, this.session.idToken)
+        localStorage.setItem(REFRESH_TOKEN_KEY, this.session.refreshToken)
+        localStorage.setItem(EXPIRES_AT_KEY, String(this.session.expiresAt))
+    }
+
+    /** Forgets the session everywhere. */
+    clearSession() {
+        this.session = null
+        this.refreshing = null
+        localStorage.removeItem(ID_TOKEN_KEY)
+        localStorage.removeItem(REFRESH_TOKEN_KEY)
+        localStorage.removeItem(EXPIRES_AT_KEY)
+        this.notify()
+    }
+
+    /** Called with the new session after each refresh, and with null when the session ends. */
+    onSessionChange(listener: SessionListener): () => void {
+        this.listeners.add(listener)
+        return () => this.listeners.delete(listener)
+    }
+
+    private notify() {
+        for (const listener of this.listeners) {
+            listener(this.session)
+        }
     }
 
     /**
-     * Authenticate with GCIP and return the ID token. The token is NOT stored
-     * here — the caller (AuthProvider) owns persistence.
+     * Renews the ID token with the refresh token. Concurrent callers share one
+     * request. On failure the session is cleared (the user is signed out).
      */
-    async signInWithPassword(email: string, password: string): Promise<string> {
+    refreshSession(): Promise<AuthSession> {
+        if (!this.refreshing) {
+            this.refreshing = this.requestRefresh().finally(() => {
+                this.refreshing = null
+            })
+        }
+        return this.refreshing
+    }
+
+    private async requestRefresh(): Promise<AuthSession> {
+        const refreshToken = this.session?.refreshToken
+        if (!refreshToken || !GCIP_API_KEY) {
+            this.clearSession()
+            throw new ApiError('Your session has expired. Please sign in again.', 401, 'session_expired')
+        }
+
+        let response: Response
+        try {
+            response = await fetch(`${GCIP_REFRESH_URL}?key=${GCIP_API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken }).toString(),
+            })
+        } catch {
+            // Offline or blocked: keep the session; the next request tries again.
+            throw new ApiError('Could not reach the sign-in service. Check your connection.', 0, 'refresh_unreachable')
+        }
+
+        const body = (await response.json().catch(() => ({}))) as {
+            id_token?: string
+            refresh_token?: string
+            expires_in?: string
+        }
+
+        if (!response.ok || !body.id_token) {
+            this.clearSession()
+            throw new ApiError('Your session has expired. Please sign in again.', 401, 'session_expired')
+        }
+
+        this.session = sessionFrom(body.id_token, body.refresh_token ?? refreshToken, body.expires_in ?? 3600)
+        this.persistSession()
+        this.notify()
+        return this.session
+    }
+
+    /**
+     * Authenticate with GCIP and return the session. It is NOT stored here —
+     * the caller (AuthProvider) decides when to use and persist it.
+     */
+    async signInWithPassword(email: string, password: string): Promise<AuthSession> {
         if (!GCIP_API_KEY) {
             throw new ApiError(
                 'Authentication is not configured (missing VITE_GCIP_API_KEY).',
@@ -143,14 +272,14 @@ class ApiClient {
             throw new ApiError(gcipErrorMessage(code), response.status, code)
         }
 
-        return body.idToken
+        return sessionFrom(body.idToken, body.refreshToken, body.expiresIn)
     }
 
     /**
      * Authenticate with Google Identity Services and exchange the ID token
      * for a GCIP ID token via accounts:signInWithIdp.
      */
-    async signInWithGoogle(googleIdToken: string): Promise<string> {
+    async signInWithGoogle(googleIdToken: string): Promise<AuthSession> {
         if (!GCIP_API_KEY) {
             throw new ApiError(
                 'Authentication is not configured (missing VITE_GCIP_API_KEY).',
@@ -180,6 +309,8 @@ class ApiClient {
 
         const body = (await response.json()) as {
             idToken?: string
+            refreshToken?: string
+            expiresIn?: string
             needConfirmation?: boolean
             error?: { message?: string }
         }
@@ -192,19 +323,24 @@ class ApiClient {
             throw new ApiError(gcipErrorMessage(code?.split(' ')[0]), response.status, code)
         }
 
-        return body.idToken
+        return sessionFrom(body.idToken, body.refreshToken ?? '', body.expiresIn ?? 3600)
     }
 
-    /** Generic authenticated fetch against the ScrapGo.Core.Api. */
+    /**
+     * Generic authenticated fetch against the ScrapGo.Core.Api. Refreshes the
+     * ID token shortly before it expires, and on a 401 refreshes once and
+     * retries the request once; if the refresh fails the user is signed out.
+     */
     async fetchWithAuth<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-        const response = await fetch(`${this.baseUrl}${endpoint}`, {
-            ...options,
-            headers: {
-                'Content-Type': 'application/json',
-                ...(this.token && { Authorization: `Bearer ${this.token}` }),
-                ...options.headers,
-            },
-        })
+        if (this.session && this.session.expiresAt - Date.now() < REFRESH_MARGIN_MS) {
+            await this.refreshSession()
+        }
+
+        let response = await this.send(endpoint, options)
+        if (response.status === 401 && this.session) {
+            await this.refreshSession()
+            response = await this.send(endpoint, options)
+        }
 
         if (!response.ok) {
             let problem: ProblemDetails | undefined
@@ -225,6 +361,18 @@ class ApiClient {
         }
 
         return (await response.json()) as T
+    }
+
+    private send(endpoint: string, options: RequestInit): Promise<Response> {
+        const token = this.session?.idToken
+        return fetch(`${this.baseUrl}${endpoint}`, {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token && { Authorization: `Bearer ${token}` }),
+                ...options.headers,
+            },
+        })
     }
 
     /**

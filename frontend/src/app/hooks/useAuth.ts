@@ -1,8 +1,6 @@
-import React, { useState, useEffect, useContext, createContext, useCallback } from 'react'
+import React, { useState, useEffect, useContext, createContext, useCallback, useRef } from 'react'
 import type { ReactNode } from 'react'
-import { apiClient, type CurrentUser } from '../lib/api-client'
-
-const TOKEN_KEY = 'authToken'
+import { apiClient, REFRESH_MARGIN_MS, type AuthSession, type CurrentUser } from '../lib/api-client'
 
 interface AuthContextType {
     user: CurrentUser | null
@@ -10,10 +8,10 @@ interface AuthContextType {
     /** Sign in with a Google ID token from Google Identity Services. */
     loginWithGoogle: (googleIdToken: string) => Promise<void>
     logout: () => void
-    /** Re-reads GET /api/users/me, e.g. after joining an organization. */
+    /** Re-reads the caller's user record. */
     refreshUser: () => Promise<void>
     isAuthenticated: boolean
-    /** True while the stored token is being validated against the API. */
+    /** True while the stored session is being validated against the API. */
     isLoading: boolean
 }
 
@@ -21,18 +19,52 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<CurrentUser | null>(null)
-    // Only "loading" when there is a stored token to validate.
-    const [isLoading, setIsLoading] = useState(() => localStorage.getItem(TOKEN_KEY) !== null)
+    // Only "loading" when there is a stored session to validate.
+    const [isLoading, setIsLoading] = useState(() => apiClient.restoreSession() !== null)
+    const [expiresAt, setExpiresAt] = useState<number | null>(() => apiClient.getSession()?.expiresAt ?? null)
+    // True between an explicit sign-out and the session-change notification it causes.
+    const signingOut = useRef(false)
 
-    // On mount, validate any stored token against GET /api/users/me. A token
-    // that the backend rejects (expired, disabled user) is discarded.
+    // Track the session: refreshes move the expiry; a cleared session means the
+    // user is signed out. A refresh that failed (rather than a sign-out the user
+    // asked for) sends them to the sign-in page.
+    useEffect(
+        () =>
+            apiClient.onSessionChange((session) => {
+                setExpiresAt(session?.expiresAt ?? null)
+                if (session === null) {
+                    setUser(null)
+                    if (!signingOut.current && window.location.pathname !== '/login') {
+                        window.location.assign('/login')
+                    }
+                    signingOut.current = false
+                }
+            }),
+        []
+    )
+
+    // Refresh shortly before the ID token expires, so an idle tab stays signed in.
     useEffect(() => {
-        const token = localStorage.getItem(TOKEN_KEY)
-        if (!token) {
+        if (expiresAt === null || user === null) {
             return
         }
 
-        apiClient.setAuthToken(token)
+        const delay = Math.max(expiresAt - REFRESH_MARGIN_MS - Date.now(), 0)
+        const timer = window.setTimeout(() => {
+            // A failed refresh clears the session itself; the listener above signs out.
+            apiClient.refreshSession().catch(() => undefined)
+        }, delay)
+
+        return () => window.clearTimeout(timer)
+    }, [expiresAt, user])
+
+    // On mount, validate any stored session against the API (refreshing it if it
+    // has expired). A session the backend rejects is discarded.
+    useEffect(() => {
+        if (!apiClient.getSession()) {
+            return
+        }
+
         let cancelled = false
 
         apiClient
@@ -41,8 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 if (!cancelled) setUser(me)
             })
             .catch(() => {
-                apiClient.clearAuthToken()
-                localStorage.removeItem(TOKEN_KEY)
+                signingOut.current = true
+                apiClient.clearSession()
                 if (!cancelled) setUser(null)
             })
             .finally(() => {
@@ -54,15 +86,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     }, [])
 
-    // Prove a fresh GCIP ID token works against our API before persisting it.
-    const completeSignIn = useCallback(async (token: string) => {
-        apiClient.setAuthToken(token)
+    // Prove a fresh GCIP session works against our API before persisting it.
+    const completeSignIn = useCallback(async (session: AuthSession) => {
+        apiClient.adoptSession(session)
         try {
             const me = await apiClient.getCurrentUser()
-            localStorage.setItem(TOKEN_KEY, token)
+            apiClient.persistSession()
             setUser(me)
         } catch (error) {
-            apiClient.clearAuthToken()
+            signingOut.current = true
+            apiClient.clearSession()
             throw error
         }
     }, [])
@@ -86,8 +119,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [])
 
     const logout = useCallback(() => {
-        apiClient.clearAuthToken()
-        localStorage.removeItem(TOKEN_KEY)
+        signingOut.current = true
+        apiClient.clearSession()
         setUser(null)
     }, [])
 

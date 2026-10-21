@@ -406,7 +406,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*F2 · Keep users signed in past one hour\*\*
+\- \[x] \*\*F2 · Keep users signed in past one hour\*\*
 
 &#x20; > The app stores the raw GCIP ID token in `localStorage` and never refreshes it, so sessions break after an hour. Store the refresh token returned by `signInWithPassword` and `signInWithIdp`. Refresh it through `https://securetoken.googleapis.com/v1/token?key=…` shortly before expiry and on any 401, retry the request once, and sign out if refresh fails. Keep it in `api-client.ts` and `useAuth.ts`.
 

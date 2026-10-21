@@ -338,7 +338,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*B15 · Admin roles and permissions API\*\*
+\- \[x] \*\*B15 · Admin roles and permissions API\*\*
 
 &#x20; > Implement `GET /api/admin/roles`, `PUT /api/admin/roles/{id}/permissions` and `GET /api/admin/permissions` (grouped by feature). Enforce the audience rule. Audit, then `EvictAll()`. No create or delete of roles in V1. Rewrite `RolesController` and `PermissionsController` and delete the old role services. Port the role tests that still apply and delete the rest.
 

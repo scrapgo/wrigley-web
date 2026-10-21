@@ -1,3 +1,4 @@
+using ScrapGo.Core.Modules.Identity.Application.Roles;
 using ScrapGo.Core.Modules.Identity.Application.Users;
 
 namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence;
@@ -35,29 +36,70 @@ public sealed class RoleRepository(IdentityDbContext dbContext) : IRoleRepositor
 
     public void AddUserRole(UserRole userRole) => dbContext.UserRoles.Add(userRole);
 
-    public async Task<IReadOnlyList<string>> GetRolePermissionsAsync(int roleId, CancellationToken cancellationToken) =>
-        await dbContext.RolePermissions
-            .AsNoTracking()
-            .Where(rp => rp.RoleId == roleId)
-            .Select(rp => rp.Permission.Key)
-            .OrderBy(key => key)
+    public async Task<IReadOnlyList<RoleDto>> ListRolesAsync(CancellationToken cancellationToken)
+    {
+        var rows = await QueryRoles(dbContext.Roles.AsNoTracking()).ToListAsync(cancellationToken);
+
+        return [.. rows.OrderBy(row => row.UserType).ThenBy(row => row.Name, StringComparer.Ordinal).Select(ToDto)];
+    }
+
+    public async Task<RoleDto?> GetRoleAsync(int roleId, CancellationToken cancellationToken) =>
+        await QueryRoles(dbContext.Roles.AsNoTracking().Where(r => r.Id == roleId)).SingleOrDefaultAsync(cancellationToken) is { } row
+            ? ToDto(row)
+            : null;
+
+    public async Task<IReadOnlyList<PermissionGroupDto>> ListPermissionGroupsAsync(CancellationToken cancellationToken)
+    {
+        var rows = await (
+            from p in dbContext.Permissions.AsNoTracking()
+            join f in dbContext.Features.AsNoTracking() on p.FeatureId equals f.Id
+            select new { FeatureKey = f.Key, FeatureName = f.Name, Permission = p })
             .ToListAsync(cancellationToken);
 
-    public async Task<IReadOnlySet<string>> ListGrantedPermissionKeysAsync(int userId, CancellationToken cancellationToken) =>
-        (await dbContext.UserRoles
-            .AsNoTracking()
-            .Where(ur => ur.UserId == userId)
-            .SelectMany(ur => ur.Role.RolePermissions.Select(rp => rp.Permission.Key))
-            .Distinct()
-            .ToListAsync(cancellationToken))
-        .ToHashSet(StringComparer.Ordinal);
+        return
+        [
+            .. rows
+                .GroupBy(row => (row.FeatureKey, row.FeatureName))
+                .OrderBy(group => group.Key.FeatureName, StringComparer.Ordinal)
+                .Select(group => new PermissionGroupDto(
+                    group.Key.FeatureKey,
+                    group.Key.FeatureName,
+                    [
+                        .. group
+                            .Select(row => row.Permission)
+                            .OrderBy(p => p.Key, StringComparer.Ordinal)
+                            .Select(p => new PermissionDto(p.Id, p.Key, p.Name, p.Description, p.Audience.ToString())),
+                    ])),
+        ];
+    }
 
-    public async Task<IReadOnlyList<string>> ListPermissionKeysAsync(CancellationToken cancellationToken) =>
-        await dbContext.Permissions
-            .AsNoTracking()
-            .OrderBy(p => p.Key)
-            .Select(p => p.Key)
-            .ToListAsync(cancellationToken);
+    public async Task<IReadOnlyList<Permission>> FindPermissionsByKeysAsync(IReadOnlyCollection<string> keys, CancellationToken cancellationToken) =>
+        await dbContext.Permissions.AsNoTracking().Where(p => keys.Contains(p.Key)).ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<RolePermission>> ListRolePermissionsAsync(int roleId, CancellationToken cancellationToken) =>
+        await dbContext.RolePermissions.Include(rp => rp.Permission).Where(rp => rp.RoleId == roleId).ToListAsync(cancellationToken);
+
+    public void AddRolePermission(RolePermission rolePermission) => dbContext.RolePermissions.Add(rolePermission);
+
+    public void RemoveRolePermission(RolePermission rolePermission) => dbContext.RolePermissions.Remove(rolePermission);
+
+    private IQueryable<RoleRow> QueryRoles(IQueryable<Role> roles) =>
+        roles.Select(r => new RoleRow(
+            r.Id,
+            r.Key,
+            r.Name,
+            r.Description,
+            r.UserType,
+            r.IsSystem,
+            r.RolePermissions.Select(rp => rp.Permission.Key).ToList(),
+            dbContext.UserRoles.Count(ur => ur.RoleId == r.Id)));
+
+    private static RoleDto ToDto(RoleRow row) =>
+        new(row.Id, row.Key, row.Name, row.Description, row.UserType.ToString(), row.IsSystem,
+            [.. row.Permissions.Order(StringComparer.Ordinal)], row.HolderCount);
+
+    private sealed record RoleRow(
+        int Id, string Key, string Name, string? Description, UserType UserType, bool IsSystem, List<string> Permissions, int HolderCount);
 
     public async Task<IReadOnlyList<UserRoleDto>> ListUserRolesAsync(int userId, CancellationToken cancellationToken) =>
         await dbContext.UserRoles

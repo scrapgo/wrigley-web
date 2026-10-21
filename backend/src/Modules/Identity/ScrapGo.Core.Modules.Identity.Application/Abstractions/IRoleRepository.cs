@@ -1,3 +1,4 @@
+using ScrapGo.Core.Modules.Identity.Application.Roles;
 using ScrapGo.Core.Modules.Identity.Application.Users;
 
 namespace ScrapGo.Core.Modules.Identity.Application.Abstractions;
@@ -29,18 +30,24 @@ public interface IRoleRepository
 
     void AddUserRole(UserRole userRole);
 
-    /// <summary>The names of the permissions a role grants, ordered by name. Empty for an unknown role.</summary>
-    Task<IReadOnlyList<string>> GetRolePermissionsAsync(int roleId, CancellationToken cancellationToken);
+    /// <summary>Every role with its permission keys and holder count, internal roles first, then by name.</summary>
+    Task<IReadOnlyList<RoleDto>> ListRolesAsync(CancellationToken cancellationToken);
 
-    /// <summary>
-    /// Every permission key the user's roles grant, whatever the feature
-    /// toggles say. What the escalation guard compares against: a toggle
-    /// exposes a feature, it isn't part of what someone holds.
-    /// </summary>
-    Task<IReadOnlySet<string>> ListGrantedPermissionKeysAsync(int userId, CancellationToken cancellationToken);
+    /// <summary>One role as <see cref="ListRolesAsync"/> returns it, or null.</summary>
+    Task<RoleDto?> GetRoleAsync(int roleId, CancellationToken cancellationToken);
 
-    /// <summary>Every permission key in the catalog, ordered.</summary>
-    Task<IReadOnlyList<string>> ListPermissionKeysAsync(CancellationToken cancellationToken);
+    /// <summary>The whole permission catalog, grouped by owning feature (features by name, permissions by key).</summary>
+    Task<IReadOnlyList<PermissionGroupDto>> ListPermissionGroupsAsync(CancellationToken cancellationToken);
+
+    /// <summary>The catalog permissions with these keys, untracked; unknown keys are simply missing.</summary>
+    Task<IReadOnlyList<Permission>> FindPermissionsByKeysAsync(IReadOnlyCollection<string> keys, CancellationToken cancellationToken);
+
+    /// <summary>The role's grants, tracked, with their <see cref="RolePermission.Permission"/>, for changing them.</summary>
+    Task<IReadOnlyList<RolePermission>> ListRolePermissionsAsync(int roleId, CancellationToken cancellationToken);
+
+    void AddRolePermission(RolePermission rolePermission);
+
+    void RemoveRolePermission(RolePermission rolePermission);
 
     /// <summary>Every role the user holds, ordered by role name.</summary>
     Task<IReadOnlyList<UserRoleDto>> ListUserRolesAsync(int userId, CancellationToken cancellationToken);

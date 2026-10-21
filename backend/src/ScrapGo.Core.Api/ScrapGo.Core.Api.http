@@ -37,5 +37,5 @@ Content-Type: application/json
 { "name": "Acme Metals" }
 
 ### Permission catalog
-GET {{host}}/api/permissions
+GET {{host}}/api/admin/permissions
 Authorization: Bearer {{token}}

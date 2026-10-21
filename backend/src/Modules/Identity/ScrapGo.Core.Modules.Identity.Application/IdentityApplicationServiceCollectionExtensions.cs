@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using ScrapGo.Core.Modules.Identity.Application.Authorization;
 using ScrapGo.Core.Modules.Identity.Application.Invitations;
+using ScrapGo.Core.Modules.Identity.Application.Roles;
 using ScrapGo.Core.Modules.Identity.Application.Session;
 using ScrapGo.Core.Modules.Identity.Application.Users;
 
@@ -18,7 +19,7 @@ public static class IdentityApplicationServiceCollectionExtensions
         services.AddScoped<UserAdminService>();
         services.AddScoped<EvaluateUserStatusGateHandler>();
 
-        services.AddScoped<ListPermissionsHandler>();
+        services.AddScoped<RoleAdminService>();
         services.AddScoped<BootstrapSiteAdminHandler>();
 
         return services;

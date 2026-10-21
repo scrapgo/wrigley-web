@@ -26,6 +26,9 @@ public static class IdentityAuditEventTypes
 
     public const string UserEnabled = "user.enabled";
 
+    /// <summary><c>PUT /api/admin/roles/{id}/permissions</c> changed what a role grants (metadata: added and removed keys).</summary>
+    public const string RolePermissionsChanged = "role.permissions_changed";
+
     /// <summary><c>PUT /api/admin/users/{id}/roles</c> changed the user's roles (metadata: added and removed keys).</summary>
     public const string UserRolesChanged = "user.roles_changed";
 

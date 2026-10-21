@@ -1,24 +1,26 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ScrapGo.Core.Modules.Identity.Application.Authorization;
+using ScrapGo.Core.Modules.Identity.Application.Roles;
+using PermissionCatalog = ScrapGo.Core.Modules.Identity.Domain.Authorization.Permissions;
 
 namespace ScrapGo.Core.Modules.Identity.Api.Permissions;
 
-public sealed record PermissionResponse(string Name);
-
 /// <summary>
-/// The permission catalog, read-only by design. It is a compile-time
-/// contract seeded by migration, so there is deliberately no
-/// POST/PUT/DELETE route here, and a spec asserts none exists.
+/// The permission catalog, grouped by feature. Read-only by design: the keys
+/// are a compile-time contract seeded by migration, so there is deliberately
+/// no write route here, and a spec asserts none exists. Mapping keys to roles
+/// is <c>PUT /api/admin/roles/{id}/permissions</c>.
 /// </summary>
 [ApiController]
 [Authorize]
-[Route("api/permissions")]
+[Route("api/admin/permissions")]
 [Produces("application/json")]
-public sealed class PermissionsController : ControllerBase
+public sealed class PermissionsController(RoleAdminService roles) : ControllerBase
 {
     [HttpGet]
-    [ProducesResponseType<IReadOnlyList<PermissionResponse>>(StatusCodes.Status200OK)]
-    public async Task<IActionResult> List([FromServices] ListPermissionsHandler handler, CancellationToken cancellationToken) =>
-        Ok((await handler.HandleAsync(cancellationToken)).Select(name => new PermissionResponse(name)));
+    [RequirePermission(PermissionCatalog.RolesView)]
+    [ProducesResponseType<IReadOnlyList<PermissionGroupDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> List(CancellationToken cancellationToken) =>
+        Ok(await roles.ListPermissionsAsync(cancellationToken));
 }

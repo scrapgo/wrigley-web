@@ -138,6 +138,7 @@ This section describes an interim model, being replaced by [`../docs/ACCESS-MODE
 - **There is no per-request Google Workspace check any more.** Internal is a user type, decided once at creation (ACCESS-MODEL.md section 3).
 - **`INTERNAL_HD_ALLOWLIST`** decides who `POST /api/session` may create as Internal. It is a JSON array in appsettings (`["scrapgo.com"]`, as in `appsettings.Development.json`) or a comma-separated string as an env var (`InternalHdAllowlistConfiguration.Read`). GCIP tokens only carry `hd` because of the `beforeSignIn` blocking function in `infra/gcip-blocking-function/`.
 - **Permissions (code):** `Permissions` (Domain) holds every key; the seed maps them to features and roles.
+- **Role administration (B15):** `GET /api/admin/roles` and `GET /api/admin/permissions` (grouped by feature) need `roles.view`; `PUT /api/admin/roles/{id}/permissions` (`RoleAdminService`) needs `roles.manage`, takes the complete list of keys, and enforces the audience rule (400 `audience_mismatch`; unknown keys 400 `unknown_permission`). A change audits `role.permissions_changed` and calls `IAccessCache.EvictAll()`. V1 roles are fixed: no create or delete route exists, and a spec checks the route table.
 - **A FallbackPolicy** requires an authenticated caller on any endpoint without authorization metadata. Only `/healthz` and `/healthz/ready` are `AllowAnonymous`.
 
 ### Roles

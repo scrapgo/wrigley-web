@@ -169,7 +169,7 @@ The API re-checks everything.
 | **Settings → Accept an invitation** (`/invitations?token=…`)   | Anyone invited                                                                    | Paste the token to join; needs the invited email, verified (Google counts)                                                                                                                                                                                                                                                            |
 
 Step-by-step instructions with test data are in
-[`../CATALOG-AND-ADMIN-GUIDE.md`](../CATALOG-AND-ADMIN-GUIDE.md). Status and
+[`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md). Status and
 remaining gaps are in [`ADMIN-FRONTEND-STATUS.md`](ADMIN-FRONTEND-STATUS.md) and
 [`ADMIN-FRONTEND-GAPS-v2.md`](ADMIN-FRONTEND-GAPS-v2.md).
 

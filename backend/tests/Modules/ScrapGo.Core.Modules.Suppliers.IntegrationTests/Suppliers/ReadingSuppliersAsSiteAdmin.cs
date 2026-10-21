@@ -1,12 +1,12 @@
-// /api/suppliers: supplier reads for platform administrators only
-// (Admin.Access at platform scope, with a Google Workspace sign-in).
+// /api/suppliers: a Site Admin (suppliers.view_all) reads any supplier; a user
+// holding no supplier view permission is refused before Quickbase is asked.
 using ScrapGo.Core.Modules.Suppliers.Application.Suppliers;
 
 namespace ScrapGo.Core.Modules.Suppliers.IntegrationTests.Suppliers;
 
-public class ReadingSuppliersPlatformWide
+public class ReadingSuppliersAsSiteAdmin
 {
-    public class Given_a_platform_administrator(SuppliersSpecFixture fixture) : IClassFixture<SuppliersSpecFixture>
+    public class Given_a_site_admin(SuppliersSpecFixture fixture) : IClassFixture<SuppliersSpecFixture>
     {
         [Fact]
         public async Task Get_by_record_id_returns_the_supplier()
@@ -50,11 +50,11 @@ public class ReadingSuppliersPlatformWide
         }
     }
 
-    public class Given_a_caller_who_is_not_a_platform_administrator(SuppliersSpecFixture fixture) : IClassFixture<SuppliersSpecFixture>
+    public class Given_a_caller_without_a_supplier_view_permission(SuppliersSpecFixture fixture) : IClassFixture<SuppliersSpecFixture>
     {
-        // A Workspace user holding other permissions, but not Admin.Access.
+        // An internal user holding other permissions, but no supplier view permission.
         [Fact]
-        public async Task A_user_without_admin_access_gets_four_hundred_three_and_no_query_runs()
+        public async Task A_user_with_only_users_view_gets_four_hundred_three_and_no_query_runs()
         {
             var (uid, userId) = await fixture.SeedUserAsync();
             await fixture.GrantPermissionsAsync(userId, ScrapGo.Core.Modules.Identity.Domain.Authorization.Permissions.UsersView);

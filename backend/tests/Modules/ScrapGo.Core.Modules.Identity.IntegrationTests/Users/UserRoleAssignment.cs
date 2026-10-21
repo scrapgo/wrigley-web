@@ -57,11 +57,11 @@ public class UserRoleAssignment
         {
             var (adminUid, _) = await fixture.SeedSiteAdminAsync();
             var (uid, userId) = await fixture.SeedUserAsync($"staff-{Guid.NewGuid():N}@scrapgo.example", UserType.Internal);
-            Assert.Equal(HttpStatusCode.Forbidden, (await fixture.SendAsync(HttpMethod.Get, "/api/_test/platform-scoped", fixture.CreateToken(uid))).StatusCode);
+            Assert.Equal(HttpStatusCode.Forbidden, (await fixture.SendAsync(HttpMethod.Get, "/api/_test/users-manage", fixture.CreateToken(uid))).StatusCode);
 
             await SetRolesAsync(fixture, adminUid, userId, await RoleIdAsync(fixture, DefaultRoleNames.SiteAdmin));
 
-            Assert.Equal(HttpStatusCode.OK, (await fixture.SendAsync(HttpMethod.Get, "/api/_test/platform-scoped", fixture.CreateToken(uid))).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await fixture.SendAsync(HttpMethod.Get, "/api/_test/users-manage", fixture.CreateToken(uid))).StatusCode);
         }
 
         [Fact]

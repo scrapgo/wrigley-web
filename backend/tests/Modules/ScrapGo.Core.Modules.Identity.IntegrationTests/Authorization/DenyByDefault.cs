@@ -1,4 +1,4 @@
-// ADMIN-API-STATUS Task 10: deny-by-default at the framework level, independent of [Authorize].
+// Deny-by-default at the framework level, independent of [Authorize].
 namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Authorization;
 
 public class DenyByDefault
@@ -53,7 +53,7 @@ public class DenyByDefault
             Assert.Equal(HttpStatusCode.Forbidden,
                 (await fixture.SendAsync(HttpMethod.Get, "/api/_test/permission-scoped", token)).StatusCode);
             Assert.Equal(HttpStatusCode.Forbidden,
-                (await fixture.SendAsync(HttpMethod.Get, "/api/_test/platform-scoped", token)).StatusCode);
+                (await fixture.SendAsync(HttpMethod.Get, "/api/_test/users-manage", token)).StatusCode);
         }
     }
 }

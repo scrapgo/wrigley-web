@@ -10,7 +10,6 @@ This platform consolidates identity management, pricing transparency, and operat
 
 For detailed implementation status, see:
 
-- [Backend Implementation Status](backend/BACKEND-IMPLEMENTATION-STATUS.md)
 - [Frontend Implementation Status](frontend/FRONTEND-IMPLEMENTATION-STATUS.md)
 - [Overall Project Status](PROJECT-STATUS.md)
 
@@ -72,30 +71,16 @@ The frontend talks only to the backend API; the backend is the only component th
 
 ### Admin Access
 
-The portal includes administrative features for managing organizations, roles, permissions, and users. There are two levels of administrative access:
+Access is described in [`docs/ACCESS-MODEL.md`](docs/ACCESS-MODEL.md): three roles (`site_admin`, `scrapgo_user`, `user`), permissions and feature toggles, administered under `/api/admin`. The first Site Admin is assigned with a host command (refused while an active Site Admin exists):
 
-1. **Site Admin** (`site_admin`): full administrative access. The first one is assigned with the host command below (it refuses while any active Site Admin exists):
-
-   ```bash
-   dotnet run --project src/ScrapGo.Core.Api -- bootstrap-site-admin --uid <GCIP_UID>
-   ```
-
-2. **Organization Administrators**: Users with administrative access limited to specific organizations. These roles can be assigned through the API.
-
-### Recent Work Completed
-
-A summary of recent work to set up administrative access is available in [WORK-DONE.md](WORK-DONE.md).
-
-For detailed information about administrative APIs and features, see:
-
-- Backend admin implementation: [`backend/ADMIN-API-GAPS-v2.md`](backend/ADMIN-API-GAPS-v2.md)
-- Frontend admin status: [`frontend/ADMIN-FRONTEND-STATUS.md`](frontend/ADMIN-FRONTEND-STATUS.md)
-- Frontend admin gaps: [`frontend/ADMIN-FRONTEND-GAPS.md`](frontend/ADMIN-FRONTEND-GAPS.md)
+```bash
+dotnet run --project src/ScrapGo.Core.Api -- bootstrap-site-admin --uid <GCIP_UID>
+```
 
 ## Folder Structure
 
 - `/backend`: .NET Web API managing identity, governance, and the Quickbase Proxy/Cache engine. See [`backend/README.md`](backend/README.md).
-  - `src/`: the API host and its modules (`Identity`, `QuickbaseEngine`)
+  - `src/`: the API host and its modules (`Identity`, `QuickbaseEngine`, `Suppliers`)
   - `tests/`: integration tests (xUnit + Testcontainers)
   - `infra/terraform/`: GCP infrastructure as code
 - `/frontend`: React/TanStack Start application (PWA) for stakeholder engagement.

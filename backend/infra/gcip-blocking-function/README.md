@@ -1,15 +1,15 @@
 # GCIP `beforeSignIn` blocking function: Workspace `hd` claim
 
-Platform administration requires a Google Workspace sign-in on every request
-(Decision 12 in [`ORG-APP-MODULE-MODEL.md`](../../../ORG-APP-MODULE-MODEL.md)): the
-API checks the ID token's `hd` claim against `INTERNAL_HD_ALLOWLIST`.
+`POST /api/session` creates an Internal user only for a verified Google sign-in
+whose ID token carries an `hd` on `INTERNAL_HD_ALLOWLIST`
+([`docs/ACCESS-MODEL.md`](../../../docs/ACCESS-MODEL.md), section 7).
 
 **GCIP ID tokens don't carry `hd` on their own**, even for Google sign-ins. The
 Workspace domain is in Google's token, which GCIP consumes at sign-in. This
 function runs on every sign-in. For a Google sign-in from a Workspace account,
 it copies Google's verified `hd` into the GCIP token as a session claim.
 
-| Sign-in | `hd` in token | Platform access |
+| Sign-in | `hd` in token | Created as Internal |
 | --- | --- | --- |
 | Google, Workspace account on the allowlist | yes | yes |
 | Google, other Workspace domain | yes (not on allowlist) | no |
@@ -61,10 +61,10 @@ empty for this function.
 
 1. Sign in to the portal with "Sign in with Google" using a `@scrapgo.com` account.
 2. In the browser dev tools, take the token from `localStorage.authToken` and decode it (for example at jwt.io). It should contain `"hd": "scrapgo.com"` and `firebase.sign_in_provider: "google.com"`.
-3. `POST /api/session` then `GET /api/me` show the roles. Platform routes no longer return 403 `workspace_sign_in_required`.
+3. `POST /api/session` creates them as Internal with `scrapgo_user`, and `GET /api/me` shows it.
 
-**Use a `@scrapgo.com` account as platform admin.** A personal Google account
-(such as `@gmail.com`) has no `hd`, so it never gets platform access. Sign in
+**Use a `@scrapgo.com` account as Site Admin.** A personal Google account
+(such as `@gmail.com`) has no `hd`, so it is never created Internal. Sign in
 once with Google as the Workspace user. That provisions them as Internal. Then run
 `bootstrap-site-admin --uid <their GCIP uid>`.
 

@@ -2,7 +2,7 @@ namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Fixtures;
 
 /// <summary>
 /// Arranges identity/RBAC rows directly through the real DbContext, using the
-/// domain factories, so scenarios read as intent ("a platform admin", "a user
+/// domain factories, so scenarios read as intent ("a Site Admin", "a user
 /// holding Spec.Alpha") rather than row plumbing.
 /// </summary>
 public static class IdentitySeed
@@ -28,7 +28,7 @@ public static class IdentitySeed
     /// <summary>A new internal user holding the seeded <c>site_admin</c> role.</summary>
     public static async Task<(string Uid, int UserId)> SeedSiteAdminAsync(this IdentitySpecFixture fixture)
     {
-        var (uid, userId) = await fixture.SeedUserAsync("platform-admin@scrapgo.example", UserType.Internal);
+        var (uid, userId) = await fixture.SeedUserAsync("site-admin@scrapgo.example", UserType.Internal);
         var roleId = await fixture.DbContext.Roles
             .Where(r => r.Key == DefaultRoleNames.SiteAdmin)
             .Select(r => r.Id)

@@ -247,7 +247,7 @@ public class IdentitySpecFixture : IAsyncLifetime
         }
 
         // An internal (Workspace) user's token carries hd unless the spec says
-        // otherwise, e.g. to prove a non-Workspace sign-in gets no platform access.
+        // otherwise, e.g. to prove a non-Workspace sign-in isn't created Internal.
         hd ??= !withoutHostedDomain && _internalUids.ContainsKey(uid) ? InternalDomain : null;
         if (hd is not null)
         {

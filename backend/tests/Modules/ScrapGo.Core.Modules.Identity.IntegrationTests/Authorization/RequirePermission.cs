@@ -29,7 +29,7 @@ public class RequirePermission
         {
             var (uid, _) = await fixture.SeedSiteAdminAsync();
 
-            var response = await fixture.SendAsync(HttpMethod.Get, "/api/_test/platform-scoped", fixture.CreateToken(uid));
+            var response = await fixture.SendAsync(HttpMethod.Get, "/api/_test/users-manage", fixture.CreateToken(uid));
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }

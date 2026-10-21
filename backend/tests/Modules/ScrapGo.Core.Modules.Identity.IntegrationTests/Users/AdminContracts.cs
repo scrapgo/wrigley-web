@@ -1,4 +1,4 @@
-// ADMIN-API-STATUS Task 2: admin contract shapes and the request validation rules handlers will apply.
+// Admin contract shapes and the request validation rules handlers will apply.
 using System.Net.Http.Json;
 using System.Text.Json;
 using ScrapGo.Core.Modules.Identity.Application.Users;

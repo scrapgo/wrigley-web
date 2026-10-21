@@ -25,16 +25,24 @@ Content-Type: application/json
 
 { "roleIds": [2] }
 
-### My organizations
-GET {{host}}/api/organizations
-Authorization: Bearer {{token}}
-
-### Create an organization (caller becomes OrganizationAdministrator)
-POST {{host}}/api/organizations
+### Invite an external user (users.invite; returns the accept link)
+POST {{host}}/api/admin/invitations
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
-{ "name": "Acme Metals" }
+{ "email": "buyer@acme.example", "roleId": 3, "supplierRecordIds": [17511] }
+
+### Roles and their permissions (roles.view)
+GET {{host}}/api/admin/roles
+Authorization: Bearer {{token}}
+
+### Features (features.view)
+GET {{host}}/api/admin/features
+Authorization: Bearer {{token}}
+
+### Audit log, newest first (audit.view)
+GET {{host}}/api/admin/audit?action=user.disabled&page=1&pageSize=25
+Authorization: Bearer {{token}}
 
 ### Permission catalog
 GET {{host}}/api/admin/permissions

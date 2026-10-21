@@ -112,7 +112,7 @@ variable "cors_allowed_origins" {
 }
 
 variable "internal_hd_allowlist" {
-  description = "Comma-separated Google Workspace hosted domains (INTERNAL_HD_ALLOWLIST). Users signing in with Google from these domains are Internal, and platform access requires such a sign-in on every request. Blank means nobody has platform access."
+  description = "Comma-separated Google Workspace hosted domains (INTERNAL_HD_ALLOWLIST). A verified Google sign-in from one of these domains is created as an Internal user (scrapgo_user) at POST /api/session. Blank means nobody is created Internal; external users still join by invitation."
   type        = string
   default     = "scrapgo.com"
 }

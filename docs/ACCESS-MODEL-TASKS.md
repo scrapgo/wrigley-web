@@ -368,7 +368,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*B18 · Backend cleanup and docs\*\*
+\- \[x] \*\*B18 · Backend cleanup and docs\*\*
 
 &#x20; > Search for leftovers: `Organization`, `Application`, `Module`, `PlatformScope`, `PlatformAdministrator`, `Admin.Access`, `workspace\_sign\_in\_required`. Remove them or rename to the new model. Update `backend/AGENTS.md` ("Authorization Model" section → a summary pointing to `docs/ACCESS-MODEL.md`), `README.md`, `ScrapGo.Core.Api.http`, and the Terraform variable description for `internal\_hd\_allowlist`. Delete `ORG-APP-MODULE-MODEL.md`, `CATALOG-AND-ADMIN-GUIDE.md` and `ADMIN-API-STATUS.md`, and rewrite `PROJECT-STATUS.md` in a few lines.
 

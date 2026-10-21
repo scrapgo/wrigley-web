@@ -7,11 +7,11 @@ Quickbase. The frontend talks only to this API, never to Quickbase.
 
 ## Current Status
 
-For detailed implementation status, see [Backend Implementation Status](BACKEND-IMPLEMENTATION-STATUS.md).
+For overall status, see [`../PROJECT-STATUS.md`](../PROJECT-STATUS.md).
 
 - Architecture, rules and conventions: [`AGENTS.md`](AGENTS.md)
 - GCP infrastructure and deployment: [`infra/terraform/README.md`](infra/terraform/README.md)
-- Workspace sign-in hook for platform admins: [`infra/gcip-blocking-function/README.md`](infra/gcip-blocking-function/README.md)
+- Workspace `hd` claim hook (who is created Internal): [`infra/gcip-blocking-function/README.md`](infra/gcip-blocking-function/README.md)
 
 Modules (`src/Modules/`):
 
@@ -210,7 +210,7 @@ curl -s -X POST https://api.quickbase.com/v1/records/query \
 | `401` `"User token is invalid"`    | Quickbase doesn't know this token (deleted, regenerated or mistyped). Create a new one |
 | `401`/`403` about the app or table | The token isn't assigned to the app that holds the table                               |
 
-Then, signed in to the portal as a platform admin with Google, take
+Then, signed in to the portal as an internal user (Google Workspace), take
 `localStorage.authToken` and call:
 
 ```bash
@@ -236,7 +236,7 @@ is in [`.env.example`](.env.example).
 | `Quickbase:UserToken`                 | On first Quickbase call    | user-secrets            | Quickbase user token (secret), assigned to the app that holds the tables                                                                                                                                                                                                                                                                              |
 | `Quickbase:QueryCache:Ttl`            | No                         | `00:15:00`              | How long cached Quickbase results are served                                                                                                                                                                                                                                                                                                          |
 | `Cors:AllowedOrigins`                 | No                         | `http://localhost:3000` | Browser origins allowed to call the API                                                                                                                                                                                                                                                                                                               |
-| `INTERNAL_HD_ALLOWLIST`               | **Yes for platform admin** | —                       | Google Workspace domains treated as internal users: a comma-separated string as an env var, or a JSON array in appsettings (`["scrapgo.com"]`). Platform access also needs a sign-in whose token carries one of these as `hd` on every request: when blank, nobody has platform access. `hd` comes from the GCIP blocking function in [`infra/gcip-blocking-function/`](infra/gcip-blocking-function/README.md). Terraform default: `scrapgo.com` |
+| `INTERNAL_HD_ALLOWLIST`               | **Yes for internal users** | —                       | Google Workspace domains whose verified Google sign-ins `POST /api/session` creates as Internal users (with `scrapgo_user`): a comma-separated string as an env var, or a JSON array in appsettings (`["scrapgo.com"]`). Blank means nobody is created Internal. `hd` comes from the GCIP blocking function in [`infra/gcip-blocking-function/`](infra/gcip-blocking-function/README.md). Terraform default: `scrapgo.com` |
 | `Swagger:Enabled`                     | No                         | `true`                  | Serves `/swagger` (off in Cloud Run unless set)                                                                                                                                                                                                                                                                                                       |
 | `Identity:RequireMfaForExternalUsers` | No                         | `false`                 | When `true`, external users need a second factor (`mfa_required` otherwise). Keep off until MFA is enabled in GCIP                                                                                                                                                                                                                                    |
 
@@ -266,16 +266,10 @@ If the local API is running, its build output is locked. Add
 `--configuration Release` to `dotnet ef` commands (they then build into
 `bin/Release`), or stop the API first.
 
-Recent Identity migrations, in order:
-
-| Migration                              | What it does                                                                                                                                                                                                                              |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `RetireGenericPermissions`             | Removes the retired `Invoice.*` / `Report.*` permissions from roles (audited); the rows stay because ids are positional                                                                                                                   |
-| `AddPlatformAdministrationPermissions` | `Organization.Create`, `Organization.Deactivate`, `Application.Assign`, `Module.Manage`, `Catalog.Manage` for PlatformAdministrator, plus `Application.ManageAccess`                                                                      |
-| `AddApplicationsAndModules`            | Catalog and entitlement tables; application roles and grant expiry                                                                                                                                                                        |
-| `AddInvitations`                       | Email invitations with pre-granted roles                                                                                                                                                                                                  |
-| `AddDownstreamApplication`             | The first catalog application, **Downstream**: modules Pricing, Opportunities, Loads & Freight and Suppliers; permissions `Downstream.<Module>.Read/Write` (ids 25–32); role templates "Downstream Administrator" and "Downstream Viewer" |
-| `AccessModelV1`                        | The access model (`../docs/ACCESS-MODEL.md`): drops the organization / application / role tables, keeps users (`classification` → `user_type`), seeds roles, features, permissions and the matrix, and gives existing users the new system roles. Forward-only |
+The latest Identity migration is `AccessModelV1`: it replaces the previous
+model's tables with the access model (`../docs/ACCESS-MODEL.md`), keeps users
+(`classification` becomes `user_type`), seeds roles, features, permissions and
+the matrix, and gives existing users the new system roles. It is forward-only.
 
 ## Tests
 
@@ -335,13 +329,11 @@ Inside the container, the proxy on your machine is `host.docker.internal:5434`
 
 ## Access model
 
-The model is being replaced by [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md), one task at a time (`../docs/ACCESS-MODEL-TASKS.md`). Applications, modules, the catalog, organizations, memberships and organization invitations are already gone. Until the rest lands:
+Specified in [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md); the code-level summary is in [`AGENTS.md`](AGENTS.md) ("Authorization Model").
 
-- **Roles are global.** Three system roles are seeded (`site_admin`, `scrapgo_user`, `user`), and a permission counts only while its feature is on for the user.
-- **Site Admins** list users, enable and disable them, and set their roles and supplier links (`/api/admin/users…`). The last active Site Admin can't be removed.
-- **Nothing is automatic:** nobody gets anything at sign-in.
-
-The rules are in [`AGENTS.md`](AGENTS.md) ("Authorization Model"), and the admin API history in [`ADMIN-API-GAPS-v2.md`](ADMIN-API-GAPS-v2.md).
+- **Three system roles:** `site_admin`, `scrapgo_user` (Internal) and `user` (External). A permission counts only while its feature is on for the user.
+- **Joining:** internal staff sign in with Google Workspace; external users only by invitation (`/api/admin/invitations`).
+- **Administration** is under `/api/admin`: users, invitations, roles and permissions, features, audit. The last active Site Admin can't be removed.
 
 ## Suppliers
 

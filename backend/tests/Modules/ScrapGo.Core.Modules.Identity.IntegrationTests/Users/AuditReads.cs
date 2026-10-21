@@ -26,7 +26,7 @@ public class AuditReads
             Assert.Equal(2, items.Count);
             Assert.True(items[0].GetProperty("eventTime").GetDateTimeOffset() > items[1].GetProperty("eventTime").GetDateTimeOffset());
             Assert.Equal(adminId, items[0].GetProperty("actorUserId").GetInt32());
-            Assert.Equal("platform-admin@scrapgo.example", items[0].GetProperty("actorEmail").GetString());
+            Assert.Equal("site-admin@scrapgo.example", items[0].GetProperty("actorEmail").GetString());
             Assert.Equal(action, items[1].GetProperty("action").GetString());
             Assert.Equal(7, items[1].GetProperty("metadata").GetProperty("targetUserId").GetInt32());
         }

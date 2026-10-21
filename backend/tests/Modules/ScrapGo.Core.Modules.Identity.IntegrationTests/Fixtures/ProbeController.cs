@@ -35,8 +35,8 @@ public sealed class ProbeController : ControllerBase
     public IActionResult AnyOf() => Ok(new { ok = true });
 
     [RequirePermission(Permissions.UsersManage)]
-    [HttpGet("platform-scoped")]
-    public IActionResult PlatformScoped() => Ok(new { ok = true });
+    [HttpGet("users-manage")]
+    public IActionResult UsersManage() => Ok(new { ok = true });
 
     /// <summary>No authorization attribute at all: only the fallback policy stands between it and an anonymous caller.</summary>
     [HttpGet("no-attribute")]

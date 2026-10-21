@@ -1,4 +1,4 @@
-// ADMIN-API-STATUS Task 3: user data access for the admin endpoints.
+// User data access for the admin endpoints.
 using Microsoft.Extensions.DependencyInjection;
 using ScrapGo.Core.Modules.Identity.Application.Abstractions;
 using ScrapGo.Core.Modules.Identity.Application.Users;

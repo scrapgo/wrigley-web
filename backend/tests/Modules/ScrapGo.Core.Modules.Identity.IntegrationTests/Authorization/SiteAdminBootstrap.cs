@@ -9,7 +9,7 @@ namespace ScrapGo.Core.Modules.Identity.IntegrationTests.Authorization;
 // One database per class: the "no active Site Admin" rule is global state.
 public class SiteAdminBootstrap
 {
-    private const string PlatformScopedPath = "/api/_test/platform-scoped";
+    private const string UsersManagePath = "/api/_test/users-manage";
 
     public class Given_an_internal_user_and_no_site_admin(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
     {
@@ -21,7 +21,7 @@ public class SiteAdminBootstrap
             Assert.Equal(BootstrapSiteAdminOutcome.Granted, await BootstrapAsync(fixture, uid));
 
             Assert.Equal([DefaultRoleNames.SiteAdmin], await RoleKeysOfAsync(fixture, userId));
-            var response = await fixture.SendAsync(HttpMethod.Get, PlatformScopedPath, fixture.CreateToken(uid));
+            var response = await fixture.SendAsync(HttpMethod.Get, UsersManagePath, fixture.CreateToken(uid));
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         }
     }
@@ -77,7 +77,7 @@ public class SiteAdminBootstrap
             Assert.Empty(await RoleKeysOfAsync(fixture, secondUserId));
             Assert.False(await fixture.DbContext.AuditLogs.AsNoTracking()
                 .AnyAsync(a => a.EventType == IdentityAuditEventTypes.SiteAdminBootstrapped));
-            var response = await fixture.SendAsync(HttpMethod.Get, PlatformScopedPath, fixture.CreateToken(secondUid));
+            var response = await fixture.SendAsync(HttpMethod.Get, UsersManagePath, fixture.CreateToken(secondUid));
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
     }
@@ -102,7 +102,7 @@ public class SiteAdminBootstrap
         {
             var (uid, _) = await fixture.SeedUserAsync(userType: UserType.Internal);
 
-            var response = await fixture.SendAsync(HttpMethod.Get, PlatformScopedPath, fixture.CreateToken(uid));
+            var response = await fixture.SendAsync(HttpMethod.Get, UsersManagePath, fixture.CreateToken(uid));
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
@@ -119,7 +119,7 @@ public class SiteAdminBootstrap
             var token = fixture.CreateWorkspaceToken(uid);
             (await fixture.StartSessionAsync(token)).EnsureSuccessStatusCode();
 
-            var response = await fixture.SendAsync(HttpMethod.Get, PlatformScopedPath, token);
+            var response = await fixture.SendAsync(HttpMethod.Get, UsersManagePath, token);
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
             var userId = await fixture.DbContext.Users.AsNoTracking()

@@ -358,7 +358,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*B17 · Admin audit API\*\*
+\- \[x] \*\*B17 · Admin audit API\*\*
 
 &#x20; > Implement `GET /api/admin/audit` (`audit.view`) over `audit.audit\_logs`: filter by actor, action, target and date range, newest first, paged with `PageRequest`/`PagedResult`. Read-only. Add a read-only query in Shared.Infrastructure if none exists, without breaking module boundaries.
 

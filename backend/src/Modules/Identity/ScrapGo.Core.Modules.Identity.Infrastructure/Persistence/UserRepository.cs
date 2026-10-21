@@ -122,6 +122,13 @@ public sealed class UserRepository(IdentityDbContext dbContext) : IUserRepositor
             .Select(u => (int?)u.Id)
             .SingleOrDefaultAsync(cancellationToken);
 
+    public async Task<IReadOnlyDictionary<int, string>> GetEmailsAsync(IReadOnlyCollection<int> userIds, CancellationToken cancellationToken) =>
+        userIds.Count == 0
+            ? new Dictionary<int, string>()
+            : await dbContext.Users.AsNoTracking()
+                .Where(u => userIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.Email, cancellationToken);
+
     public Task<User?> GetByIdAsync(int userId, CancellationToken cancellationToken) =>
         dbContext.Users.SingleOrDefaultAsync(u => u.Id == userId, cancellationToken);
 

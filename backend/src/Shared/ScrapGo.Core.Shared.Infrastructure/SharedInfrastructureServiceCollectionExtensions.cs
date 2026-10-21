@@ -15,6 +15,9 @@ public static class SharedInfrastructureServiceCollectionExtensions
         services.AddDbContext<AuditDbContext>(options =>
             options.UseModulePostgres(connectionString, AuditLogConfiguration.Schema));
 
+        // Read-only access to audit.audit_logs for any module; writes stay with IAuditLog<TModule>.
+        services.AddScoped<IAuditLogReader, AuditLogReader>();
+
         services.AddSingleton(TimeProvider.System);
 
         services.AddExceptionHandler<GenericExceptionHandler>();

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using ScrapGo.Core.Modules.Identity.Application.Audit;
 using ScrapGo.Core.Modules.Identity.Application.Authorization;
 using ScrapGo.Core.Modules.Identity.Application.Features;
 using ScrapGo.Core.Modules.Identity.Application.Invitations;
@@ -22,6 +23,7 @@ public static class IdentityApplicationServiceCollectionExtensions
 
         services.AddScoped<RoleAdminService>();
         services.AddScoped<FeatureAdminService>();
+        services.AddScoped<AuditReadService>();
         services.AddScoped<BootstrapSiteAdminHandler>();
 
         return services;

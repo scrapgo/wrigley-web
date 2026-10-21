@@ -27,6 +27,9 @@ public interface IUserRepository
 
     Task<int?> GetIdByUidAsync(string identityPlatformUid, CancellationToken cancellationToken);
 
+    /// <summary>The emails of the users with these ids; ids with no user are missing.</summary>
+    Task<IReadOnlyDictionary<int, string>> GetEmailsAsync(IReadOnlyCollection<int> userIds, CancellationToken cancellationToken);
+
     /// <summary>A tracked user, or null. For mutations; list reads go through <see cref="ListAsync"/>.</summary>
     Task<User?> GetByIdAsync(int userId, CancellationToken cancellationToken);
 

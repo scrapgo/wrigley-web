@@ -121,6 +121,19 @@ type SessionListener = (session: AuthSession | null) => void
 
 const ME_ENDPOINT = '/api/me'
 
+/** sessionStorage key for an invitation token waiting to be sent to POST /api/session. */
+export const PENDING_INVITATION_KEY = 'pendingInvitationToken'
+
+/** Why POST /api/session or GET /api/me refused the caller (403 `reason`). */
+export type AccessDenial = 'no_access' | 'account_disabled'
+
+/** The denial behind an error, or null when the error is something else. */
+export function accessDenialOf(error: unknown): AccessDenial | null {
+    return error instanceof ApiError && error.status === 403 && (error.reason === 'no_access' || error.reason === 'account_disabled')
+        ? error.reason
+        : null
+}
+
 class ApiClient {
     private baseUrl: string
     private session: AuthSession | null = null
@@ -382,6 +395,17 @@ class ApiClient {
                 ...(token && { Authorization: `Bearer ${token}` }),
                 ...options.headers,
             },
+        })
+    }
+
+    /**
+     * POST /api/session: the end of every sign-in. Creates the user when the
+     * sign-in qualifies (a Workspace sign-in, or a valid invitation token).
+     */
+    async startSession(invitationToken: string | null): Promise<Me> {
+        return this.fetchWithAuth<Me>('/api/session', {
+            method: 'POST',
+            body: JSON.stringify(invitationToken ? { invitationToken } : {}),
         })
     }
 

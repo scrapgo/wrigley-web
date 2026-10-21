@@ -1,7 +1,14 @@
 import React, { useState, useEffect, useContext, createContext, useCallback, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiClient, REFRESH_MARGIN_MS, type AuthSession, type Me } from '../lib/api-client'
+import {
+    accessDenialOf,
+    apiClient,
+    PENDING_INVITATION_KEY,
+    REFRESH_MARGIN_MS,
+    type AuthSession,
+    type Me,
+} from '../lib/api-client'
 
 /** React Query key for GET /api/me. */
 export const meQueryKey = ['me'] as const
@@ -67,13 +74,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         [queryClient]
     )
 
-    // A stored session the API rejects on first load is discarded.
+    // A session the API refuses (no user, or a disabled one) ends on the no-access
+    // page. Any other failure on first load discards the stored session.
     useEffect(() => {
-        if (hasSession && meQuery.isError && !meQuery.data) {
+        if (!hasSession || !meQuery.isError) {
+            return
+        }
+
+        const denial = accessDenialOf(meQuery.error)
+        if (denial || !meQuery.data) {
             signingOut.current = true
             apiClient.clearSession()
         }
-    }, [hasSession, meQuery.isError, meQuery.data])
+        if (denial && window.location.pathname !== '/no-access') {
+            window.location.assign(`/no-access?reason=${denial}`)
+        }
+    }, [hasSession, meQuery.isError, meQuery.error, meQuery.data])
 
     // Refresh shortly before the ID token expires, so an idle tab stays signed in.
     useEffect(() => {
@@ -90,11 +106,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return () => window.clearTimeout(timer)
     }, [expiresAt, me])
 
-    // Prove a fresh GCIP session works against our API before persisting it.
+    // Every sign-in ends with POST /api/session (with a pending invitation token,
+    // if any), then GET /api/me. Only then is the GCIP session persisted. A 403
+    // no_access / account_disabled is rethrown for the caller to route on.
     const completeSignIn = useCallback(
         async (session: AuthSession) => {
             apiClient.adoptSession(session)
+            const invitationToken = sessionStorage.getItem(PENDING_INVITATION_KEY)
             try {
+                await apiClient.startSession(invitationToken)
                 await queryClient.fetchQuery({ queryKey: meQueryKey, queryFn: () => apiClient.getMe(), staleTime: 0 })
                 apiClient.persistSession()
                 setHasSession(true)
@@ -102,6 +122,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 signingOut.current = true
                 apiClient.clearSession()
                 throw error
+            } finally {
+                // One attempt per token: a refused invitation won't succeed on retry.
+                if (invitationToken) {
+                    sessionStorage.removeItem(PENDING_INVITATION_KEY)
+                }
             }
         },
         [queryClient]

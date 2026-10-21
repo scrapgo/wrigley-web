@@ -426,7 +426,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*F4 · Sign-in flow and no-access page\*\*
+\- \[x] \*\*F4 · Sign-in flow and no-access page\*\*
 
 &#x20; > After any sign-in, call `POST /api/session` (with a pending invitation token from `sessionStorage` if present), then load `/api/me`. On 403 `no\_access` or `account\_disabled`, route to a new `/no-access` page with a sign-out button and the message "Ask ScrapGo for an invitation" or "Your account is disabled". Keep the Google button labelled "ScrapGo staff — sign in with Google" plus email/password.
 

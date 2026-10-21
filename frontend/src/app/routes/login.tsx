@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useState, useEffect, useRef } from 'react'
+import { useCallback, useState, useEffect, useRef } from 'react'
 import {
     ArrowRight,
     ShieldCheck,
@@ -14,6 +14,7 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { BrandLogo } from '../components/brand-logo'
 import { useAuth } from '../hooks/useAuth'
+import { accessDenialOf } from '../lib/api-client'
 import { GOOGLE_CLIENT_ID, renderGoogleSignInButton } from '../lib/google-identity'
 
 export const Route = createFileRoute('/login')({
@@ -52,7 +53,20 @@ function LoginComponent() {
     const navigate = useNavigate()
     const googleButtonRef = useRef<HTMLDivElement>(null)
 
-    // Google sign-in: required for platform administration (Workspace accounts).
+    // A sign-in the API refuses goes to the no-access page; other errors show here.
+    const onSignInError = useCallback(
+        (err: unknown) => {
+            const denial = accessDenialOf(err)
+            if (denial) {
+                navigate({ to: '/no-access', search: { reason: denial } })
+                return
+            }
+            setError(err instanceof Error ? err.message : 'Unable to sign in. Please try again.')
+        },
+        [navigate]
+    )
+
+    // Google sign-in: how ScrapGo staff (Workspace accounts) sign in.
     useEffect(() => {
         const container = googleButtonRef.current
         if (!GOOGLE_CLIENT_ID || !container) {
@@ -65,14 +79,14 @@ function LoginComponent() {
             try {
                 await loginWithGoogle(googleIdToken)
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Unable to sign in. Please try again.')
+                onSignInError(err)
             } finally {
                 setLoading(false)
             }
         }).catch((err: unknown) => {
             setError(err instanceof Error ? err.message : 'Google sign-in failed to load.')
         })
-    }, [loginWithGoogle])
+    }, [loginWithGoogle, onSignInError])
 
     useEffect(() => {
         if (isAuthenticated) {
@@ -88,7 +102,7 @@ function LoginComponent() {
         try {
             await login(email, password)
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Unable to sign in. Please try again.')
+            onSignInError(err)
         } finally {
             setLoading(false)
         }
@@ -185,9 +199,12 @@ function LoginComponent() {
 
                     {GOOGLE_CLIENT_ID && (
                         <>
+                            <p className="mt-6 text-center text-sm font-semibold text-ink-900">
+                                ScrapGo staff — sign in with Google
+                            </p>
                             <div
                                 ref={googleButtonRef}
-                                className="mt-6 flex min-h-11 justify-center"
+                                className="mt-3 flex min-h-11 justify-center"
                                 aria-busy={loading}
                             />
                             <div className="mt-6 flex items-center gap-3 text-xs text-muted-foreground">

@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as NoAccessRouteImport } from './routes/no-access'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SuppliersRouteImport } from './routes/suppliers'
 import { Route as SuppliersRecordIdRouteImport } from './routes/suppliers_.$recordId'
@@ -36,6 +37,11 @@ const DashboardRoute = DashboardRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NoAccessRoute = NoAccessRouteImport.update({
+  id: '/no-access',
+  path: '/no-access',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -64,6 +70,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/no-access': typeof NoAccessRoute
   '/settings': typeof SettingsRoute
   '/suppliers': typeof SuppliersRoute
   '/suppliers/$recordId': typeof SuppliersRecordIdRoute
@@ -74,6 +81,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/no-access': typeof NoAccessRoute
   '/settings': typeof SettingsRoute
   '/suppliers': typeof SuppliersRoute
   '/suppliers/$recordId': typeof SuppliersRecordIdRoute
@@ -85,6 +93,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
+  '/no-access': typeof NoAccessRoute
   '/settings': typeof SettingsRoute
   '/suppliers': typeof SuppliersRoute
   '/suppliers_/$recordId': typeof SuppliersRecordIdRoute
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/login'
+    | '/no-access'
     | '/settings'
     | '/suppliers'
     | '/suppliers/$recordId'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/login'
+    | '/no-access'
     | '/settings'
     | '/suppliers'
     | '/suppliers/$recordId'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/dashboard'
     | '/login'
+    | '/no-access'
     | '/settings'
     | '/suppliers'
     | '/suppliers_/$recordId'
@@ -128,6 +140,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
+  NoAccessRoute: typeof NoAccessRoute
   SettingsRoute: typeof SettingsRoute
   SuppliersRoute: typeof SuppliersRoute
   SuppliersRecordIdRoute: typeof SuppliersRecordIdRoute
@@ -162,6 +175,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/no-access': {
+      id: '/no-access'
+      path: '/no-access'
+      fullPath: '/no-access'
+      preLoaderRoute: typeof NoAccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -200,6 +220,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
+  NoAccessRoute: NoAccessRoute,
   SettingsRoute: SettingsRoute,
   SuppliersRoute: SuppliersRoute,
   SuppliersRecordIdRoute: SuppliersRecordIdRoute,

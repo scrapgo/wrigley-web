@@ -109,6 +109,24 @@ export interface InvitableRole {
     description: string | null
 }
 
+export type FeatureState = 'Off' | 'On' | 'Targeted'
+
+export interface Feature {
+    id: number
+    key: string
+    name: string
+    description: string
+    state: FeatureState
+    /** False for locked features: always On, no targets. */
+    isToggleable: boolean
+    updatedAt: string
+    updatedByUserId: number | null
+    /** Permission keys the feature owns. */
+    permissions: string[]
+    /** Who a Targeted feature is on for; kept when the state changes. */
+    targets: { userIds: number[]; roleIds: number[] }
+}
+
 export interface UserListQuery {
     search?: string
     type?: UserType
@@ -192,6 +210,29 @@ export function resendInvitation(id: number): Promise<IssuedInvitation> {
 
 export function revokeInvitation(id: number): Promise<void> {
     return apiClient.fetchWithAuth<void>(`/api/admin/invitations/${id}`, { method: 'DELETE' })
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Features (features.view to read, features.manage to change)                */
+/* -------------------------------------------------------------------------- */
+
+export function listFeatures(): Promise<Feature[]> {
+    return apiClient.fetchWithAuth<Feature[]>('/api/admin/features')
+}
+
+export function setFeatureState(id: number, state: FeatureState): Promise<Feature> {
+    return apiClient.fetchWithAuth<Feature>(`/api/admin/features/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ state }),
+    })
+}
+
+/** Replaces who the feature targets with exactly these users and roles. */
+export function setFeatureTargets(id: number, userIds: number[], roleIds: number[]): Promise<Feature> {
+    return apiClient.fetchWithAuth<Feature>(`/api/admin/features/${id}/targets`, {
+        method: 'PUT',
+        body: JSON.stringify({ userIds, roleIds }),
+    })
 }
 
 /* -------------------------------------------------------------------------- */

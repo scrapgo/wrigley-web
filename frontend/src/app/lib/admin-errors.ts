@@ -56,6 +56,8 @@ const REASON_MESSAGES: Record<string, string> = {
     invitation_not_pending: 'That invitation was already accepted or revoked.',
     // Roles
     audience_mismatch: 'Internal permissions go on internal roles, and external permissions on external roles.',
+    // Features
+    feature_locked: 'This feature is locked: it is always on.',
     // Suppliers
     supplier_not_found: 'No supplier with that record id.',
     quickbase_unavailable: "Quickbase didn't answer and no cached copy was available. Try again shortly.",

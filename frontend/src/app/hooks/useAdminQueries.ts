@@ -10,6 +10,10 @@ import {
     enableUser,
     getUser,
     listPermissionGroups,
+    listFeatures,
+    setFeatureState,
+    setFeatureTargets,
+    type FeatureState,
     setRolePermissions,
     listRoles,
     listUsers,
@@ -32,6 +36,7 @@ export const adminKeys = {
     invitations: ['admin', 'invitations'] as const,
     invitationList: (page: number, pageSize: number) => ['admin', 'invitations', page, pageSize] as const,
     invitableRoles: ['admin', 'invitations', 'roles'] as const,
+    features: ['admin', 'features'] as const,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -81,6 +86,13 @@ export function useInvitableRoles(enabled = true) {
         queryKey: adminKeys.invitableRoles,
         queryFn: listInvitableRoles,
         enabled,
+    })
+}
+
+export function useFeatures() {
+    return useQuery({
+        queryKey: adminKeys.features,
+        queryFn: listFeatures,
     })
 }
 
@@ -163,5 +175,31 @@ export function useSetRolePermissions() {
             // The caller's own access may have changed with the role.
             void queryClient.invalidateQueries({ queryKey: ['me'] })
         },
+    })
+}
+
+/** After a feature change: refresh the list and the caller's own access (it may now show or hide UI). */
+function useInvalidateFeatures() {
+    const queryClient = useQueryClient()
+    return () => {
+        void queryClient.invalidateQueries({ queryKey: adminKeys.features })
+        void queryClient.invalidateQueries({ queryKey: ['me'] })
+    }
+}
+
+export function useSetFeatureState() {
+    const invalidate = useInvalidateFeatures()
+    return useMutation({
+        mutationFn: ({ id, state }: { id: number; state: FeatureState }) => setFeatureState(id, state),
+        onSuccess: invalidate,
+    })
+}
+
+export function useSetFeatureTargets() {
+    const invalidate = useInvalidateFeatures()
+    return useMutation({
+        mutationFn: ({ id, userIds, roleIds }: { id: number; userIds: number[]; roleIds: number[] }) =>
+            setFeatureTargets(id, userIds, roleIds),
+        onSuccess: invalidate,
     })
 }

@@ -3,6 +3,7 @@ import { Construction } from 'lucide-react'
 
 import { AppShell } from '../components/app-shell'
 import { RequirePermission } from '../components/access'
+import { FeaturesPanel } from '../components/admin/features-panel'
 import { InvitationsPanel } from '../components/admin/invitations-panel'
 import { RolesPanel } from '../components/admin/roles-panel'
 import { UsersPanel } from '../components/admin/users-panel'
@@ -33,6 +34,7 @@ const PANELS: Partial<Record<AdminTab, () => React.ReactNode>> = {
     users: () => <UsersPanel />,
     invitations: () => <InvitationsPanel />,
     roles: () => <RolesPanel />,
+    features: () => <FeaturesPanel />,
 }
 
 function AdminComponent() {

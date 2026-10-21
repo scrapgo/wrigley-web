@@ -476,7 +476,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*F9 · Admin › Features\*\*
+\- \[x] \*\*F9 · Admin › Features\*\*
 
 &#x20; > Features tab: each feature with an Off / On / Targeted control. Locked features show a lock and no control. Targeted opens a picker for users and roles. Read-only without `features.manage`.
 

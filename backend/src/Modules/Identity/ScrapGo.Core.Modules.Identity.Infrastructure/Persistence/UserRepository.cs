@@ -50,9 +50,18 @@ public sealed class UserRepository(IdentityDbContext dbContext) : IUserRepositor
             .Select(u => new { u.Id, u.Email, u.DisplayName, u.UserType, u.Status, u.LastSignInAt, u.CreatedAt })
             .ToListAsync(cancellationToken);
 
+        // One more query for the page's role keys, rather than one per row.
+        var ids = rows.Select(u => u.Id).ToList();
+        var roleKeys = (await dbContext.UserRoles.AsNoTracking()
+                .Where(ur => ids.Contains(ur.UserId))
+                .Select(ur => new { ur.UserId, ur.Role.Key })
+                .ToListAsync(cancellationToken))
+            .ToLookup(ur => ur.UserId, ur => ur.Key);
+
         return PagedResult<UserSummaryDto>.Create(
             [.. rows.Select(u => new UserSummaryDto(
-                u.Id, u.Email, u.DisplayName, u.UserType.ToString(), u.Status.ToString(), u.LastSignInAt, u.CreatedAt))],
+                u.Id, u.Email, u.DisplayName, u.UserType.ToString(), u.Status.ToString(), u.LastSignInAt, u.CreatedAt,
+                [.. roleKeys[u.Id].Order(StringComparer.Ordinal)]))],
             page,
             totalCount);
     }

@@ -49,6 +49,21 @@ public class AdminUserReads
         }
 
         [Fact]
+        public async Task Get_users_lists_each_users_role_keys()
+        {
+            var token = await PlatformReaderTokenAsync(fixture);
+            var (_, userId) = await fixture.SeedUserAsync("staff@roles-listed.example", UserType.Internal);
+            var scrapGoUser = await fixture.DbContext.Roles.AsNoTracking()
+                .Where(r => r.Key == DefaultRoleNames.ScrapGoUser).Select(r => r.Id).SingleAsync();
+            await fixture.AssignRoleAsync(userId, scrapGoUser);
+
+            var response = await fixture.SendAsync(HttpMethod.Get, "/api/admin/users?search=roles-listed", token);
+
+            var item = Assert.Single((await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("items").EnumerateArray());
+            Assert.Equal([DefaultRoleNames.ScrapGoUser], item.GetProperty("roles").EnumerateArray().Select(r => r.GetString()));
+        }
+
+        [Fact]
         public async Task Get_users_filters_by_type()
         {
             var token = await PlatformReaderTokenAsync(fixture);

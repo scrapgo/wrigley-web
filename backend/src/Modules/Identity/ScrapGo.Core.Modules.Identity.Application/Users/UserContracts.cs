@@ -8,6 +8,7 @@ public sealed record UserRoleDto(int Id, string Key, string Name);
 public sealed record UserListFilter(string? Search = null, UserStatus? Status = null, UserType? UserType = null);
 
 /// <summary>A row in the admin user list.</summary>
+/// <param name="Roles">The keys of the roles the user holds, ordered.</param>
 public sealed record UserSummaryDto(
     int Id,
     string Email,
@@ -15,7 +16,8 @@ public sealed record UserSummaryDto(
     string UserType,
     string Status,
     DateTimeOffset? LastSignInAt,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    IReadOnlyList<string> Roles);
 
 /// <summary>The admin view of one user: who they are, their roles and (External users) their supplier links.</summary>
 /// <param name="SupplierRecordIds">Linked Quickbase supplier Record IDs, ascending; always empty for Internal users.</param>

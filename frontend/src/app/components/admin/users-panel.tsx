@@ -1,104 +1,79 @@
-import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
-import { Search, UserCog, UserX, Users } from "lucide-react"
+import { useState, type FormEvent } from "react"
 import { Link } from "@tanstack/react-router"
+import { ChevronLeft, ChevronRight, Search, Users } from "lucide-react"
 
+import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
 import { Skeleton } from "../ui/skeleton"
 import { EmptyState } from "../ui/empty-state"
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "../ui/table"
-import { useToast } from "../ui/toast"
-import {
-    useDisableUser,
-    useEnableUser,
-    useUsers,
-} from "../../hooks/useAdminQueries"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table"
+import { useUsers } from "../../hooks/useAdminQueries"
 import { adminErrorMessage } from "../../lib/admin-errors"
+import type { UserStatus, UserType } from "../../lib/admin-api"
+import { formatDateTime, SELECT_CLASS } from "../../lib/admin-format"
 
-const searchSchema = z.object({
-    search: z.string().optional(),
-    status: z.enum(["active", "disabled"]).optional(),
-})
+const PAGE_SIZE = 25
 
-type SearchFormValues = z.infer<typeof searchSchema>
-
+/** Users tab (users.view): search, type and status filters, and a paged table. */
 export function UsersPanel() {
-    const [searchParams, setSearchParams] = useState<{ search?: string; status?: string }>({});
-    const { data, isLoading, isError, error } = useUsers(
-        searchParams.search,
-        searchParams.status
-    );
+    const [searchInput, setSearchInput] = useState("")
+    const [search, setSearch] = useState("")
+    const [type, setType] = useState<UserType | "">("")
+    const [status, setStatus] = useState<UserStatus | "">("")
+    const [page, setPage] = useState(1)
 
-    const disableUser = useDisableUser();
-    const enableUser = useEnableUser();
-    const { toast } = useToast();
+    const { data, isLoading, isError, error, isFetching } = useUsers({
+        search: search || undefined,
+        type: type || undefined,
+        status: status || undefined,
+        page,
+        pageSize: PAGE_SIZE,
+    })
 
-    const {
-        register,
-        handleSubmit,
-    } = useForm<SearchFormValues>({
-        resolver: zodResolver(searchSchema),
-        defaultValues: { search: "", status: undefined },
-    });
-
-    const onSubmit = handleSubmit((values) => {
-        setSearchParams(values);
-    });
-
-    async function handleDisableUser(id: number) {
-        try {
-            await disableUser.mutateAsync(id);
-            toast({ title: "User disabled", variant: "success" });
-        } catch (err) {
-            toast({
-                title: "Could not disable user",
-                description: adminErrorMessage(err),
-                variant: "destructive",
-            });
-        }
-    }
-
-    async function handleEnableUser(id: number) {
-        try {
-            await enableUser.mutateAsync(id);
-            toast({ title: "User enabled", variant: "success" });
-        } catch (err) {
-            toast({
-                title: "Could not enable user",
-                description: adminErrorMessage(err),
-                variant: "destructive",
-            });
-        }
+    const onSearch = (e: FormEvent) => {
+        e.preventDefault()
+        setPage(1)
+        setSearch(searchInput.trim())
     }
 
     return (
         <div className="space-y-4">
-            <div>
-                <h2 className="text-lg font-semibold text-ink-900">Users</h2>
-                <p className="text-sm text-muted-foreground">
-                    Platform-wide user directory. Manage user accounts and permissions.
-                </p>
-            </div>
-
-            {/* Search form */}
-            <form onSubmit={onSubmit} className="flex gap-2">
-                <div className="flex-1">
-                    <Input
-                        placeholder="Search by email..."
-                        {...register("search")}
-                    />
-                </div>
-                <Button type="submit" variant="outline">
+            <form onSubmit={onSearch} className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                    className="flex-1"
+                    placeholder="Search by name or email…"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    aria-label="Search users"
+                />
+                <select
+                    className={SELECT_CLASS}
+                    value={type}
+                    aria-label="Filter by type"
+                    onChange={(e) => {
+                        setPage(1)
+                        setType(e.target.value as UserType | "")
+                    }}
+                >
+                    <option value="">All types</option>
+                    <option value="Internal">Internal</option>
+                    <option value="External">External</option>
+                </select>
+                <select
+                    className={SELECT_CLASS}
+                    value={status}
+                    aria-label="Filter by status"
+                    onChange={(e) => {
+                        setPage(1)
+                        setStatus(e.target.value as UserStatus | "")
+                    }}
+                >
+                    <option value="">All statuses</option>
+                    <option value="Active">Active</option>
+                    <option value="Disabled">Disabled</option>
+                </select>
+                <Button type="submit" variant="outline" size="lg">
                     <Search className="h-4 w-4" />
                     Search
                 </Button>
@@ -111,81 +86,98 @@ export function UsersPanel() {
                     ))}
                 </div>
             ) : isError ? (
-                <EmptyState
-                    icon={Users}
-                    title="Could not load users"
-                    description={adminErrorMessage(error)}
-                />
+                <EmptyState icon={Users} title="Could not load users" description={adminErrorMessage(error)} />
             ) : !data || data.items.length === 0 ? (
-                <EmptyState
-                    icon={Users}
-                    title="No users found"
-                    description="Try adjusting your search criteria."
-                />
+                <EmptyState icon={Users} title="No users found" description="Try another search or filter." />
             ) : (
-                <div className="rounded-xl border border-border bg-card">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Email</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Created</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {data.items.map((user) => (
-                                <TableRow key={user.id}>
-                                    <TableCell className="font-medium text-ink-900">
-                                        {user.email}
-                                    </TableCell>
-                                    <TableCell>
-                                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${user.status === "Active"
-                                                ? "bg-green-100 text-green-800"
-                                                : "bg-red-100 text-red-800"
-                                            }`}>
-                                            {user.status}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell className="text-muted-foreground">
-                                        {new Date(user.createdAt).toLocaleDateString()}
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex justify-end gap-1">
-                                            <Button variant="outline" size="sm" asChild>
-                                                <Link to="/admin/users/$userId" params={{ userId: user.id.toString() }}>
-                                                    Manage
-                                                </Link>
-                                            </Button>
-                                            {user.status === "Active" ? (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleDisableUser(user.id)}
-                                                    disabled={disableUser.isPending}
-                                                >
-                                                    <UserX className="h-4 w-4" />
-                                                    Disable
-                                                </Button>
-                                            ) : (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleEnableUser(user.id)}
-                                                    disabled={enableUser.isPending}
-                                                >
-                                                    <UserCog className="h-4 w-4" />
-                                                    Enable
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </TableCell>
+                <>
+                    <div className="overflow-x-auto rounded-xl border border-border bg-card">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Email</TableHead>
+                                    <TableHead>Type</TableHead>
+                                    <TableHead>Roles</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Last sign-in</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
+                            </TableHeader>
+                            <TableBody>
+                                {data.items.map((user) => (
+                                    <TableRow key={user.id}>
+                                        <TableCell className="font-medium text-ink-900">
+                                            <Link
+                                                to="/admin/users/$userId"
+                                                params={{ userId: String(user.id) }}
+                                                className="hover:text-brand-600 hover:underline"
+                                            >
+                                                {user.displayName || "—"}
+                                            </Link>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Link
+                                                to="/admin/users/$userId"
+                                                params={{ userId: String(user.id) }}
+                                                className="hover:text-brand-600 hover:underline"
+                                            >
+                                                {user.email}
+                                            </Link>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant={user.userType === "Internal" ? "success" : "neutral"}>{user.userType}</Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-wrap gap-1">
+                                                {user.roles.length === 0 ? (
+                                                    <span className="text-muted-foreground">None</span>
+                                                ) : (
+                                                    user.roles.map((role) => (
+                                                        <Badge key={role} variant="neutral">
+                                                            {role}
+                                                        </Badge>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant={user.status === "Active" ? "success" : "danger"}>{user.status}</Badge>
+                                        </TableCell>
+                                        <TableCell className="whitespace-nowrap text-muted-foreground">
+                                            {formatDateTime(user.lastSignInAt)}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <span>
+                            {data.totalCount} user{data.totalCount === 1 ? "" : "s"}
+                            {isFetching && " · updating…"}
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                                <ChevronLeft className="h-4 w-4" />
+                                Previous
+                            </Button>
+                            <span>
+                                Page {data.page} of {Math.max(data.totalPages, 1)}
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={page >= data.totalPages}
+                                onClick={() => setPage((p) => p + 1)}
+                            >
+                                Next
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+                </>
             )}
         </div>
-    );
+    )
 }

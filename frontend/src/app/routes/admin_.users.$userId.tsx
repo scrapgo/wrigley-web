@@ -1,9 +1,8 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { Construction } from 'lucide-react'
 
 import { AppShell } from '../components/app-shell'
 import { RequirePermission } from '../components/access'
-import { EmptyState } from '../components/ui/empty-state'
+import { UserDetailPanel } from '../components/admin/user-detail-panel'
 
 export const Route = createFileRoute('/admin_/users/$userId')({
     component: () => (
@@ -27,13 +26,11 @@ export const Route = createFileRoute('/admin_/users/$userId')({
 })
 
 function UserDetailComponent() {
+    const { userId } = Route.useLoaderData()
+
     return (
-        <AppShell active="admin" title="User" subtitle="Roles, supplier links and status.">
-            <EmptyState
-                icon={Construction}
-                title="Admin is being rebuilt"
-                description="User details are moving to the new access model and will be back shortly."
-            />
+        <AppShell active="users" title="User" subtitle="Roles, supplier links and status.">
+            <UserDetailPanel userId={userId} />
         </AppShell>
     )
 }

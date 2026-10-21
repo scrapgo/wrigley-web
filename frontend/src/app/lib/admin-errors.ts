@@ -47,6 +47,10 @@ const REASON_MESSAGES: Record<string, string> = {
     organization_active: 'Deactivate the organization before deleting it.',
     user_not_found: 'No user with that id or email. They must sign in once first.',
     workspace_sign_in_required: 'Platform administration requires signing in with your Google Workspace account. Sign out and use "Sign in with Google".',
+    // Users
+    last_site_admin: 'This would leave no active Site Admin. Assign or enable another one first.',
+    role_type_mismatch: 'Internal users hold internal roles, and external users external roles.',
+    supplier_links_external_only: 'Supplier links are for external users; internal users see every supplier.',
     // Suppliers
     supplier_not_found: 'No supplier with that record id.',
     quickbase_unavailable: "Quickbase didn't answer and no cached copy was available. Try again shortly.",

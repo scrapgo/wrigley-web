@@ -1,6 +1,17 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { disableUser, enableUser, getUser, listPermissions, listUsers } from '../lib/admin-api'
+import {
+    disableUser,
+    enableUser,
+    getUser,
+    listPermissions,
+    listRoles,
+    listUsers,
+    setUserRoles,
+    setUserSuppliers,
+    type UserDetail,
+    type UserListQuery,
+} from '../lib/admin-api'
 
 /* -------------------------------------------------------------------------- */
 /*  Query keys                                                                 */
@@ -9,7 +20,9 @@ import { disableUser, enableUser, getUser, listPermissions, listUsers } from '..
 export const adminKeys = {
     permissions: ['admin', 'permissions'] as const,
     users: ['admin', 'users'] as const,
+    userList: (query: UserListQuery) => ['admin', 'users', query] as const,
     userDetail: (id: number) => ['admin', 'user', id] as const,
+    roles: ['admin', 'roles'] as const,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -23,10 +36,11 @@ export function usePermissions() {
     })
 }
 
-export function useUsers(search?: string, status?: string, page: number = 1, pageSize: number = 25) {
+export function useUsers(query: UserListQuery) {
     return useQuery({
-        queryKey: adminKeys.users,
-        queryFn: () => listUsers(search, status, page, pageSize),
+        queryKey: adminKeys.userList(query),
+        queryFn: () => listUsers(query),
+        placeholderData: keepPreviousData,
     })
 }
 
@@ -37,32 +51,60 @@ export function useUserDetail(id: number) {
     })
 }
 
+export function useRoles(enabled = true) {
+    return useQuery({
+        queryKey: adminKeys.roles,
+        queryFn: listRoles,
+        enabled,
+    })
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Mutations                                                                  */
 /* -------------------------------------------------------------------------- */
 
-export function useDisableUser() {
+/** After a change to one user: refresh the list and that user's detail. */
+function useInvalidateUser() {
     const queryClient = useQueryClient()
+    return (id: number, detail?: UserDetail) => {
+        if (detail) {
+            queryClient.setQueryData(adminKeys.userDetail(id), detail)
+        } else {
+            void queryClient.invalidateQueries({ queryKey: adminKeys.userDetail(id) })
+        }
+        void queryClient.invalidateQueries({ queryKey: adminKeys.users })
+    }
+}
+
+export function useDisableUser() {
+    const invalidate = useInvalidateUser()
     return useMutation({
-        mutationFn: async (id: number) => {
-            await disableUser(id)
-        },
-        onSuccess: (_, variables) => {
-            void queryClient.invalidateQueries({ queryKey: adminKeys.users })
-            void queryClient.invalidateQueries({ queryKey: adminKeys.userDetail(variables) })
-        },
+        mutationFn: (id: number) => disableUser(id),
+        onSuccess: (_, id) => invalidate(id),
     })
 }
 
 export function useEnableUser() {
-    const queryClient = useQueryClient()
+    const invalidate = useInvalidateUser()
     return useMutation({
-        mutationFn: async (id: number) => {
-            await enableUser(id)
-        },
-        onSuccess: (_, variables) => {
-            void queryClient.invalidateQueries({ queryKey: adminKeys.users })
-            void queryClient.invalidateQueries({ queryKey: adminKeys.userDetail(variables) })
-        },
+        mutationFn: (id: number) => enableUser(id),
+        onSuccess: (_, id) => invalidate(id),
+    })
+}
+
+export function useSetUserRoles() {
+    const invalidate = useInvalidateUser()
+    return useMutation({
+        mutationFn: ({ id, roleIds }: { id: number; roleIds: number[] }) => setUserRoles(id, roleIds),
+        onSuccess: (detail, { id }) => invalidate(id, detail),
+    })
+}
+
+export function useSetUserSuppliers() {
+    const invalidate = useInvalidateUser()
+    return useMutation({
+        mutationFn: ({ id, supplierRecordIds }: { id: number; supplierRecordIds: number[] }) =>
+            setUserSuppliers(id, supplierRecordIds),
+        onSuccess: (detail, { id }) => invalidate(id, detail),
     })
 }

@@ -446,7 +446,7 @@ Claude Code must follow these on every task, without being told again:
 
 
 
-\- \[ ] \*\*F6 · Admin › Users\*\*
+\- \[x] \*\*F6 · Admin › Users\*\*
 
 &#x20; > Rebuild `admin.tsx` as tabs gated by permission. Users tab: a search box, type and status filters, and a paged table of name, email, type, roles, status and last sign-in. User detail (`admin\_.users.$userId.tsx`) shows role checkboxes (only roles of the user's type), supplier links (External only; add by Record ID with the supplier name looked up), and Disable/Enable, using the B14 endpoints. Hide actions without `users.manage`.
 

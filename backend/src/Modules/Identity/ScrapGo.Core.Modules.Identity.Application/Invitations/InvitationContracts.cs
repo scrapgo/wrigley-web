@@ -43,7 +43,11 @@ public sealed record InvitationDto(
 public sealed record InvitableRoleDto(int Id, string Key, string Name, string? Description);
 
 /// <summary>What create and resend return: the invitation and the link the admin can copy (it carries the token).</summary>
-public sealed record IssuedInvitationDto(InvitationDto Invitation, string AcceptLink);
+/// <param name="EmailSent">
+/// Whether the invitation email went out. False when sending failed (the
+/// invitation still stands; the admin can copy the link instead).
+/// </param>
+public sealed record IssuedInvitationDto(InvitationDto Invitation, string AcceptLink, bool EmailSent);
 
 public enum InvitationOutcome
 {

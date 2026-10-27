@@ -344,12 +344,16 @@ class ApiClient {
         }
     }
 
-    /** Sends GCIP's email-verification link to the account behind `idToken`. */
-    async sendEmailVerification(idToken: string): Promise<void> {
+    /**
+     * Sends GCIP's email-verification link to the account behind `idToken`.
+     * With `continueUrl`, GCIP's "email verified" page links on to it (its
+     * origin must be an authorized domain in GCIP).
+     */
+    async sendEmailVerification(idToken: string, continueUrl?: string): Promise<void> {
         const response = await fetch(`${GCIP_SEND_OOB_CODE_URL}?key=${GCIP_API_KEY}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ requestType: 'VERIFY_EMAIL', idToken }),
+            body: JSON.stringify({ requestType: 'VERIFY_EMAIL', idToken, ...(continueUrl && { continueUrl }) }),
         })
 
         if (!response.ok) {

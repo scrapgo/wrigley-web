@@ -1,5 +1,6 @@
 using System.Net.Mail;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ScrapGo.Core.Modules.Identity.Application.Users;
 using ScrapGo.Core.Shared.Kernel.Paging;
@@ -24,7 +25,8 @@ public sealed class InvitationService(
     IAuditLog<IdentityModule> auditLog,
     IOptions<InvitationOptions> options,
     IOptions<InternalHdAllowlistOptions> internalDomains,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    ILogger<InvitationService> logger)
 {
     /// <summary>
     /// The roles an invitation can grant (external roles only), for the invite
@@ -175,9 +177,21 @@ public sealed class InvitationService(
         Invitation invitation, string roleKey, string token, DateTimeOffset now, CancellationToken cancellationToken)
     {
         var acceptLink = options.Value.BuildAcceptLink(token);
-        await sender.SendAsync(new InvitationMessage(invitation.Id, invitation.Email, acceptLink, invitation.ExpiresAt), cancellationToken);
 
-        return new IssuedInvitationDto(InvitationDto.From(invitation, roleKey, now), acceptLink);
+        // The invitation is already committed: a failed email mustn't undo it.
+        // The admin still gets the link to share by hand.
+        var emailSent = true;
+        try
+        {
+            await sender.SendAsync(new InvitationMessage(invitation.Id, invitation.Email, acceptLink, invitation.ExpiresAt), cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            emailSent = false;
+            logger.LogWarning(ex, "Invitation {InvitationId} was created but its email could not be sent.", invitation.Id);
+        }
+
+        return new IssuedInvitationDto(InvitationDto.From(invitation, roleKey, now), acceptLink, emailSent);
     }
 
     /// <summary>The route's permission check has already loaded the caller's access context.</summary>

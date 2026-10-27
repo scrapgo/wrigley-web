@@ -14,11 +14,16 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { BrandLogo } from '../components/brand-logo'
 import { useAuth } from '../hooks/useAuth'
-import { accessDenialOf } from '../lib/api-client'
+import { accessDenialOf, PENDING_INVITATION_KEY } from '../lib/api-client'
+import { INVITATION_REFUSED } from '../lib/invitation'
 import { GOOGLE_CLIENT_ID, renderGoogleSignInButton } from '../lib/google-identity'
 
 export const Route = createFileRoute('/login')({
     component: LoginComponent,
+    // The email-verification link of an invitation lands here with the invitation token.
+    validateSearch: (search: Record<string, unknown>): { invitation?: string } => ({
+        invitation: typeof search.invitation === 'string' && search.invitation ? search.invitation : undefined,
+    }),
 })
 
 const HIGHLIGHTS = [
@@ -50,20 +55,36 @@ function LoginComponent() {
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
     const { login, loginWithGoogle, isAuthenticated } = useAuth()
+    const { invitation } = Route.useSearch()
     const navigate = useNavigate()
     const googleButtonRef = useRef<HTMLDivElement>(null)
 
-    // A sign-in the API refuses goes to the no-access page; other errors show here.
+    // Signing in sends a pending invitation to POST /api/session, which accepts it.
+    // Stored again before every attempt, since an attempt consumes it.
+    const storeInvitation = useCallback(() => {
+        if (invitation) {
+            sessionStorage.setItem(PENDING_INVITATION_KEY, invitation)
+        }
+    }, [invitation])
+
+    useEffect(storeInvitation, [storeInvitation])
+
+    // A refused invitation is explained here; any other refusal goes to the
+    // no-access page; other errors show here.
     const onSignInError = useCallback(
         (err: unknown) => {
             const denial = accessDenialOf(err)
+            if (denial === 'no_access' && invitation) {
+                setError(INVITATION_REFUSED)
+                return
+            }
             if (denial) {
                 navigate({ to: '/no-access', search: { reason: denial } })
                 return
             }
             setError(err instanceof Error ? err.message : 'Unable to sign in. Please try again.')
         },
-        [navigate]
+        [invitation, navigate]
     )
 
     // Google sign-in: how ScrapGo staff (Workspace accounts) sign in.
@@ -76,6 +97,7 @@ function LoginComponent() {
         renderGoogleSignInButton(container, async (googleIdToken) => {
             setLoading(true)
             setError('')
+            storeInvitation()
             try {
                 await loginWithGoogle(googleIdToken)
             } catch (err) {
@@ -86,18 +108,20 @@ function LoginComponent() {
         }).catch((err: unknown) => {
             setError(err instanceof Error ? err.message : 'Google sign-in failed to load.')
         })
-    }, [loginWithGoogle, onSignInError])
+    }, [loginWithGoogle, onSignInError, storeInvitation])
 
+    // An accepted invitation opens the suppliers it linked; any other sign-in the dashboard.
     useEffect(() => {
         if (isAuthenticated) {
-            navigate({ to: '/dashboard' })
+            navigate({ to: invitation ? '/suppliers' : '/dashboard' })
         }
-    }, [isAuthenticated, navigate])
+    }, [isAuthenticated, invitation, navigate])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
         setError('')
+        storeInvitation()
 
         try {
             await login(email, password)
@@ -187,6 +211,15 @@ function LoginComponent() {
                     <p className="mt-1.5 text-sm text-muted-foreground">
                         Sign in to the ScrapGo Downstream portal to continue.
                     </p>
+
+                    {invitation && (
+                        <div
+                            role="status"
+                            className="mt-6 rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm font-medium text-brand-800"
+                        >
+                            Your email is verified. Sign in to finish accepting your invitation.
+                        </div>
+                    )}
 
                     {error && (
                         <div

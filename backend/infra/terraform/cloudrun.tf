@@ -92,6 +92,27 @@ resource "google_cloud_run_v2_service" "main" {
       }
 
       dynamic "env" {
+        for_each = var.gmail_sender != "" ? [var.gmail_sender] : []
+        content {
+          name  = "Invitations__Gmail__Sender"
+          value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.gmail_service_account_configured ? [1] : []
+        content {
+          name = "Invitations__Gmail__ServiceAccountJson"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.gmail_service_account.secret_id
+              version = "latest"
+            }
+          }
+        }
+      }
+
+      dynamic "env" {
         for_each = var.quickbase_user_token_configured ? [1] : []
         content {
           name = "Quickbase__UserToken"
@@ -120,6 +141,7 @@ resource "google_cloud_run_v2_service" "main" {
     google_secret_manager_secret_version.db_connection_string,
     google_secret_manager_secret_iam_member.db_connection_string_accessor,
     google_secret_manager_secret_iam_member.quickbase_user_token_accessor,
+    google_secret_manager_secret_iam_member.gmail_service_account_accessor,
   ]
 }
 

@@ -9,6 +9,7 @@ import { Label } from '../components/ui/label'
 import { useAuth } from '../hooks/useAuth'
 import { accessDenialOf, apiClient, PENDING_INVITATION_KEY } from '../lib/api-client'
 import { GOOGLE_CLIENT_ID, renderGoogleSignInButton } from '../lib/google-identity'
+import { INVITATION_REFUSED, invitationContinueUrl } from '../lib/invitation'
 
 export const Route = createFileRoute('/invite/accept')({
     component: AcceptInvitationComponent,
@@ -18,14 +19,6 @@ export const Route = createFileRoute('/invite/accept')({
 })
 
 type Step = 'choose' | 'create' | 'verify' | 'signin'
-
-/**
- * The API can't say which check failed (it answers 403 no_access for all of
- * them, by design), so the message names every likely cause.
- */
-const INVITATION_REFUSED =
-    "We couldn't accept this invitation. It may have expired, already been used, or been sent to a different email address. " +
-    'Sign in with the address the invitation was sent to, and make sure that email is verified. If it still fails, ask ScrapGo for a new invitation.'
 
 function AcceptInvitationComponent() {
     const { token } = Route.useSearch()
@@ -97,7 +90,8 @@ function AcceptInvitationComponent() {
             const session = await apiClient.signUp(email, password)
             // On the GCIP account, so the token after verification carries it as `name`.
             await apiClient.setDisplayName(session.idToken, displayName.trim())
-            await apiClient.sendEmailVerification(session.idToken)
+            // The link in that email ends on the sign-in page, carrying the invitation.
+            await apiClient.sendEmailVerification(session.idToken, token ? invitationContinueUrl(token) : undefined)
             setStep('verify')
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Could not create the account.')
@@ -211,8 +205,9 @@ function AcceptInvitationComponent() {
                         <MailCheck className="h-6 w-6" />
                     </span>
                     <p className="text-sm text-muted-foreground">
-                        We sent a verification link to <span className="font-semibold text-ink-900">{email}</span>. Open it, then come
-                        back here to finish.
+                        We sent a verification link to <span className="font-semibold text-ink-900">{email}</span>. Open it, then
+                        continue to sign in: signing in finishes accepting your invitation. If you verified in this browser, you can
+                        also continue here.
                     </p>
                     <Button size="lg" className="w-full" disabled={busy} onClick={() => void accept(() => login(email, password))}>
                         {busy && <Loader2 className="h-4 w-4 animate-spin" />}

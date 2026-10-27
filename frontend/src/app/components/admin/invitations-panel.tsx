@@ -78,7 +78,15 @@ function InviteForm({ onIssued }: { onIssued: (issued: IssuedInvitation) => void
             setLastLink(issued.acceptLink)
             setEmail("")
             setSuppliers([])
-            toast({ title: "Invitation created", description: "Copy the link and send it to them.", variant: "success" })
+            toast(
+                issued.emailSent
+                    ? { title: "Invitation sent", description: `Emailed to ${issued.invitation.email}.`, variant: "success" }
+                    : {
+                          title: "Invitation created, but the email couldn't be sent",
+                          description: "Copy the link and send it to them.",
+                          variant: "destructive",
+                      }
+            )
         } catch (err) {
             toast({ title: "Could not create the invitation", description: adminErrorMessage(err), variant: "destructive" })
         }
@@ -248,8 +256,17 @@ function InvitationsTable({
 
     const onResend = async (invitation: Invitation) => {
         try {
-            onIssued(await resend.mutateAsync(invitation.id))
-            toast({ title: "New link issued", description: "The old link no longer works. Copy the new one.", variant: "success" })
+            const issued = await resend.mutateAsync(invitation.id)
+            onIssued(issued)
+            toast(
+                issued.emailSent
+                    ? { title: "Invitation resent", description: `A new link was emailed to ${invitation.email}; the old one no longer works.`, variant: "success" }
+                    : {
+                          title: "New link issued, but the email couldn't be sent",
+                          description: "The old link no longer works. Copy the new one and send it.",
+                          variant: "destructive",
+                      }
+            )
         } catch (err) {
             toast({ title: "Could not resend", description: adminErrorMessage(err), variant: "destructive" })
         }

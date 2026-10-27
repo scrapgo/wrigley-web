@@ -99,6 +99,8 @@ export interface Invitation {
 export interface IssuedInvitation {
     invitation: Invitation
     acceptLink: string
+    /** Whether the invitation email went out; when false, share the link by hand. */
+    emailSent: boolean
 }
 
 /** A role an invitation can grant (external roles only). */

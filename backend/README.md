@@ -239,6 +239,9 @@ is in [`.env.example`](.env.example).
 | `INTERNAL_HD_ALLOWLIST`               | **Yes for internal users** | —                       | Google Workspace domains whose verified Google sign-ins `POST /api/session` creates as Internal users (with `scrapgo_user`): a comma-separated string as an env var, or a JSON array in appsettings (`["scrapgo.com"]`). Blank means nobody is created Internal. `hd` comes from the GCIP blocking function in [`infra/gcip-blocking-function/`](infra/gcip-blocking-function/README.md). Terraform default: `scrapgo.com` |
 | `Swagger:Enabled`                     | No                         | `true`                  | Serves `/swagger` (off in Cloud Run unless set)                                                                                                                                                                                                                                                                                                       |
 | `Identity:RequireMfaForExternalUsers` | No                         | `false`                 | When `true`, external users need a second factor (`mfa_required` otherwise). Keep off until MFA is enabled in GCIP                                                                                                                                                                                                                                    |
+| `Invitations:FrontendBaseUrl`         | For invite links           | user-secrets            | Portal origin the accept links point at, e.g. `http://localhost:5173`                                                                                                                                                                                                                                                                                 |
+| `Invitations:Gmail:Sender`            | No                         | —                       | Workspace mailbox invitation emails come from. Blank (or no key below) keeps invitations log-only                                                                                                                                                                                                                                                     |
+| `Invitations:Gmail:ServiceAccountJson`| With the sender            | user-secrets            | Service account JSON key with domain-wide delegation for `gmail.send` (secret)                                                                                                                                                                                                                                                                        |
 
 Quickbase settings are validated on the first Quickbase call, not at startup,
 so the API runs without them; see [step 9](#9-connect-to-quickbase).
@@ -334,6 +337,27 @@ Specified in [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md); the code-leve
 - **Three system roles:** `site_admin`, `scrapgo_user` (Internal) and `user` (External). A permission counts only while its feature is on for the user.
 - **Joining:** internal staff sign in with Google Workspace; external users only by invitation (`/api/admin/invitations`).
 - **Administration** is under `/api/admin`: users, invitations, roles and permissions, features, audit. The last active Site Admin can't be removed.
+
+## Invitation emails
+
+Invitations are emailed through the Gmail API when `Invitations:Gmail:Sender`
+and `Invitations:Gmail:ServiceAccountJson` are both set; otherwise they are
+only logged and the admin copies the link from the Invitations tab. One-time
+Google Workspace setup:
+
+1. In a GCP project, enable the Gmail API and create a service account with a JSON key.
+2. Workspace Admin → Security → API controls → Domain-wide delegation: add the
+   service account's client ID with scope `https://www.googleapis.com/auth/gmail.send`.
+3. Choose the sender (a real Workspace mailbox or alias, e.g. `noreply@scrapgo.com`).
+4. Locally: `dotnet user-secrets set "Invitations:Gmail:Sender" "noreply@scrapgo.com" --project src/ScrapGo.Core.Api`
+   and the same for `Invitations:Gmail:ServiceAccountJson` with the key's JSON.
+   In GCP: the `…-gmail-sa` secret plus the `gmail_sender` and
+   `gmail_service_account_configured` Terraform variables.
+
+A failed send never fails the invitation: the API answers `emailSent: false`
+and the admin shares the link instead. The invitee's verification email (sent
+by GCIP) links back to `/login?invitation=…`, so each portal origin must be an
+authorized domain in GCIP (`localhost` is by default).
 
 ## Suppliers
 

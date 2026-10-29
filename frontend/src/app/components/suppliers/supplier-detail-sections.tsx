@@ -371,54 +371,72 @@ export function SupplierTargetPricingCard({ recordId }: { recordId: number }) {
             onRetry={() => void refetch()}
         >
             {pricing && (
-                <div className="space-y-6">
-                    <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-                        <DetailField label="Target Material" value={pricing.targetMaterial} />
-                        <DetailField label="Target UOM" value={pricing.targetUom} />
-                        <DetailField label="Target PO Number" value={pricing.targetPoNumber} />
-                        <DetailField label="Trucks / Week" value={formatNumber(pricing.trucksPerWeek)} />
-                    </dl>
-                    <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-                        <DetailField label="Target Offer" value={formatCurrency(pricing.targetOffer)} />
-                        <DetailField
-                            label="Target Break Even"
-                            value={formatCurrency(pricing.targetBreakEven)}
-                        />
-                        <DetailField
-                            label="Target Consumer Price"
-                            value={formatCurrency(pricing.targetConsumerPrice)}
-                        />
-                        <DetailField
-                            label="Target FR / UOM"
-                            value={formatNumber(pricing.targetFreightPerUom)}
-                        />
-                        <DetailField
-                            label="Target Freight Cost"
-                            value={formatCurrency(pricing.targetFreightCost)}
-                        />
-                        <DetailField
-                            label="Price Change from Prior"
-                            value={formatCurrency(pricing.priceChangeFromPrior)}
-                        />
-                    </dl>
-                    <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            Prices by unit
-                        </p>
-                        <dl className="mt-3 grid grid-cols-2 gap-x-8 gap-y-5 lg:grid-cols-4">
-                            <DetailField
-                                label="Net Tons"
-                                value={formatCurrency(pricing.priceInNetTons)}
-                            />
-                            <DetailField label="LBS" value={formatCurrency(pricing.priceInLbs)} />
-                            <DetailField label="CWT" value={formatCurrency(pricing.priceInCwt)} />
-                            <DetailField
-                                label="Gross Tons"
-                                value={formatCurrency(pricing.priceInGrossTons)}
-                            />
-                        </dl>
-                    </div>
-                </div>
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Field</TableHead>
+                            <TableHead>Value</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        <TableRow>
+                            <TableCell className="font-medium text-ink-900">Target Material</TableCell>
+                            <TableCell>{pricing.targetMaterial ?? '—'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium text-ink-900">Target UOM</TableCell>
+                            <TableCell>{pricing.targetUom ?? '—'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium text-ink-900">Target PO Number</TableCell>
+                            <TableCell>{pricing.targetPoNumber ?? '—'}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium text-ink-900">Trucks / Week</TableCell>
+                            <TableCell className="text-right">{formatNumber(pricing.trucksPerWeek)}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium text-ink-900">Target Offer</TableCell>
+                            <TableCell className="text-right">{formatCurrency(pricing.targetOffer)}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium text-ink-900">Target Break Even</TableCell>
+                            <TableCell className="text-right">{formatCurrency(pricing.targetBreakEven)}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium text-ink-900">Target Consumer Price</TableCell>
+                            <TableCell className="text-right">{formatCurrency(pricing.targetConsumerPrice)}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium text-ink-900">Target FR / UOM</TableCell>
+                            <TableCell className="text-right">{formatNumber(pricing.targetFreightPerUom)}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium text-ink-900">Target Freight Cost</TableCell>
+                            <TableCell className="text-right">{formatCurrency(pricing.targetFreightCost)}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium text-ink-900">Price Change from Prior</TableCell>
+                            <TableCell className="text-right">{formatCurrency(pricing.priceChangeFromPrior)}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium text-ink-900">Price in Net Tons</TableCell>
+                            <TableCell className="text-right">{formatCurrency(pricing.priceInNetTons)}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium text-ink-900">Price in LBS</TableCell>
+                            <TableCell className="text-right">{formatCurrency(pricing.priceInLbs)}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium text-ink-900">Price in CWT</TableCell>
+                            <TableCell className="text-right">{formatCurrency(pricing.priceInCwt)}</TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell className="font-medium text-ink-900">Price in Gross Tons</TableCell>
+                            <TableCell className="text-right">{formatCurrency(pricing.priceInGrossTons)}</TableCell>
+                        </TableRow>
+                    </TableBody>
+                </Table>
             )}
         </DataSection>
     )

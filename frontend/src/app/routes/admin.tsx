@@ -2,10 +2,9 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 
 import { AppShell } from '../components/app-shell'
 import { RequirePermission } from '../components/access'
+import { AccessPanel } from '../components/admin/access-panel'
 import { AuditPanel } from '../components/admin/audit-panel'
-import { FeaturesPanel } from '../components/admin/features-panel'
-import { InvitationsPanel } from '../components/admin/invitations-panel'
-import { RolesPanel } from '../components/admin/roles-panel'
+import { HomePanel } from '../components/admin/home-panel'
 import { UsersPanel } from '../components/admin/users-panel'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { useAccess } from '../hooks/useAccess'
@@ -30,10 +29,9 @@ export const Route = createFileRoute('/admin')({
 
 /** Each tab's content. */
 const PANELS: Record<AdminTab, () => React.ReactNode> = {
+    home: () => <HomePanel />,
     users: () => <UsersPanel />,
-    invitations: () => <InvitationsPanel />,
-    roles: () => <RolesPanel />,
-    features: () => <FeaturesPanel />,
+    access: () => <AccessPanel />,
     audit: () => <AuditPanel />,
 }
 
@@ -47,15 +45,16 @@ function AdminComponent() {
     const active = tabs.find((item) => item.tab === requested)?.tab ?? tabs[0]?.tab
 
     return (
-        <AppShell active={active ?? 'admin'} title="Administration" subtitle="Users, invitations, roles, features and the audit log.">
+        <AppShell active={active ?? 'admin'} title="Administration" subtitle="Users, roles, features and the audit log.">
             <Tabs value={active} onValueChange={(tab) => navigate({ search: { tab: tab as AdminTab } })}>
-                <TabsList className="flex-wrap">
+                {/* Horizontally scrollable pill bar on mobile so tabs never wrap awkwardly. */}
+                <TabsList className="flex-wrap overflow-x-auto pb-1 whitespace-nowrap scrollbar-hide">
                     {tabs.map((item) => {
                         const Icon = item.icon
                         return (
-                            <TabsTrigger key={item.key} value={item.tab!}>
-                                <Icon className="h-4 w-4" />
-                                {item.label}
+                            <TabsTrigger key={item.key} value={item.tab!} className="whitespace-nowrap">
+                                <Icon className="h-4 w-4 hidden sm:block" />
+                                <span className="block sm:inline">{item.label}</span>
                             </TabsTrigger>
                         )
                     })}

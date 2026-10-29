@@ -1,183 +1,105 @@
-import { useState, type FormEvent } from "react"
-import { Link } from "@tanstack/react-router"
-import { ChevronLeft, ChevronRight, Search, Users } from "lucide-react"
+import { useState } from "react"
+import { Users, MailPlus, Clock } from "lucide-react"
 
-import { Badge } from "../ui/badge"
-import { Button } from "../ui/button"
-import { Input } from "../ui/input"
-import { Skeleton } from "../ui/skeleton"
-import { EmptyState } from "../ui/empty-state"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table"
-import { useUsers } from "../../hooks/useAdminQueries"
-import { adminErrorMessage } from "../../lib/admin-errors"
-import type { UserStatus, UserType } from "../../lib/admin-api"
-import { formatDateTime, SELECT_CLASS } from "../../lib/admin-format"
+import { useAccess } from "../../hooks/useAccess"
+import type { IssuedInvitation } from "../../lib/admin-api"
+import { InviteForm, InvitationsTable } from "./invitations-panel"
+import { UsersTable } from "./users-table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
+import { HelpButton } from "../ui/help-button"
 
-const PAGE_SIZE = 25
-
-/** Users tab (users.view): search, type and status filters, and a paged table. */
+/**
+ * Users tab (users.view and/or users.invite): one screen for everyone with
+ * access and everyone invited, so onboarding isn't split across two tabs.
+ * Each section is its own tab so nothing is hidden below the fold.
+ * Active users need users.view; inviting and the pending-invitations table
+ * need users.invite or users.view, matching the API's own rules.
+ */
 export function UsersPanel() {
-    const [searchInput, setSearchInput] = useState("")
-    const [search, setSearch] = useState("")
-    const [type, setType] = useState<UserType | "">("")
-    const [status, setStatus] = useState<UserStatus | "">("")
-    const [page, setPage] = useState(1)
+    const { can } = useAccess()
+    const canViewUsers = can("users.view")
+    const canInvite = can("users.invite")
+    // Accept links are only returned by create and resend; remember them for "Copy link".
+    const [links, setLinks] = useState<Record<number, string>>({})
 
-    const { data, isLoading, isError, error, isFetching } = useUsers({
-        search: search || undefined,
-        type: type || undefined,
-        status: status || undefined,
-        page,
-        pageSize: PAGE_SIZE,
-    })
+    const remember = (issued: IssuedInvitation) =>
+        setLinks((current) => ({ ...current, [issued.invitation.id]: issued.acceptLink }))
 
-    const onSearch = (e: FormEvent) => {
-        e.preventDefault()
-        setPage(1)
-        setSearch(searchInput.trim())
-    }
+    const defaultTab = canViewUsers ? "users" : "invite"
 
     return (
         <div className="space-y-4">
-            <form onSubmit={onSearch} className="flex flex-col gap-2 sm:flex-row">
-                <Input
-                    className="flex-1"
-                    placeholder="Search by name or email…"
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    aria-label="Search users"
-                />
-                <select
-                    className={SELECT_CLASS}
-                    value={type}
-                    aria-label="Filter by type"
-                    onChange={(e) => {
-                        setPage(1)
-                        setType(e.target.value as UserType | "")
-                    }}
-                >
-                    <option value="">All types</option>
-                    <option value="Internal">Internal</option>
-                    <option value="External">External</option>
-                </select>
-                <select
-                    className={SELECT_CLASS}
-                    value={status}
-                    aria-label="Filter by status"
-                    onChange={(e) => {
-                        setPage(1)
-                        setStatus(e.target.value as UserStatus | "")
-                    }}
-                >
-                    <option value="">All statuses</option>
-                    <option value="Active">Active</option>
-                    <option value="Disabled">Disabled</option>
-                </select>
-                <Button type="submit" variant="outline" size="lg">
-                    <Search className="h-4 w-4" />
-                    Search
-                </Button>
-            </form>
+            <Tabs defaultValue={defaultTab}>
+                {/* Horizontally scrollable pill bar on mobile so tabs never wrap awkwardly. */}
+                <TabsList className="flex-wrap overflow-x-auto pb-1 whitespace-nowrap scrollbar-hide">
+                    {canViewUsers && (
+                        <>
+                            <TabsTrigger value="users">
+                                <Users className="h-4 w-4" />
+                                Everyone with access
+                            </TabsTrigger>
+                            <TabsTrigger value="invitations">
+                                <Clock className="h-4 w-4" />
+                                Pending invitations
+                            </TabsTrigger>
+                        </>
+                    )}
+                    {canInvite && (
+                        <TabsTrigger value="invite">
+                            <MailPlus className="h-4 w-4" />
+                            Invite someone
+                        </TabsTrigger>
+                    )}
+                </TabsList>
 
-            {isLoading ? (
-                <div className="space-y-2 rounded-xl border border-border bg-card p-4">
-                    {[0, 1, 2].map((i) => (
-                        <Skeleton key={i} className="h-12 w-full" />
-                    ))}
-                </div>
-            ) : isError ? (
-                <EmptyState icon={Users} title="Could not load users" description={adminErrorMessage(error)} />
-            ) : !data || data.items.length === 0 ? (
-                <EmptyState icon={Users} title="No users found" description="Try another search or filter." />
-            ) : (
-                <>
-                    <div className="overflow-x-auto rounded-xl border border-border bg-card">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Email</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead>Roles</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Last sign-in</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {data.items.map((user) => (
-                                    <TableRow key={user.id}>
-                                        <TableCell className="font-medium text-ink-900">
-                                            <Link
-                                                to="/admin/users/$userId"
-                                                params={{ userId: String(user.id) }}
-                                                className="hover:text-brand-600 hover:underline"
-                                            >
-                                                {user.displayName || "—"}
-                                            </Link>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Link
-                                                to="/admin/users/$userId"
-                                                params={{ userId: String(user.id) }}
-                                                className="hover:text-brand-600 hover:underline"
-                                            >
-                                                {user.email}
-                                            </Link>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={user.userType === "Internal" ? "success" : "neutral"}>{user.userType}</Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-wrap gap-1">
-                                                {user.roles.length === 0 ? (
-                                                    <span className="text-muted-foreground">None</span>
-                                                ) : (
-                                                    user.roles.map((role) => (
-                                                        <Badge key={role} variant="neutral">
-                                                            {role}
-                                                        </Badge>
-                                                    ))
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={user.status === "Active" ? "success" : "danger"}>{user.status}</Badge>
-                                        </TableCell>
-                                        <TableCell className="whitespace-nowrap text-muted-foreground">
-                                            {formatDateTime(user.lastSignInAt)}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
-                        <span>
-                            {data.totalCount} user{data.totalCount === 1 ? "" : "s"}
-                            {isFetching && " · updating…"}
-                        </span>
-                        <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-                                <ChevronLeft className="h-4 w-4" />
-                                Previous
-                            </Button>
-                            <span>
-                                Page {data.page} of {Math.max(data.totalPages, 1)}
-                            </span>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={page >= data.totalPages}
-                                onClick={() => setPage((p) => p + 1)}
-                            >
-                                Next
-                                <ChevronRight className="h-4 w-4" />
-                            </Button>
+                {canViewUsers && (
+                    <TabsContent value="users" className="space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                                <Users className="h-4 w-4" />
+                                Everyone with access
+                            </h2>
+                            <HelpButton
+                                title="Everyone with access"
+                                description="The full list of people who can sign in to ScrapGo. Click a user to change their roles, supplier links, or disable their account. Use the search and filters at the top to narrow the list."
+                            />
                         </div>
-                    </div>
-                </>
-            )}
+                        <UsersTable />
+                    </TabsContent>
+                )}
+
+                {canViewUsers && (
+                    <TabsContent value="invitations" className="space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                                <Clock className="h-4 w-4" />
+                                Pending invitations
+                            </h2>
+                            <HelpButton
+                                title="Pending invitations"
+                                description="Invitations you've sent that haven't been accepted yet. You can resend the link or revoke an invitation if it was sent by mistake."
+                            />
+                        </div>
+                        <InvitationsTable links={links} canInvite={canInvite} onIssued={remember} />
+                    </TabsContent>
+                )}
+
+                {canInvite && (
+                    <TabsContent value="invite" className="space-y-3">
+                        <div className="flex items-center justify-between gap-2">
+                            <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                                <MailPlus className="h-4 w-4" />
+                                Invite someone
+                            </h2>
+                            <HelpButton
+                                title="Invite someone"
+                                description="Send an invitation to an external user (buyer, seller, or transporter). Choose their role and which suppliers they should see. They'll get a link to accept and set their password."
+                            />
+                        </div>
+                        <InviteForm onIssued={remember} />
+                    </TabsContent>
+                )}
+            </Tabs>
         </div>
     )
 }

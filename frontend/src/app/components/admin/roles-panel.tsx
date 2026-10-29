@@ -10,6 +10,7 @@ import { useToast } from "../ui/toast"
 import { useAccess } from "../../hooks/useAccess"
 import { usePermissionGroups, useRoles, useSetRolePermissions } from "../../hooks/useAdminQueries"
 import { adminErrorMessage } from "../../lib/admin-errors"
+import { HelpButton } from "../ui/help-button"
 import type { Permission, Role } from "../../lib/admin-api"
 
 /** The audience rule: Internal permissions on internal roles, External on external, Any on both. */
@@ -74,6 +75,16 @@ export function RolesPanel() {
 
     return (
         <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    <ShieldCheck className="h-4 w-4" />
+                    Roles
+                </h2>
+                <HelpButton
+                    title="Roles"
+                    description="A role is a bundle of permissions. Every user holds one or more roles, and a role's permissions decide what they can do in ScrapGo. Check a box to grant a permission to a role; uncheck to remove it. Saving applies to everyone who holds that role within 30 seconds."
+                />
+            </div>
             {!canManage && <p className="text-sm text-muted-foreground">Read-only: changing roles needs the roles.manage permission.</p>}
             <div className="overflow-x-auto rounded-xl border border-border bg-card">
                 <table className="w-full min-w-[40rem] text-sm">

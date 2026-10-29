@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { useState } from 'react'
 import {
     ArrowLeft,
     Building2,
@@ -9,7 +10,7 @@ import {
     Ruler,
     Truck,
     UserRound,
-    Users,
+    Package,
     type LucideIcon,
 } from 'lucide-react'
 
@@ -19,7 +20,7 @@ import { Skeleton } from '../ui/skeleton'
 import { EmptyState } from '../ui/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
-import { catalogLabel, useSupplier, useSupplierCatalogs, useSupplierInStockItems } from '../../hooks/useSupplierQueries'
+import { catalogLabel, useSupplier, useSupplierCatalogs } from '../../hooks/useSupplierQueries'
 import { adminErrorMessage } from '../../lib/admin-errors'
 import { FreshnessBadge } from './freshness-badge'
 import {
@@ -39,12 +40,9 @@ import { formatCurrency, formatNumber, htmlToText } from '../../lib/supplier-for
 export function SupplierDetailPanel({ recordId }: { recordId: number }) {
     const { data, isLoading, isError, error } = useSupplier(recordId)
     const { data: catalogs } = useSupplierCatalogs()
-    const { data: inStock } = useSupplierInStockItems(recordId)
-    const inStockItems = inStock?.items ?? []
-    const inStockVolume = inStockItems.reduce<number | null>(
-        (sum, item) => (item.volume == null ? sum : (sum ?? 0) + item.volume),
-        null
-    )
+
+    const [ntTimeframe, setNtTimeframe] = useState<'all' | 'year' | 'month' | 'week'>('all')
+    const [ntUom, setNtUom] = useState<'quantity' | 'tons' | 'lbs'>('quantity')
 
     if (isLoading) {
         return (
@@ -52,7 +50,7 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
                 <Skeleton className="h-8 w-64" />
                 <Skeleton className="h-4 w-96" />
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    {[0, 1, 2, 3].map((i) => (
+                    {[0, 1, 2, 3, 4].map((i) => (
                         <Skeleton key={i} className="h-24 w-full" />
                     ))}
                 </div>
@@ -152,28 +150,58 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
                 </CardContent>
             </Card>
 
+            {/* NT Delivered timeframe / UOM selector */}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span className="mr-2">NT Delivered timeframe:</span>
+                <select
+                    value={ntTimeframe}
+                    onChange={(e) => setNtTimeframe(e.target.value as 'all' | 'year' | 'month' | 'week')}
+                    className="border border-border rounded px-2 py-1 text-sm bg-background"
+                >
+                    <option value="all">All time</option>
+                    <option value="year">Current year</option>
+                    <option value="month">Current month</option>
+                    <option value="week">Current week</option>
+                </select>
+                <span className="mx-2">UOM:</span>
+                <select
+                    value={ntUom}
+                    onChange={(e) => setNtUom(e.target.value as 'quantity' | 'tons' | 'lbs')}
+                    className="border border-border rounded px-2 py-1 text-sm bg-background"
+                >
+                    <option value="quantity">Quantity</option>
+                    <option value="tons">Net tons</option>
+                    <option value="lbs">LBS</option>
+                </select>
+            </div>
+
             {/* Stats */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+                <StatTile
+                    icon={Truck}
+                    label="Loads Delivered"
+                    value="—"
+                />
+                <StatTile
+                    icon={Package}
+                    label="NT Delivered"
+                    value="—"
+                    hint={`${ntTimeframe} · ${ntUom}`}
+                />
                 <StatTile
                     icon={ClipboardList}
-                    label="Total Activities"
+                    label="Loads Scheduled for Pickup *"
                     value={formatNumber(supplier.totalActivities)}
                 />
                 <StatTile
-                    icon={Truck}
-                    label="Delivered (90 days)"
-                    value={formatNumber(supplier.deliveredLast90Days)}
-                />
-                <StatTile
-                    icon={Users}
-                    label="In-Stock Items"
-                    value={String(inStockItems.length)}
-                    hint={inStockVolume != null ? `Volume ${formatNumber(inStockVolume)}` : undefined}
-                />
-                <StatTile
                     icon={DollarSign}
-                    label="Target Consumer Price"
-                    value={formatCurrency(supplier.targetConsumerPrice)}
+                    label="Current Buy Price"
+                    value="—"
+                />
+                <StatTile
+                    icon={Ruler}
+                    label="Gross Profit Earned '529'"
+                    value="—"
                 />
             </div>
 
@@ -359,16 +387,16 @@ function StatTile({
 }) {
     return (
         <Card>
-            <CardContent className="flex items-center gap-4 p-5">
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
-                    <Icon className="h-5 w-5" />
+            <CardContent className="flex items-center gap-3 p-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+                    <Icon className="h-4 w-4" />
                 </span>
                 <div className="min-w-0">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <p className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
                         {label}
                     </p>
-                    <p className="mt-0.5 truncate text-lg font-bold text-ink-900">{value}</p>
-                    {hint && <p className="truncate text-xs text-muted-foreground">{hint}</p>}
+                    <p className="mt-0.5 truncate text-sm font-bold text-ink-900">{value}</p>
+                    {hint && <p className="truncate text-[0.65rem] text-muted-foreground">{hint}</p>}
                 </div>
             </CardContent>
         </Card>

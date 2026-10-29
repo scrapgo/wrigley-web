@@ -7,6 +7,7 @@ import { Button } from "../ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card"
 import { Checkbox } from "../ui/checkbox"
 import { EmptyState } from "../ui/empty-state"
+import { HelpButton } from "../ui/help-button"
 import { Input } from "../ui/input"
 import { Label } from "../ui/label"
 import { Skeleton } from "../ui/skeleton"
@@ -42,12 +43,18 @@ export function UserDetailPanel({ userId }: { userId: number }) {
 
     return (
         <div className="space-y-6">
-            <Button variant="ghost" asChild>
-                <Link to="/admin" search={{ tab: "users" }}>
-                    <ArrowLeft className="h-4 w-4" />
-                    All users
-                </Link>
-            </Button>
+            <div className="flex items-center justify-between gap-2">
+                <Button variant="ghost" asChild>
+                    <Link to="/admin" search={{ tab: "users" }}>
+                        <ArrowLeft className="h-4 w-4" />
+                        All users
+                    </Link>
+                </Button>
+                <HelpButton
+                    title="User details"
+                    description="This user's identity, status, roles, and supplier links. Use Disable to block sign-in without deleting the account. Roles control what the user can do; supplier links (external users only) control which suppliers they can see."
+                />
+            </div>
 
             <ProfileCard user={user} />
             {/* Remount when the saved roles change, so the checkboxes start from them. */}
@@ -131,11 +138,15 @@ function RolesCard({ user }: { user: UserDetail }) {
 
     return (
         <Card>
-            <CardHeader>
+            <CardHeader className="flex items-center justify-between gap-2">
                 <CardTitle className="flex items-center gap-2 text-lg">
                     <ShieldCheck className="h-5 w-5 text-brand-600" />
                     Roles
                 </CardTitle>
+                <HelpButton
+                    title="Roles"
+                    description="Roles control what this user can do in ScrapGo. Check a role to grant it; uncheck to remove it. Only roles matching this user's type (Internal or External) are shown. Click Save roles when you're done."
+                />
             </CardHeader>
             <CardContent className="space-y-4">
                 {!canManage ? (
@@ -204,11 +215,15 @@ function SuppliersCard({ user }: { user: UserDetail }) {
 
     return (
         <Card>
-            <CardHeader>
+            <CardHeader className="flex items-center justify-between gap-2">
                 <CardTitle className="flex items-center gap-2 text-lg">
                     <Building2 className="h-5 w-5 text-brand-600" />
                     Supplier links
                 </CardTitle>
+                <HelpButton
+                    title="Supplier links"
+                    description="External users only see the suppliers you link here. Type a supplier Record ID to add one, or click X next to a supplier to remove it. This controls which suppliers appear in that user's workspace."
+                />
             </CardHeader>
             <CardContent className="space-y-4">
                 <p className="text-sm text-muted-foreground">This user sees only these suppliers.</p>

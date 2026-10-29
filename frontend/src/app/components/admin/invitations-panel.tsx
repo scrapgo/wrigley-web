@@ -3,14 +3,12 @@ import { ChevronLeft, ChevronRight, Copy, Loader2, MailPlus, RotateCw, Send, Tra
 
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card"
 import { EmptyState } from "../ui/empty-state"
 import { Input } from "../ui/input"
 import { Label } from "../ui/label"
 import { Skeleton } from "../ui/skeleton"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table"
 import { useToast } from "../ui/toast"
-import { useAccess } from "../../hooks/useAccess"
 import {
     useCreateInvitation,
     useInvitableRoles,
@@ -33,25 +31,11 @@ const STATUS_VARIANT: Record<InvitationStatus, "success" | "neutral" | "warning"
     Expired: "danger",
 }
 
-/** Invitations tab (users.invite or users.view): invite external users and manage their invitations. */
-export function InvitationsPanel() {
-    const { can } = useAccess()
-    const canInvite = can("users.invite")
-    // Accept links are only returned by create and resend; remember them for "Copy link".
-    const [links, setLinks] = useState<Record<number, string>>({})
-
-    const remember = (issued: IssuedInvitation) =>
-        setLinks((current) => ({ ...current, [issued.invitation.id]: issued.acceptLink }))
-
-    return (
-        <div className="space-y-6">
-            {canInvite && <InviteForm onIssued={remember} />}
-            <InvitationsTable links={links} canInvite={canInvite} onIssued={remember} />
-        </div>
-    )
-}
-
-function InviteForm({ onIssued }: { onIssued: (issued: IssuedInvitation) => void }) {
+/**
+ * The invite form (users.invite). Lives on the Users page so inviting and
+ * managing access are one workflow, not a separate tab.
+ */
+export function InviteForm({ onIssued }: { onIssued: (issued: IssuedInvitation) => void }) {
     const { toast } = useToast()
     const roles = useInvitableRoles()
     const create = useCreateInvitation()
@@ -85,53 +69,45 @@ function InviteForm({ onIssued }: { onIssued: (issued: IssuedInvitation) => void
     }
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                    <MailPlus className="h-5 w-5 text-brand-600" />
-                    Invite an external user
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                <form onSubmit={submit} className="grid gap-4 lg:grid-cols-2">
-                    <div className="space-y-2">
-                        <Label htmlFor="invite-email">Email</Label>
-                        <Input id="invite-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="invite-role">Role</Label>
-                        <select
-                            id="invite-role"
-                            className={`${SELECT_CLASS} w-full`}
-                            value={chosenRoleId ?? ""}
-                            onChange={(e) => setRoleId(Number(e.target.value))}
-                            disabled={!roles.data}
-                        >
-                            {(roles.data ?? []).map((role) => (
-                                <option key={role.id} value={role.id}>
-                                    {role.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="space-y-2 lg:col-span-2">
-                        <Label>Suppliers</Label>
-                        <SupplierPicker
-                            selected={suppliers}
-                            onAdd={(supplier) => setSuppliers((current) => [...current, supplier])}
-                            onRemove={(recordId) => setSuppliers((current) => current.filter((s) => s.recordId !== recordId))}
-                        />
-                    </div>
-                    <div className="lg:col-span-2">
-                        <Button type="submit" size="lg" disabled={create.isPending || suppliers.length === 0 || !chosenRoleId}>
-                            {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                            Create invitation
-                        </Button>
-                    </div>
-                </form>
-                {lastLink && <IssuedLink link={lastLink} />}
-            </CardContent>
-        </Card>
+        <div className="space-y-4">
+            <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                    <Label htmlFor="invite-email">Email</Label>
+                    <Input id="invite-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="invite-role">Role</Label>
+                    <select
+                        id="invite-role"
+                        className={`${SELECT_CLASS} w-full`}
+                        value={chosenRoleId ?? ""}
+                        onChange={(e) => setRoleId(Number(e.target.value))}
+                        disabled={!roles.data}
+                    >
+                        {(roles.data ?? []).map((role) => (
+                            <option key={role.id} value={role.id}>
+                                {role.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                    <Label>Suppliers</Label>
+                    <SupplierPicker
+                        selected={suppliers}
+                        onAdd={(supplier) => setSuppliers((current) => [...current, supplier])}
+                        onRemove={(recordId) => setSuppliers((current) => current.filter((s) => s.recordId !== recordId))}
+                    />
+                </div>
+                <div className="sm:col-span-2">
+                    <Button type="submit" size="lg" disabled={create.isPending || suppliers.length === 0 || !chosenRoleId}>
+                        {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                        Create invitation
+                    </Button>
+                </div>
+            </form>
+            {lastLink && <IssuedLink link={lastLink} />}
+        </div>
     )
 }
 
@@ -231,7 +207,8 @@ function CopyLinkButton({ link }: { link: string }) {
     )
 }
 
-function InvitationsTable({
+/** The pending/sent invitations table (users.invite or users.view). */
+export function InvitationsTable({
     links,
     canInvite,
     onIssued,
@@ -278,7 +255,48 @@ function InvitationsTable({
 
     return (
         <div className="space-y-3">
-            <div className="overflow-x-auto rounded-xl border border-border bg-card">
+            {/* Mobile: one card per invitation so nothing needs horizontal scrolling. */}
+            <div className="space-y-2 sm:hidden">
+                {data.items.map((invitation) => {
+                    const open = invitation.status === "Pending" || invitation.status === "Expired"
+                    return (
+                        <div key={invitation.id} className="rounded-xl border border-border bg-card p-3">
+                            <div className="flex items-start justify-between gap-2">
+                                <div>
+                                    <p className="font-medium text-ink-900">{invitation.email}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {invitation.roleKey} · {invitation.supplierRecordIds.map((id) => `#${id}`).join(", ") || "No suppliers"}
+                                    </p>
+                                </div>
+                                <Badge variant={STATUS_VARIANT[invitation.status]} className="text-[0.75rem]">
+                                    {invitation.status}
+                                </Badge>
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Expires {formatDateTime(invitation.expiresAt)}
+                            </p>
+                            {canInvite && open && (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {links[invitation.id] && invitation.status === "Pending" && (
+                                        <CopyLinkButton link={links[invitation.id]} />
+                                    )}
+                                    <Button variant="outline" size="sm" disabled={resend.isPending} onClick={() => void onResend(invitation)}>
+                                        <RotateCw className="h-4 w-4" />
+                                        Resend
+                                    </Button>
+                                    <Button variant="ghost" size="sm" disabled={revoke.isPending} onClick={() => void onRevoke(invitation)}>
+                                        <Trash2 className="h-4 w-4" />
+                                        Revoke
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    )
+                })}
+            </div>
+
+            {/* Desktop: paged table. */}
+            <div className="hidden sm:block overflow-x-auto rounded-xl border border-border bg-card">
                 <Table>
                     <TableHeader>
                         <TableRow>

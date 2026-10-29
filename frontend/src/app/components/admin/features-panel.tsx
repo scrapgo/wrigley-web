@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Loader2, Lock, Target, ToggleRight, X } from "lucide-react"
+import { ChevronDown, Loader2, Lock, Target, ToggleRight, X } from "lucide-react"
 
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
@@ -14,14 +14,16 @@ import { useToast } from "../ui/toast"
 import { useAccess } from "../../hooks/useAccess"
 import { useFeatures, useRoles, useSetFeatureState, useSetFeatureTargets, useUserDetail, useUsers } from "../../hooks/useAdminQueries"
 import { adminErrorMessage } from "../../lib/admin-errors"
+import { HelpButton } from "../ui/help-button"
 import { cn } from "../../lib/utils"
 import type { Feature, FeatureState } from "../../lib/admin-api"
 
 const STATES: FeatureState[] = ["Off", "On", "Targeted"]
 
 /**
- * Features tab (features.view): each feature with an Off / On / Targeted
- * control. Locked features show a lock and no control. Read-only without
+ * Features tab (features.view): each toggleable feature with an Off / On /
+ * Targeted control. Locked features can never change, so they're tucked
+ * behind a disclosure instead of cluttering every visit. Read-only without
  * features.manage.
  */
 export function FeaturesPanel() {
@@ -29,6 +31,7 @@ export function FeaturesPanel() {
     const canManage = can("features.manage")
     const { data, isLoading, isError, error } = useFeatures()
     const [targeting, setTargeting] = useState<Feature | null>(null)
+    const [showLocked, setShowLocked] = useState(false)
 
     if (isLoading) {
         return <Skeleton className="h-64 w-full" />
@@ -38,12 +41,60 @@ export function FeaturesPanel() {
         return <EmptyState icon={ToggleRight} title="Could not load features" description={adminErrorMessage(error)} />
     }
 
+    const toggleable = data.filter((feature) => feature.isToggleable)
+    const locked = data.filter((feature) => !feature.isToggleable)
+
     return (
         <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    <ToggleRight className="h-4 w-4" />
+                    Features
+                </h2>
+                <HelpButton
+                    title="Features"
+                    description="Feature flags turn parts of ScrapGo on or off. Off hides the feature for everyone; On shows it for everyone; Targeted shows it only for the users and roles you choose. Locked features are always on and can't be changed."
+                />
+            </div>
             {!canManage && <p className="text-sm text-muted-foreground">Read-only: changing features needs the features.manage permission.</p>}
-            {data.map((feature) => (
-                <FeatureRow key={feature.id} feature={feature} canManage={canManage} onTarget={() => setTargeting(feature)} />
-            ))}
+            {toggleable.length === 0 ? (
+                <EmptyState icon={ToggleRight} title="Nothing to toggle" description="Every feature here is always on." />
+            ) : (
+                toggleable.map((feature) => (
+                    <FeatureRow key={feature.id} feature={feature} canManage={canManage} onTarget={() => setTargeting(feature)} />
+                ))
+            )}
+
+            {locked.length > 0 && (
+                <div className="rounded-xl border border-border bg-card">
+                    <button
+                        type="button"
+                        onClick={() => setShowLocked((current) => !current)}
+                        aria-expanded={showLocked}
+                        className="flex min-h-11 w-full items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium text-muted-foreground hover:text-ink-900"
+                    >
+                        <span className="flex items-center gap-2">
+                            <Lock className="h-4 w-4" />
+                            {locked.length} system feature{locked.length === 1 ? "" : "s"} (always on)
+                        </span>
+                        <ChevronDown className={cn("h-4 w-4 transition-transform", showLocked && "rotate-180")} />
+                    </button>
+                    {showLocked && (
+                        <ul className="divide-y divide-border border-t border-border">
+                            {locked.map((feature) => (
+                                <li key={feature.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
+                                    <span>
+                                        <span className="font-medium text-ink-900">{feature.name}</span>
+                                        {feature.description && <span className="ml-2 text-muted-foreground">{feature.description}</span>}
+                                    </span>
+                                    <Badge variant="neutral">Always on</Badge>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            )}
+
             {targeting && (
                 <TargetsDialog
                     key={targeting.id}
@@ -91,39 +142,32 @@ function FeatureRow({ feature, canManage, onTarget }: { feature: Feature; canMan
                     </div>
                 </div>
 
-                {!feature.isToggleable ? (
-                    <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-                        <Lock className="h-4 w-4" />
-                        Locked · always on
-                    </span>
-                ) : (
-                    <div className="flex flex-wrap items-center gap-2">
-                        <div role="radiogroup" aria-label={`${feature.name} state`} className="inline-flex rounded-lg border border-border p-1">
-                            {STATES.map((state) => (
-                                <button
-                                    key={state}
-                                    type="button"
-                                    role="radio"
-                                    aria-checked={feature.state === state}
-                                    disabled={!canManage || setState.isPending}
-                                    onClick={() => void change(state)}
-                                    className={cn(
-                                        "min-h-10 rounded-md px-4 text-sm font-medium transition-colors disabled:cursor-not-allowed",
-                                        feature.state === state ? "bg-brand-500 text-white" : "text-ink-700 hover:bg-muted disabled:hover:bg-transparent"
-                                    )}
-                                >
-                                    {state}
-                                </button>
-                            ))}
-                        </div>
-                        {feature.state === "Targeted" && (
-                            <Button variant="outline" size="sm" onClick={onTarget}>
-                                <Target className="h-4 w-4" />
-                                {targetCount} target{targetCount === 1 ? "" : "s"}
-                            </Button>
-                        )}
+                <div className="flex flex-wrap items-center gap-2">
+                    <div role="radiogroup" aria-label={`${feature.name} state`} className="inline-flex rounded-lg border border-border p-1">
+                        {STATES.map((state) => (
+                            <button
+                                key={state}
+                                type="button"
+                                role="radio"
+                                aria-checked={feature.state === state}
+                                disabled={!canManage || setState.isPending}
+                                onClick={() => void change(state)}
+                                className={cn(
+                                    "min-h-10 rounded-md px-4 text-sm font-medium transition-colors disabled:cursor-not-allowed",
+                                    feature.state === state ? "bg-brand-500 text-white" : "text-ink-700 hover:bg-muted disabled:hover:bg-transparent"
+                                )}
+                            >
+                                {state}
+                            </button>
+                        ))}
                     </div>
-                )}
+                    {feature.state === "Targeted" && (
+                        <Button variant="outline" size="sm" onClick={onTarget}>
+                            <Target className="h-4 w-4" />
+                            {targetCount} target{targetCount === 1 ? "" : "s"}
+                        </Button>
+                    )}
+                </div>
             </CardContent>
         </Card>
     )

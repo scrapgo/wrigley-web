@@ -1,8 +1,8 @@
 import type { ComponentType } from 'react'
-import { LayoutDashboard, MailPlus, ScrollText, ShieldCheck, ToggleRight, UserCog, Users } from 'lucide-react'
+import { LayoutDashboard, ScrollText, ShieldCheck, UserCog, Users } from 'lucide-react'
 
 /** The admin page's tabs, each a `?tab=` value on `/admin`. */
-export const ADMIN_TABS = ['users', 'invitations', 'roles', 'features', 'audit'] as const
+export const ADMIN_TABS = ['home', 'users', 'access', 'audit'] as const
 
 export type AdminTab = (typeof ADMIN_TABS)[number]
 
@@ -31,25 +31,35 @@ export const NAV: NavItem[] = [
         to: '/suppliers',
         anyOf: ['suppliers.view_all', 'suppliers.view_own'],
     },
-    { key: 'users', label: 'Users', icon: UserCog, section: 'Administration', to: '/admin', tab: 'users', anyOf: ['users.view'] },
     {
-        key: 'invitations',
-        label: 'Invitations',
-        icon: MailPlus,
+        key: 'home',
+        label: 'Home',
+        icon: LayoutDashboard,
         section: 'Administration',
         to: '/admin',
-        tab: 'invitations',
-        anyOf: ['users.invite', 'users.view'],
+        tab: 'home',
+        // The admin landing summary; anyone who can reach admin can see it.
+        anyOf: ['users.view', 'users.invite', 'roles.view', 'features.view', 'audit.view'],
     },
-    { key: 'roles', label: 'Roles', icon: ShieldCheck, section: 'Administration', to: '/admin', tab: 'roles', anyOf: ['roles.view'] },
     {
-        key: 'features',
-        label: 'Features',
-        icon: ToggleRight,
+        key: 'users',
+        label: 'Users',
+        icon: UserCog,
         section: 'Administration',
         to: '/admin',
-        tab: 'features',
-        anyOf: ['features.view'],
+        tab: 'users',
+        // Whoever can see the user list, invite someone, or both.
+        anyOf: ['users.view', 'users.invite'],
+    },
+    {
+        key: 'access',
+        label: 'Access & Features',
+        icon: ShieldCheck,
+        section: 'Administration',
+        to: '/admin',
+        tab: 'access',
+        // Roles and features are both configuration; either permission opens the tab.
+        anyOf: ['roles.view', 'roles.manage', 'features.view', 'features.manage'],
     },
     { key: 'audit', label: 'Audit log', icon: ScrollText, section: 'Administration', to: '/admin', tab: 'audit', anyOf: ['audit.view'] },
 ]

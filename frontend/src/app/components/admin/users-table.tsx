@@ -100,32 +100,32 @@ export function UsersTable() {
                                 params={{ userId: String(user.id) }}
                                 className="block"
                             >
-                                <div className="rounded-xl border border-border bg-card p-3">
-                                    <div className="flex items-center gap-3">
-                                        <span className="font-medium text-ink-900">{user.displayName || "—"}</span>
-                                        <span className="ml-auto text-xs text-muted-foreground">
+                                <div className="rounded-xl border border-border bg-card p-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-medium text-ink-900 text-sm truncate">{user.displayName || "—"}</span>
+                                        <span className="ml-auto text-[0.7rem] text-muted-foreground">
                                             {formatDateTime(user.lastSignInAt)}
                                         </span>
                                     </div>
-                                    <p className="mt-1 text-sm text-ink-900 truncate">{user.email}</p>
-                                    <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
+                                    <p className="mt-1 text-[0.75rem] text-ink-900 truncate">{user.email}</p>
+                                    <div className="mt-1.5 flex flex-wrap gap-1 text-[0.65rem]">
                                         <Badge
                                             variant={user.userType === "Internal" ? "success" : "neutral"}
-                                            className="text-[0.75rem]"
+                                            className="text-[0.65rem]"
                                         >
                                             {user.userType}
                                         </Badge>
                                         <Badge
                                             variant={user.status === "Active" ? "success" : "danger"}
-                                            className="text-[0.75rem]"
+                                            className="text-[0.65rem]"
                                         >
                                             {user.status}
                                         </Badge>
                                         {user.roles.length === 0 ? (
-                                            <span className="text-[0.75rem] text-muted-foreground">No roles</span>
+                                            <span className="text-[0.65rem] text-muted-foreground">No roles</span>
                                         ) : (
                                             user.roles.map((role) => (
-                                                <Badge key={role} variant="neutral" className="text-[0.75rem]">
+                                                <Badge key={role} variant="neutral" className="text-[0.65rem]">
                                                     {role}
                                                 </Badge>
                                             ))

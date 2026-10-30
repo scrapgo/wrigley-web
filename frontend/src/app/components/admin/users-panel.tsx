@@ -30,24 +30,24 @@ export function UsersPanel() {
     return (
         <div className="space-y-4">
             <Tabs defaultValue={defaultTab}>
-                {/* Horizontally scrollable pill bar on mobile so tabs never wrap awkwardly. */}
-                <TabsList className="flex-wrap overflow-x-auto pb-1 whitespace-nowrap scrollbar-hide">
+                {/* All tabs visible at all times — they wrap on mobile instead of hiding off-screen. Ultra-compact. */}
+                <TabsList className="flex-wrap gap-0.5">
                     {canViewUsers && (
                         <>
-                            <TabsTrigger value="users">
-                                <Users className="h-4 w-4" />
-                                Everyone with access
+                            <TabsTrigger value="users" className="whitespace-normal text-center px-1.5 py-1 gap-1">
+                                <Users className="h-3 w-3 mb-0" />
+                                <span className="block text-[0.6rem] leading-none">Everyone with access</span>
                             </TabsTrigger>
-                            <TabsTrigger value="invitations">
-                                <Clock className="h-4 w-4" />
-                                Pending invitations
+                            <TabsTrigger value="invitations" className="whitespace-normal text-center px-1.5 py-1 gap-1">
+                                <Clock className="h-3 w-3 mb-0" />
+                                <span className="block text-[0.6rem] leading-none">Pending invitations</span>
                             </TabsTrigger>
                         </>
                     )}
                     {canInvite && (
-                        <TabsTrigger value="invite">
-                            <MailPlus className="h-4 w-4" />
-                            Invite someone
+                        <TabsTrigger value="invite" className="whitespace-normal text-center px-1.5 py-1 gap-1">
+                            <MailPlus className="h-3 w-3 mb-0" />
+                            <span className="block text-[0.6rem] leading-none">Invite someone</span>
                         </TabsTrigger>
                     )}
                 </TabsList>

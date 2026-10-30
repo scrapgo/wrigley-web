@@ -66,14 +66,14 @@ export function HomePanel() {
                 />
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-3">
                 {canViewUsers && (
                     <StatCard
                         title="Disabled users"
                         value={disabledUsers.length}
                         icon={UserX}
                         onClick={() => setSelectedTab("users")}
-                        description="Users who can't sign in. Click to manage them."
+                        description="Users who can't sign in."
                     />
                 )}
                 {canInvite && (
@@ -82,7 +82,7 @@ export function HomePanel() {
                         value={pendingInvitations.length}
                         icon={MailPlus}
                         onClick={() => setSelectedTab("invitations")}
-                        description="Invitations waiting to be accepted. Click to resend or revoke."
+                        description="Waiting to be accepted."
                     />
                 )}
                 {canAudit && (
@@ -91,7 +91,7 @@ export function HomePanel() {
                         value={recentAudit.length}
                         icon={Clock}
                         onClick={() => setSelectedTab("audit")}
-                        description="Latest audit log entries. Click to see the full log."
+                        description="Latest audit log entries."
                     />
                 )}
             </div>
@@ -195,13 +195,13 @@ function StatCard({
 }) {
     return (
         <Card onClick={onClick} className="cursor-pointer hover:bg-muted transition-colors">
-            <CardHeader className="flex flex-row items-center justify-between py-4">
-                <CardTitle className="text-sm font-medium">{title}</CardTitle>
-                <Icon className="h-5 w-5 text-muted-foreground" />
+            <CardHeader className="flex flex-row items-center justify-between py-3">
+                <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</CardTitle>
+                <Icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold text-ink-900">{value}</div>
-                <p className="text-xs text-muted-foreground mt-1">{description}</p>
+            <CardContent className="pt-2">
+                <div className="text-xl font-bold text-ink-900">{value}</div>
+                <p className="text-[0.7rem] text-muted-foreground mt-1">{description}</p>
             </CardContent>
         </Card>
     )

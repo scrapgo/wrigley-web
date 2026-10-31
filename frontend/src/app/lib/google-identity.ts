@@ -2,19 +2,20 @@
 // hands back a Google ID token, which api-client exchanges with GCIP
 // (accounts:signInWithIdp) for the GCIP ID token our API accepts.
 //
-// ScrapGo staff sign in this way: the GCIP beforeSignIn blocking function
-// copies the Workspace domain (hd) from Google's token into the GCIP token, and
-// POST /api/session creates an Internal user only for an allow-listed hd.
-// External users may also sign in with Google (or email/password) to accept an
-// invitation.
+// Staff and external users alike sign in this way. For staff, the GCIP
+// beforeSignIn blocking function copies the Workspace domain (hd) from Google's
+// token into the GCIP token, and POST /api/session creates an Internal user only
+// for an allow-listed hd. External users (any Google account, e.g. Gmail) accept
+// an invitation or sign in with it. The account chooser is never narrowed to a
+// domain: that would hide every external account.
 
 const GIS_SCRIPT_URL = 'https://accounts.google.com/gsi/client'
 
 /** OAuth web client id of the Google provider configured in GCIP. Empty hides the button. */
 export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''
 
-/** Optional Workspace domain hint for the account chooser. Not a security control. */
-const GOOGLE_HOSTED_DOMAIN_HINT = import.meta.env.VITE_GOOGLE_HOSTED_DOMAIN ?? ''
+/** The button's wording: "Sign in with Google", "Continue with Google" or "Sign up with Google". */
+export type GoogleButtonText = 'signin_with' | 'continue_with' | 'signup_with'
 
 interface GisCredentialResponse {
     credential: string
@@ -26,7 +27,6 @@ interface GisApi {
             initialize(config: {
                 client_id: string
                 callback: (response: GisCredentialResponse) => void
-                hd?: string
                 ux_mode?: 'popup' | 'redirect'
                 cancel_on_tap_outside?: boolean
             }): void
@@ -36,7 +36,7 @@ interface GisApi {
                     type?: 'standard' | 'icon'
                     theme?: 'outline' | 'filled_blue' | 'filled_black'
                     size?: 'large' | 'medium' | 'small'
-                    text?: 'signin_with' | 'continue_with'
+                    text?: GoogleButtonText
                     shape?: 'rectangular' | 'pill'
                     width?: number
                 }
@@ -83,7 +83,8 @@ function loadGis(): Promise<GisApi> {
  */
 export async function renderGoogleSignInButton(
     parent: HTMLElement,
-    onCredential: (googleIdToken: string) => void
+    onCredential: (googleIdToken: string) => void,
+    text: GoogleButtonText = 'signin_with'
 ): Promise<void> {
     const gis = await loadGis()
 
@@ -92,7 +93,6 @@ export async function renderGoogleSignInButton(
         callback: (response) => onCredential(response.credential),
         ux_mode: 'popup',
         cancel_on_tap_outside: true,
-        ...(GOOGLE_HOSTED_DOMAIN_HINT && { hd: GOOGLE_HOSTED_DOMAIN_HINT }),
     })
 
     parent.replaceChildren()
@@ -100,7 +100,7 @@ export async function renderGoogleSignInButton(
         type: 'standard',
         theme: 'outline',
         size: 'large',
-        text: 'signin_with',
+        text,
         shape: 'rectangular',
         width: Math.min(parent.clientWidth || 384, 400),
     })

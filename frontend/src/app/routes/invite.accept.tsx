@@ -76,9 +76,11 @@ function AcceptInvitationComponent() {
             return
         }
 
-        renderGoogleSignInButton(container, (googleIdToken) => void accept(() => loginWithGoogle(googleIdToken))).catch(
-            (err: unknown) => setError(err instanceof Error ? err.message : 'Google sign-in failed to load.')
-        )
+        renderGoogleSignInButton(
+            container,
+            (googleIdToken) => void accept(() => loginWithGoogle(googleIdToken)),
+            'continue_with'
+        ).catch((err: unknown) => setError(err instanceof Error ? err.message : 'Google sign-in failed to load.'))
     }, [step, accept, loginWithGoogle])
 
     // A new password account starts unverified: send the link, then wait for the user.
@@ -120,7 +122,7 @@ function AcceptInvitationComponent() {
         <Frame>
             <h1 className="text-xl font-bold text-ink-900">You're invited to ScrapGo</h1>
             <p className="mt-1.5 text-sm text-muted-foreground">
-                Use the email address the invitation was sent to.
+                Use the Google account or email address the invitation was sent to.
             </p>
 
             {error && (
@@ -131,16 +133,23 @@ function AcceptInvitationComponent() {
 
             {step === 'choose' && (
                 <div className="mt-6 space-y-3">
-                    <Button size="lg" className="w-full" onClick={() => setStep('create')} disabled={busy}>
+                    {/* Google first: no password to choose and no verification email. */}
+                    {GOOGLE_CLIENT_ID && (
+                        <>
+                            <div ref={googleButtonRef} className="flex min-h-11 justify-center" aria-busy={busy} />
+                            <p className="pt-2 text-xs text-muted-foreground">or</p>
+                        </>
+                    )}
+                    <Button
+                        size="lg"
+                        variant={GOOGLE_CLIENT_ID ? 'outline' : 'default'}
+                        className="w-full"
+                        onClick={() => setStep('create')}
+                        disabled={busy}
+                    >
                         <KeyRound className="h-4 w-4" />
                         Create a password
                     </Button>
-                    {GOOGLE_CLIENT_ID && (
-                        <>
-                            <p className="pt-2 text-xs text-muted-foreground">or</p>
-                            <div ref={googleButtonRef} className="flex min-h-11 justify-center" aria-busy={busy} />
-                        </>
-                    )}
                     <button
                         type="button"
                         className="pt-2 text-sm font-semibold text-brand-600 hover:text-brand-700"

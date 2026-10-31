@@ -87,7 +87,7 @@ function LoginComponent() {
         [invitation, navigate]
     )
 
-    // Google sign-in: how ScrapGo staff (Workspace accounts) sign in.
+    // Google sign-in: staff (Workspace accounts) and external users with a Google account.
     useEffect(() => {
         const container = googleButtonRef.current
         if (!GOOGLE_CLIENT_ID || !container) {
@@ -233,7 +233,7 @@ function LoginComponent() {
                     {GOOGLE_CLIENT_ID && (
                         <>
                             <p className="mt-6 text-center text-sm font-semibold text-ink-900">
-                                ScrapGo staff — sign in with Google
+                                Sign in with Google
                             </p>
                             <div
                                 ref={googleButtonRef}
@@ -258,7 +258,7 @@ function LoginComponent() {
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
-                                placeholder="you@scrapgo.com"
+                                placeholder="you@company.com"
                             />
                         </div>
 

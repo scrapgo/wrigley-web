@@ -93,7 +93,7 @@ export function UsersPanel() {
                             </h2>
                             <HelpButton
                                 title="Invite someone"
-                                description="Send an invitation to an external user (buyer, seller, or transporter). Choose their role and which suppliers they should see. They'll get a link to accept and set their password."
+                                description="Invite ScrapGo staff or an outside party. A ScrapGo email makes an internal user: pick ScrapGo User and/or Site Admin, and they get those roles when they first sign in with Google. Any other email makes an external user (buyer, seller, or transporter): pick their role and the suppliers they should see, and they accept with the emailed link."
                             />
                         </div>
                         <InviteForm onIssued={remember} />

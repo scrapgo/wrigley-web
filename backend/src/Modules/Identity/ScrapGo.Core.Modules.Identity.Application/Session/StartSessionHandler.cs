@@ -45,12 +45,15 @@ public sealed record StartSessionResult(StartSessionOutcome Outcome, MeResponse?
 /// <item>A known user who isn't Active: <see cref="StartSessionOutcome.AccountDisabled"/>.</item>
 /// <item>No user, and the internal rule holds (provider <c>google.com</c>,
 /// <c>email_verified</c>, <c>hd</c> on <c>INTERNAL_HD_ALLOWLIST</c>): an
-/// Internal user is created with <c>scrapgo_user</c>, exactly once
-/// (<see cref="IUserRepository.InsertIfAbsentAsync"/>).</item>
+/// Internal user is created, exactly once
+/// (<see cref="IUserRepository.InsertIfAbsentAsync"/>), with the roles of the
+/// email's open internal invitation (which is accepted), or else <c>scrapgo_user</c>.
+/// No token is needed: Google has proven the email.</item>
 /// <item>No user, and a valid invitation token: an External user is created
-/// with the invited role and supplier links, and the invitation is accepted,
-/// in one transaction. Valid means Pending, unexpired, <c>email_verified</c>,
-/// and the token's email matching the invitation's (case-insensitive).</item>
+/// with the invited roles and supplier links, and the invitation is accepted,
+/// in one transaction. Valid means External, Pending, unexpired,
+/// <c>email_verified</c>, and the token's email matching the invitation's
+/// (case-insensitive).</item>
 /// <item>Anything else: <see cref="StartSessionOutcome.NoAccess"/>; no row is created.</item>
 /// </list>
 /// </remarks>
@@ -122,6 +125,8 @@ public sealed class StartSessionHandler(
                 { Status: InvitationStatus.Accepted } => "invitation_used",
                 { Status: InvitationStatus.Revoked } => "invitation_revoked",
                 _ when !invitation.IsOpenAt(now) => "invitation_expired",
+                // Staff accept by signing in with Google (the internal rule), never with a password.
+                { UserType: UserType.Internal } => "invitation_internal",
                 _ when !command.EmailVerified => "email_unverified",
                 _ when Invitation.NormalizeEmail(command.Email) != invitation.Email => "email_mismatch",
                 _ => null,
@@ -131,7 +136,8 @@ public sealed class StartSessionHandler(
                 return (null, problem);
             }
 
-            if (await roles.FindActiveRoleAsync(invitation!.RoleId, ct) is not { UserType: UserType.External } role)
+            var invitedRoles = await roles.FindRolesAsync(invitation!.RoleIds, ct);
+            if (invitedRoles.Count == 0 || invitedRoles.Any(role => role.UserType != UserType.External))
             {
                 return (null, "invitation_role_invalid");
             }
@@ -146,18 +152,13 @@ public sealed class StartSessionHandler(
             }
 
             var userId = provisioned.User.Id;
-            roles.AddUserRole(UserRole.Assign(userId, role.Id, UserType.External, assignedByUserId: null, now));
+            foreach (var role in invitedRoles)
+            {
+                roles.AddUserRole(UserRole.Assign(userId, role.Id, UserType.External, assignedByUserId: null, now));
+            }
+
             users.AddSupplierLinks(invitation.SupplierRecordIds.Select(id => UserSupplier.Link(userId, id, linkedByUserId: null, now)));
-            invitation.Accept(userId, now);
-            auditLog.Record(new AuditEvent(
-                IdentityAuditEventTypes.InvitationAccepted,
-                UserId: userId,
-                Metadata: JsonSerializer.Serialize(new
-                {
-                    invitationId = invitation.Id,
-                    roleId = role.Id,
-                    supplierRecordIds = invitation.SupplierRecordIds,
-                })));
+            RecordAccepted(invitation, userId, invitedRoles, now);
             await unitOfWork.SaveChangesAsync(ct);
 
             return (userId, null);
@@ -170,9 +171,10 @@ public sealed class StartSessionHandler(
         && hdAllowlist.Value.Contains(command.HostedDomain);
 
     /// <summary>
-    /// Creates the Internal user and their <c>scrapgo_user</c> role in one
-    /// transaction. A concurrent request for the same UID loses the insert
-    /// race and just reads the winner's row (and role).
+    /// Creates the Internal user and their roles in one transaction: the roles
+    /// of the email's open internal invitation, which is accepted, or else
+    /// <c>scrapgo_user</c>. A concurrent request for the same UID loses the
+    /// insert race and just reads the winner's row (and roles).
     /// </summary>
     private Task<int> ProvisionInternalAsync(StartSessionCommand command, CancellationToken cancellationToken)
     {
@@ -185,14 +187,66 @@ public sealed class StartSessionHandler(
             var provisioned = await users.InsertIfAbsentAsync(candidate, ct);
             if (provisioned.WasCreated)
             {
-                var roleId = await roles.GetPlatformRoleIdAsync(DefaultRoleNames.ScrapGoUser, ct);
-                roles.AddUserRole(UserRole.Assign(provisioned.User.Id, roleId, UserType.Internal, assignedByUserId: null, now));
-                auditLog.Record(new AuditEvent(IdentityAuditEventTypes.UserProvisioned, UserId: provisioned.User.Id));
+                var userId = provisioned.User.Id;
+                var (invitation, invitedRoles) = await OpenInternalInvitationAsync(command.Email, now, ct);
+                if (invitation is not null)
+                {
+                    foreach (var role in invitedRoles)
+                    {
+                        roles.AddUserRole(UserRole.Assign(userId, role.Id, UserType.Internal, assignedByUserId: null, now));
+                    }
+
+                    RecordAccepted(invitation, userId, invitedRoles, now);
+                }
+                else
+                {
+                    var roleId = await roles.GetPlatformRoleIdAsync(DefaultRoleNames.ScrapGoUser, ct);
+                    roles.AddUserRole(UserRole.Assign(userId, roleId, UserType.Internal, assignedByUserId: null, now));
+                }
+
+                auditLog.Record(new AuditEvent(IdentityAuditEventTypes.UserProvisioned, UserId: userId));
                 await unitOfWork.SaveChangesAsync(ct);
             }
 
             return provisioned.User.Id;
         }, cancellationToken);
+    }
+
+    /// <summary>
+    /// The email's Pending, unexpired internal invitation, row-locked, with its
+    /// internal roles; (null, empty) when there is none or none of its roles is
+    /// still an internal role. Runs inside the provisioning transaction.
+    /// </summary>
+    private async Task<(Invitation? Invitation, IReadOnlyList<Role> Roles)> OpenInternalInvitationAsync(
+        string email, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        await invitations.LockPendingByEmailAsync(email, cancellationToken);
+        if (await invitations.FindPendingByEmailAsync(email, cancellationToken) is not { UserType: UserType.Internal } invitation
+            || !invitation.IsOpenAt(now))
+        {
+            return (null, []);
+        }
+
+        var invitedRoles = (await roles.FindRolesAsync(invitation.RoleIds, cancellationToken))
+            .Where(role => role.UserType == UserType.Internal)
+            .ToList();
+
+        return invitedRoles.Count == 0 ? (null, []) : (invitation, invitedRoles);
+    }
+
+    private void RecordAccepted(Invitation invitation, int userId, IReadOnlyList<Role> invitedRoles, DateTimeOffset now)
+    {
+        invitation.Accept(userId, now);
+        auditLog.Record(new AuditEvent(
+            IdentityAuditEventTypes.InvitationAccepted,
+            UserId: userId,
+            Metadata: JsonSerializer.Serialize(new
+            {
+                invitationId = invitation.Id,
+                userType = invitation.UserType.ToString(),
+                roleIds = invitedRoles.Select(role => role.Id),
+                supplierRecordIds = invitation.SupplierRecordIds,
+            })));
     }
 
     private async Task<StartSessionResult> ResumeAsync(int userId, StartSessionCommand command, CancellationToken cancellationToken)

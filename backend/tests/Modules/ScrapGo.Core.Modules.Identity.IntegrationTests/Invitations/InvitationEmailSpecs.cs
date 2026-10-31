@@ -185,7 +185,7 @@ public class InvitationEmailSpecs
         fixture.SendAsync(HttpMethod.Post, "/api/admin/invitations", fixture.CreateToken(inviterUid), new
         {
             email,
-            roleId = fixture.DbContext.Roles.AsNoTracking().Where(r => r.Key == DefaultRoleNames.User).Select(r => r.Id).Single(),
+            roleIds = new[] { fixture.DbContext.Roles.AsNoTracking().Where(r => r.Key == DefaultRoleNames.User).Select(r => r.Id).Single() },
             supplierRecordIds = new[] { 17511 },
         });
 

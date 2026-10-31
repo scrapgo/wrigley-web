@@ -1,9 +1,13 @@
 namespace ScrapGo.Core.Modules.Identity.Application.Invitations;
 
-/// <param name="Email">The invitee's email; acceptance requires the signed-in email to match (case-insensitive).</param>
-/// <param name="RoleId">Must be an external role.</param>
-/// <param name="SupplierRecordIds">One or more Quickbase Suppliers Record IDs, linked on acceptance.</param>
-public sealed record CreateInvitationCommand(string? Email, int RoleId, IReadOnlyList<int>? SupplierRecordIds);
+/// <param name="Email">
+/// The invitee's email; acceptance requires the signed-in email to match
+/// (case-insensitive). An email on <c>INTERNAL_HD_ALLOWLIST</c> makes an
+/// Internal invitation, any other an External one.
+/// </param>
+/// <param name="RoleIds">One or more active roles, all of the invitation's user type.</param>
+/// <param name="SupplierRecordIds">External: one or more Quickbase Suppliers Record IDs, linked on acceptance. Internal: none.</param>
+public sealed record CreateInvitationCommand(string? Email, IReadOnlyList<int>? RoleIds, IReadOnlyList<int>? SupplierRecordIds);
 
 public sealed record ListInvitationsQuery(string? Status, int? Page, int? PageSize);
 
@@ -11,8 +15,9 @@ public sealed record ListInvitationsQuery(string? Status, int? Page, int? PageSi
 public sealed record InvitationDto(
     int Id,
     string Email,
-    int RoleId,
-    string RoleKey,
+    string UserType,
+    IReadOnlyList<int> RoleIds,
+    IReadOnlyList<string> RoleKeys,
     IReadOnlyList<int> SupplierRecordIds,
     string Status,
     DateTimeOffset ExpiresAt,
@@ -21,12 +26,14 @@ public sealed record InvitationDto(
     DateTimeOffset? AcceptedAt,
     DateTimeOffset CreatedAt)
 {
-    public static InvitationDto From(Invitation invitation, string roleKey, DateTimeOffset now) =>
+    /// <param name="roleKeys">The keys of <see cref="Invitation.RoleIds"/>, in any order.</param>
+    public static InvitationDto From(Invitation invitation, IEnumerable<string> roleKeys, DateTimeOffset now) =>
         new(
             invitation.Id,
             invitation.Email,
-            invitation.RoleId,
-            roleKey,
+            invitation.UserType.ToString(),
+            [.. invitation.RoleIds.Order()],
+            [.. roleKeys.Order(StringComparer.Ordinal)],
             [.. invitation.SupplierRecordIds.Order()],
             EffectiveStatus(invitation.Status, invitation.ExpiresAt, now).ToString(),
             invitation.ExpiresAt,
@@ -39,8 +46,12 @@ public sealed record InvitationDto(
         status == InvitationStatus.Pending && expiresAt <= now ? InvitationStatus.Expired : status;
 }
 
-/// <summary>A role an invitation can grant: an external role.</summary>
-public sealed record InvitableRoleDto(int Id, string Key, string Name, string? Description);
+/// <summary>A role an invitation can grant. Internal roles go to internal emails, external roles to the rest.</summary>
+/// <param name="RequiresUsersManage">Only callers holding <c>users.manage</c> can grant it (Site Admin).</param>
+public sealed record InvitableRoleDto(int Id, string Key, string Name, string? Description, string UserType, bool RequiresUsersManage);
+
+/// <summary>What the invite form needs: which email domains are internal, and the roles to offer.</summary>
+public sealed record InvitationFormDto(IReadOnlyList<string> InternalDomains, IReadOnlyList<InvitableRoleDto> Roles);
 
 /// <summary>What create and resend return: the invitation and the link the admin can copy (it carries the token).</summary>
 /// <param name="EmailSent">
@@ -53,20 +64,23 @@ public enum InvitationOutcome
 {
     Success,
 
-    /// <summary>A malformed email, no supplier Record IDs, a non-positive id, or a bad page or status.</summary>
+    /// <summary>
+    /// A malformed email, no roles, a non-positive id, an external invitation
+    /// without supplier Record IDs, an internal one with them, or a bad page or status.
+    /// </summary>
     InvalidRequest,
 
     /// <summary>No such active role.</summary>
     RoleNotFound,
 
-    /// <summary>The role is internal; invitations are for external users only.</summary>
-    RoleNotExternal,
-
     /// <summary>
-    /// The email's domain is on <c>INTERNAL_HD_ALLOWLIST</c>: staff join as Internal
-    /// users by signing in with Google, never as External users by invitation.
+    /// A role of the other user type: internal emails (on <c>INTERNAL_HD_ALLOWLIST</c>)
+    /// take internal roles only, every other email external roles only.
     /// </summary>
-    InternalEmail,
+    RoleTypeMismatch,
+
+    /// <summary>Granting Site Admin needs <c>users.manage</c>, which the caller lacks.</summary>
+    SiteAdminRequiresUsersManage,
 
     /// <summary>The email already has a pending invitation.</summary>
     AlreadyPending,

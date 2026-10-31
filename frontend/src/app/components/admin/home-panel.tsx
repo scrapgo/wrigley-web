@@ -227,7 +227,9 @@ function InvitationRow({ invitation }: { invitation: Invitation }) {
             <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-ink-900 truncate">{invitation.email}</p>
                 <p className="text-xs text-muted-foreground truncate">
-                    {invitation.roleKey} · {invitation.supplierRecordIds.map((id) => `#${id}`).join(", ") || "No suppliers"}
+                    {invitation.roleKeys.join(", ")}
+                    {invitation.userType === "External" &&
+                        ` · ${invitation.supplierRecordIds.map((id) => `#${id}`).join(", ") || "No suppliers"}`}
                 </p>
             </div>
             <Badge variant="warning" className="text-[0.75rem]">

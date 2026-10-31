@@ -13,4 +13,7 @@ public sealed class InvitationOptions
 
     public string BuildAcceptLink(string token) =>
         $"{FrontendBaseUrl.Trim().TrimEnd('/')}/invite/accept?token={Uri.EscapeDataString(token)}";
+
+    /// <summary>Where an internal invitee goes: their first Google sign-in applies the invitation, no token needed.</summary>
+    public string BuildSignInLink() => $"{FrontendBaseUrl.Trim().TrimEnd('/')}/login";
 }

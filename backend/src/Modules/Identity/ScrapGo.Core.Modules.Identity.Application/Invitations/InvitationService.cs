@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ScrapGo.Core.Modules.Identity.Application.Users;
+using ScrapGo.Core.Modules.Identity.Domain.Authorization;
 using ScrapGo.Core.Shared.Kernel.Paging;
 
 namespace ScrapGo.Core.Modules.Identity.Application.Invitations;
@@ -14,7 +15,8 @@ namespace ScrapGo.Core.Modules.Identity.Application.Invitations;
 /// <remarks>
 /// The routes are authorized before these methods run: listing needs
 /// <c>users.view</c> or <c>users.invite</c>, everything else <c>users.invite</c>.
-/// Each change commits with its audit row.
+/// Granting Site Admin also needs <c>users.manage</c>, checked here, so a
+/// ScrapGo User can't create an admin. Each change commits with its audit row.
 /// </remarks>
 public sealed class InvitationService(
     IInvitationRepository invitations,
@@ -29,15 +31,17 @@ public sealed class InvitationService(
     ILogger<InvitationService> logger)
 {
     /// <summary>
-    /// The roles an invitation can grant (external roles only), for the invite
-    /// form. Needs only <c>users.invite</c>, not <c>roles.view</c>.
+    /// The internal email domains and every role an invitation can grant, for
+    /// the invite form. Needs only <c>users.invite</c>, not <c>roles.view</c>.
     /// </summary>
-    public async Task<IReadOnlyList<InvitableRoleDto>> ListInvitableRolesAsync(CancellationToken cancellationToken) =>
-        [
-            .. (await roles.ListRolesAsync(cancellationToken))
-                .Where(role => role.UserType == nameof(UserType.External))
-                .Select(role => new InvitableRoleDto(role.Id, role.Key, role.Name, role.Description)),
-        ];
+    public async Task<InvitationFormDto> GetFormAsync(CancellationToken cancellationToken) =>
+        new(
+            [.. internalDomains.Value.HostedDomains.Select(domain => domain.ToLowerInvariant()).Order(StringComparer.Ordinal)],
+            [
+                .. (await roles.ListRolesAsync(cancellationToken))
+                    .Select(role => new InvitableRoleDto(
+                        role.Id, role.Key, role.Name, role.Description, role.UserType, RequiresUsersManage(role.Key))),
+            ]);
 
     public async Task<PagedResult<InvitationDto>?> ListAsync(ListInvitationsQuery query, CancellationToken cancellationToken)
     {
@@ -53,40 +57,55 @@ public sealed class InvitationService(
     /// <returns>Null when there is no such invitation. The token is never readable again after create or resend.</returns>
     public async Task<InvitationDto?> GetAsync(int invitationId, CancellationToken cancellationToken) =>
         await invitations.FindAsync(invitationId, cancellationToken) is { } invitation
-            ? InvitationDto.From(invitation, await RoleKeyOfAsync(invitation.RoleId, cancellationToken), timeProvider.GetUtcNow())
+            ? InvitationDto.From(invitation, await RoleKeysOfAsync(invitation.RoleIds, cancellationToken), timeProvider.GetUtcNow())
             : null;
 
     public async Task<InvitationResult> CreateAsync(CreateInvitationCommand command, CancellationToken cancellationToken)
     {
         if (!IsWellFormedEmail(command.Email)
-            || command.RoleId <= 0
-            || command.SupplierRecordIds is not { Count: > 0 } supplierRecordIds
-            || supplierRecordIds.Any(id => id <= 0))
+            || command.RoleIds is not { Count: > 0 } requestedRoleIds
+            || requestedRoleIds.Any(id => id <= 0)
+            || command.SupplierRecordIds?.Any(id => id <= 0) == true)
         {
             return new(InvitationOutcome.InvalidRequest);
         }
 
-        // An invitation always creates an External user, so a staff address would
-        // become External; staff sign in with Google instead (POST /api/session).
-        if (internalDomains.Value.Contains(DomainOf(command.Email!)))
+        // The email's domain decides the user type: staff addresses join as
+        // Internal (at their first Google sign-in), everyone else as External.
+        var userType = internalDomains.Value.Contains(DomainOf(command.Email!)) ? UserType.Internal : UserType.External;
+        var supplierRecordIds = command.SupplierRecordIds ?? [];
+
+        // External users see only their linked suppliers; internal users see them all.
+        if (userType == UserType.External ? supplierRecordIds.Count == 0 : supplierRecordIds.Count > 0)
         {
-            return new(InvitationOutcome.InternalEmail);
+            return new(InvitationOutcome.InvalidRequest);
         }
 
-        if (await roles.FindActiveRoleAsync(command.RoleId, cancellationToken) is not { } role)
+        int[] roleIds = [.. requestedRoleIds.Distinct()];
+        var granted = await roles.FindRolesAsync(roleIds, cancellationToken);
+        if (granted.Count != roleIds.Length)
         {
             return new(InvitationOutcome.RoleNotFound);
         }
 
-        if (role.UserType != UserType.External)
+        if (granted.Any(role => role.UserType != userType))
         {
-            return new(InvitationOutcome.RoleNotExternal);
+            return new(InvitationOutcome.RoleTypeMismatch);
         }
 
-        var actorId = await ActorIdAsync(cancellationToken);
+        // The route's permission check has already loaded the caller's access context.
+        var access = await currentAccess.GetAsync(cancellationToken)
+            ?? throw new InvalidOperationException("An authorized invitation request has no access context.");
+        if (granted.Any(role => RequiresUsersManage(role.Key)) && !access.Can(Permissions.UsersManage))
+        {
+            return new(InvitationOutcome.SiteAdminRequiresUsersManage);
+        }
+
+        var actorId = access.UserId;
         var now = timeProvider.GetUtcNow();
         var (token, hash) = InvitationTokens.Generate();
-        var invitation = Invitation.Create(command.Email!, role.Id, supplierRecordIds, hash, now + InvitationTokens.Lifetime, actorId, now);
+        var invitation = Invitation.Create(
+            command.Email!, userType, roleIds, supplierRecordIds, hash, now + InvitationTokens.Lifetime, actorId, now);
 
         try
         {
@@ -103,7 +122,8 @@ public sealed class InvitationService(
                     {
                         invitationId = invitation.Id,
                         email = invitation.Email,
-                        roleId = role.Id,
+                        userType = invitation.UserType.ToString(),
+                        roleIds = invitation.RoleIds,
                         supplierRecordIds = invitation.SupplierRecordIds,
                     })));
                 await unitOfWork.SaveChangesAsync(ct);
@@ -116,7 +136,7 @@ public sealed class InvitationService(
             return new(InvitationOutcome.AlreadyPending);
         }
 
-        return new(InvitationOutcome.Success, await IssueAsync(invitation, role.Key, token, now, cancellationToken));
+        return new(InvitationOutcome.Success, await IssueAsync(invitation, granted.Select(role => role.Key), token, now, cancellationToken));
     }
 
     /// <summary>Issues a new token with a fresh 7-day expiry; the old link stops working.</summary>
@@ -142,8 +162,8 @@ public sealed class InvitationService(
             Metadata: JsonSerializer.Serialize(new { invitationId = invitation.Id, email = invitation.Email })));
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        var roleKey = await RoleKeyOfAsync(invitation.RoleId, cancellationToken);
-        return new(InvitationOutcome.Success, await IssueAsync(invitation, roleKey, token, now, cancellationToken));
+        var roleKeys = await RoleKeysOfAsync(invitation.RoleIds, cancellationToken);
+        return new(InvitationOutcome.Success, await IssueAsync(invitation, roleKeys, token, now, cancellationToken));
     }
 
     /// <summary>Revoking is idempotent; an accepted invitation can't be revoked.</summary>
@@ -174,16 +194,19 @@ public sealed class InvitationService(
     }
 
     private async Task<IssuedInvitationDto> IssueAsync(
-        Invitation invitation, string roleKey, string token, DateTimeOffset now, CancellationToken cancellationToken)
+        Invitation invitation, IEnumerable<string> roleKeys, string token, DateTimeOffset now, CancellationToken cancellationToken)
     {
-        var acceptLink = options.Value.BuildAcceptLink(token);
+        // Staff need no token: their first Google sign-in finds the invitation by email.
+        var signInWithGoogle = invitation.UserType == UserType.Internal;
+        var acceptLink = signInWithGoogle ? options.Value.BuildSignInLink() : options.Value.BuildAcceptLink(token);
 
         // The invitation is already committed: a failed email mustn't undo it.
         // The admin still gets the link to share by hand.
         var emailSent = true;
         try
         {
-            await sender.SendAsync(new InvitationMessage(invitation.Id, invitation.Email, acceptLink, invitation.ExpiresAt), cancellationToken);
+            await sender.SendAsync(
+                new InvitationMessage(invitation.Id, invitation.Email, acceptLink, invitation.ExpiresAt, signInWithGoogle), cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -191,7 +214,7 @@ public sealed class InvitationService(
             logger.LogWarning(ex, "Invitation {InvitationId} was created but its email could not be sent.", invitation.Id);
         }
 
-        return new IssuedInvitationDto(InvitationDto.From(invitation, roleKey, now), acceptLink, emailSent);
+        return new IssuedInvitationDto(InvitationDto.From(invitation, roleKeys, now), acceptLink, emailSent);
     }
 
     /// <summary>The route's permission check has already loaded the caller's access context.</summary>
@@ -199,8 +222,11 @@ public sealed class InvitationService(
         (await currentAccess.GetAsync(cancellationToken))?.UserId
         ?? throw new InvalidOperationException("An authorized invitation request has no access context.");
 
-    private async Task<string> RoleKeyOfAsync(int roleId, CancellationToken cancellationToken) =>
-        (await roles.FindActiveRoleAsync(roleId, cancellationToken))?.Key ?? string.Empty;
+    private async Task<IEnumerable<string>> RoleKeysOfAsync(IReadOnlyCollection<int> roleIds, CancellationToken cancellationToken) =>
+        (await roles.FindRolesAsync(roleIds, cancellationToken)).Select(role => role.Key);
+
+    /// <summary>Site Admin can change anything, so only a holder of <c>users.manage</c> may invite one.</summary>
+    private static bool RequiresUsersManage(string roleKey) => roleKey == DefaultRoleNames.SiteAdmin;
 
     private static string DomainOf(string email) => email.Trim()[(email.Trim().LastIndexOf('@') + 1)..];
 

@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 
 import {
     createInvitation,
-    listInvitableRoles,
+    getInvitationForm,
     listInvitations,
     resendInvitation,
     revokeInvitation,
@@ -37,7 +37,7 @@ export const adminKeys = {
     roles: ['admin', 'roles'] as const,
     invitations: ['admin', 'invitations'] as const,
     invitationList: (page: number, pageSize: number) => ['admin', 'invitations', page, pageSize] as const,
-    invitableRoles: ['admin', 'invitations', 'roles'] as const,
+    invitationForm: ['admin', 'invitations', 'form'] as const,
     features: ['admin', 'features'] as const,
     audit: (query: AuditQuery) => ['admin', 'audit', query] as const,
 }
@@ -84,10 +84,10 @@ export function useInvitations(page: number, pageSize: number) {
     })
 }
 
-export function useInvitableRoles(enabled = true) {
+export function useInvitationForm(enabled = true) {
     return useQuery({
-        queryKey: adminKeys.invitableRoles,
-        queryFn: listInvitableRoles,
+        queryKey: adminKeys.invitationForm,
+        queryFn: getInvitationForm,
         enabled,
     })
 }

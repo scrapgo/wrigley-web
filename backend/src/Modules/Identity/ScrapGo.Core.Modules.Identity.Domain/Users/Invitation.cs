@@ -1,10 +1,12 @@
 namespace ScrapGo.Core.Modules.Identity.Domain.Users;
 
 /// <summary>
-/// An invitation for an outside party to join as an External user with one
-/// external role and one or more supplier links. Only the SHA-256 of the token
-/// is stored. At most one <see cref="InvitationStatus.Pending"/> invitation
-/// exists per email.
+/// An invitation to join with preset roles. External invitations (outside
+/// parties) carry external roles and one or more supplier links and are
+/// accepted with the token. Internal invitations (ScrapGo staff) carry internal
+/// roles and are applied at the invitee's first Google Workspace sign-in. Only
+/// the SHA-256 of the token is stored. At most one
+/// <see cref="InvitationStatus.Pending"/> invitation exists per email.
 /// </summary>
 public class Invitation
 {
@@ -17,9 +19,13 @@ public class Invitation
     /// <summary>Lower-cased, so the pending-per-email rule and acceptance match case-insensitively.</summary>
     public string Email { get; private set; } = string.Empty;
 
-    public int RoleId { get; private set; }
+    /// <summary>The user type the invitee joins as, fixed by the email's domain when the invitation is created.</summary>
+    public UserType UserType { get; private set; } = UserType.External;
 
-    /// <summary>The Quickbase Suppliers Record IDs the new user is linked to on acceptance.</summary>
+    /// <summary>The roles granted on acceptance, all of <see cref="UserType"/>.</summary>
+    public List<int> RoleIds { get; private set; } = [];
+
+    /// <summary>The Quickbase Suppliers Record IDs the new user is linked to on acceptance (external only).</summary>
     public List<int> SupplierRecordIds { get; private set; } = [];
 
     /// <summary>Hex SHA-256 of the one-time token.</summary>
@@ -41,7 +47,8 @@ public class Invitation
 
     public static Invitation Create(
         string email,
-        int roleId,
+        UserType userType,
+        IEnumerable<int> roleIds,
         IEnumerable<int> supplierRecordIds,
         string tokenHash,
         DateTimeOffset expiresAt,
@@ -54,7 +61,8 @@ public class Invitation
         return new Invitation
         {
             Email = NormalizeEmail(email),
-            RoleId = roleId,
+            UserType = userType,
+            RoleIds = [.. roleIds.Distinct()],
             SupplierRecordIds = [.. supplierRecordIds.Distinct()],
             TokenHash = tokenHash,
             Status = InvitationStatus.Pending,

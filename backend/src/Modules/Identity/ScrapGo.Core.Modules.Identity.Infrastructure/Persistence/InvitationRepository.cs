@@ -17,6 +17,20 @@ public sealed class InvitationRepository(IdentityDbContext dbContext) : IInvitat
         dbContext.Database.ExecuteSqlAsync(
             $"SELECT 1 FROM identity.invitations WHERE token_hash = {tokenHash} FOR UPDATE", cancellationToken);
 
+    public Task LockPendingByEmailAsync(string email, CancellationToken cancellationToken)
+    {
+        var normalized = Invitation.NormalizeEmail(email);
+        return dbContext.Database.ExecuteSqlAsync(
+            $"SELECT 1 FROM identity.invitations WHERE email = {normalized} AND status = 'Pending' FOR UPDATE", cancellationToken);
+    }
+
+    public Task<Invitation?> FindPendingByEmailAsync(string email, CancellationToken cancellationToken)
+    {
+        var normalized = Invitation.NormalizeEmail(email);
+        return dbContext.Invitations.SingleOrDefaultAsync(
+            i => i.Email == normalized && i.Status == InvitationStatus.Pending, cancellationToken);
+    }
+
     public Task ExpireLapsedAsync(string email, DateTimeOffset now, CancellationToken cancellationToken) =>
         dbContext.Invitations
             .Where(i => i.Email == email && i.Status == InvitationStatus.Pending && i.ExpiresAt <= now)
@@ -42,10 +56,17 @@ public sealed class InvitationRepository(IdentityDbContext dbContext) : IInvitat
             .OrderByDescending(i => i.Id)
             .Skip(page.Skip)
             .Take(page.ResolvedPageSize)
-            .Join(dbContext.Roles.AsNoTracking(), i => i.RoleId, r => r.Id, (i, r) => new { Invitation = i, RoleKey = r.Key })
             .ToListAsync(cancellationToken);
 
+        // Roles are few; read their keys once for the whole page.
+        var roleKeys = await dbContext.Roles.AsNoTracking().ToDictionaryAsync(r => r.Id, r => r.Key, cancellationToken);
+
         return PagedResult<InvitationDto>.Create(
-            [.. rows.Select(row => InvitationDto.From(row.Invitation, row.RoleKey, now))], page, totalCount);
+            [
+                .. rows.Select(invitation => InvitationDto.From(
+                    invitation, invitation.RoleIds.Where(roleKeys.ContainsKey).Select(id => roleKeys[id]), now)),
+            ],
+            page,
+            totalCount);
     }
 }

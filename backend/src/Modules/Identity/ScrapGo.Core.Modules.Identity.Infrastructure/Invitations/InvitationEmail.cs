@@ -16,19 +16,27 @@ public static class InvitationEmail
         var link = message.AcceptLink;
         var boundary = $"scrapgo-{Guid.NewGuid():N}";
 
+        // Staff sign in with their Workspace account; outside parties accept with the one-time link.
+        var action = message.SignInWithGoogle
+            ? "Sign in with your ScrapGo Google account to get started"
+            : "Accept the invitation and create your account";
+        var terms = message.SignInWithGoogle
+            ? $"Your access is ready when you first sign in, before {expires}."
+            : $"This link works once and expires on {expires}.";
+
         var text = $"""
             You've been invited to the ScrapGo portal.
 
-            Accept the invitation and create your account:
+            {action}:
             {link}
 
-            This link works once and expires on {expires}. If you weren't expecting this, you can ignore this email.
+            {terms} If you weren't expecting this, you can ignore this email.
             """;
 
         var html = $"""
             <p>You've been invited to the ScrapGo portal.</p>
-            <p><a href="{WebUtility.HtmlEncode(link)}">Accept the invitation and create your account</a></p>
-            <p>This link works once and expires on {WebUtility.HtmlEncode(expires)}. If you weren't expecting this, you can ignore this email.</p>
+            <p><a href="{WebUtility.HtmlEncode(link)}">{WebUtility.HtmlEncode(action)}</a></p>
+            <p>{WebUtility.HtmlEncode(terms)} If you weren't expecting this, you can ignore this email.</p>
             """;
 
         return new StringBuilder()

@@ -17,11 +17,11 @@ const REASON_MESSAGES: Record<string, string> = {
     cannot_disable_self: "You can't disable your own account. Ask another administrator.",
     last_site_admin: 'This would leave no active Site Admin. Assign or enable another one first.',
     role_not_found: "One of those roles doesn't exist.",
-    role_type_mismatch: 'Internal users hold internal roles, and external users external roles.',
+    // Role edits and invitations: staff (and staff emails) take internal roles.
+    role_type_mismatch: 'Internal users (ScrapGo emails) hold internal roles, and external users external roles.',
     supplier_links_external_only: 'Supplier links are for external users; internal users see every supplier.',
     // Invitations
-    role_not_external: 'Invitations are for external users: choose an external role.',
-    internal_email_not_invitable: "ScrapGo staff don't need an invitation: they sign in with their Google Workspace account.",
+    site_admin_requires_users_manage: 'Only someone who can manage users can invite a Site Admin.',
     invitation_pending: 'This email already has a pending invitation. Resend or revoke it.',
     invitation_not_pending: 'That invitation was already accepted or revoked.',
     // Roles

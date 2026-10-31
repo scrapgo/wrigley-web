@@ -21,6 +21,7 @@ namespace ScrapGo.Core.Modules.Identity.Application.Invitations;
 public sealed class InvitationService(
     IInvitationRepository invitations,
     IRoleRepository roles,
+    IUserRepository users,
     ICurrentAccess currentAccess,
     IInvitationSender sender,
     IUnitOfWork unitOfWork,
@@ -68,6 +69,12 @@ public sealed class InvitationService(
             || command.SupplierRecordIds?.Any(id => id <= 0) == true)
         {
             return new(InvitationOutcome.InvalidRequest);
+        }
+
+        // Someone who already has an account needs role changes, not an invitation.
+        if (await users.ExistsByEmailAsync(command.Email!, cancellationToken))
+        {
+            return new(InvitationOutcome.UserExists);
         }
 
         // The email's domain decides the user type: staff addresses join as

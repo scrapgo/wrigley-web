@@ -108,6 +108,9 @@ public sealed class InvitationsController(InvitationService invitations) : Contr
         InvitationOutcome.SiteAdminRequiresUsersManage => ProblemResults.Create(
             StatusCodes.Status403Forbidden, "Site Admin needs users.manage",
             "Only someone who can manage users can invite a Site Admin.", "site_admin_requires_users_manage").ToActionResult(),
+        InvitationOutcome.UserExists => ProblemResults.Create(
+            StatusCodes.Status409Conflict, "User exists",
+            "A user with this email already exists. Change their roles from the user list instead.", "user_exists").ToActionResult(),
         InvitationOutcome.AlreadyPending => ProblemResults.Create(
             StatusCodes.Status409Conflict, "Invitation pending",
             "This email already has a pending invitation. Resend or revoke it.", "invitation_pending").ToActionResult(),

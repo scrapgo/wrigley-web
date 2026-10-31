@@ -85,6 +85,9 @@ public enum InvitationOutcome
     /// <summary>The email already has a pending invitation.</summary>
     AlreadyPending,
 
+    /// <summary>A user with this email already exists (any type or status); change their roles instead.</summary>
+    UserExists,
+
     NotFound,
 
     /// <summary>The invitation was accepted or revoked, so it can't be resent or revoked.</summary>

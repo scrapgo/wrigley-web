@@ -188,6 +188,34 @@ public class InvitationSpecs
             Assert.Equal("invalid_request", await IdentitySpecFixture.ReadProblemReasonAsync(response));
         }
 
+        // An existing account gets role changes, not an invitation; any case of the email matches.
+        [Fact]
+        public async Task An_email_that_already_has_a_user_is_a_conflict()
+        {
+            var inviterUid = await SeedScrapGoUserAsync(fixture);
+            var email = NewEmail();
+            await fixture.SeedUserAsync(email);
+
+            var response = await CreateAsync(fixture, inviterUid, email.ToUpperInvariant(), [await ExternalRoleIdAsync(fixture)], [17511]);
+
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Equal("user_exists", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+            Assert.False(await fixture.DbContext.Invitations.AnyAsync(i => i.Email == email));
+        }
+
+        [Fact]
+        public async Task An_existing_staff_member_is_a_conflict_too()
+        {
+            var inviterUid = await SeedScrapGoUserAsync(fixture);
+            var email = NewStaffEmail();
+            await fixture.SeedUserAsync(email, UserType.Internal);
+
+            var response = await CreateAsync(fixture, inviterUid, email, [await RoleIdAsync(fixture, DefaultRoleNames.ScrapGoUser)], []);
+
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Equal("user_exists", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+        }
+
         [Fact]
         public async Task A_second_pending_invitation_for_the_same_email_is_a_conflict()
         {

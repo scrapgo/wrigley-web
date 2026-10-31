@@ -23,6 +23,7 @@ const REASON_MESSAGES: Record<string, string> = {
     // Invitations
     site_admin_requires_users_manage: 'Only someone who can manage users can invite a Site Admin.',
     invitation_pending: 'This email already has a pending invitation. Resend or revoke it.',
+    user_exists: 'This person already has a ScrapGo account, so no invitation was sent. Change their roles from Everyone with access.',
     invitation_not_pending: 'That invitation was already accepted or revoked.',
     // Roles
     audience_mismatch: 'Internal permissions go on internal roles, and external permissions on external roles.',

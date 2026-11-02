@@ -627,9 +627,10 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("invited_by_user_id");
 
-                    b.Property<int>("RoleId")
-                        .HasColumnType("integer")
-                        .HasColumnName("role_id");
+                    b.PrimitiveCollection<List<int>>("RoleIds")
+                        .IsRequired()
+                        .HasColumnType("integer[]")
+                        .HasColumnName("role_ids");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -648,6 +649,11 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("token_hash");
 
+                    b.Property<string>("UserType")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("user_type");
+
                     b.HasKey("Id")
                         .HasName("pk_invitations");
 
@@ -662,16 +668,17 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
                     b.HasIndex("InvitedByUserId")
                         .HasDatabaseName("ix_invitations_invited_by_user_id");
 
-                    b.HasIndex("RoleId")
-                        .HasDatabaseName("ix_invitations_role_id");
-
                     b.HasIndex("TokenHash")
                         .IsUnique()
                         .HasDatabaseName("ux_invitations_token_hash");
 
                     b.ToTable("invitations", "identity", t =>
                         {
+                            t.HasCheckConstraint("ck_invitations_role_ids", "cardinality(role_ids) > 0");
+
                             t.HasCheckConstraint("ck_invitations_status", "status IN ('Pending', 'Accepted', 'Revoked', 'Expired')");
+
+                            t.HasCheckConstraint("ck_invitations_user_type", "user_type IN ('Internal', 'External')");
                         });
                 });
 
@@ -960,13 +967,6 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_invitations_invited_by_user_id");
-
-                    b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Authorization.Role", null)
-                        .WithMany()
-                        .HasForeignKey("RoleId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_invitations_role_id");
                 });
 
             modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Users.UserSupplier", b =>

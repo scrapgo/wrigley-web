@@ -124,6 +124,13 @@ public sealed class UserRepository(IdentityDbContext dbContext) : IUserRepositor
         return new ProvisionedUser(existing, WasCreated: false);
     }
 
+    public Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken)
+    {
+        // Stored as the token sent it, so compare lower-cased.
+        var normalized = email.Trim().ToLowerInvariant();
+        return dbContext.Users.AsNoTracking().AnyAsync(u => u.Email.ToLower() == normalized, cancellationToken);
+    }
+
     public Task<int?> GetIdByUidAsync(string identityPlatformUid, CancellationToken cancellationToken) =>
         dbContext.Users
             .AsNoTracking()

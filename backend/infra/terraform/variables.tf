@@ -133,6 +133,23 @@ variable "quickbase_user_token_configured" {
   default     = false
 }
 
+variable "gmail_sender" {
+  description = "Workspace mailbox invitation emails come from (Invitations__Gmail__Sender), e.g. \"noreply@scrapgo.com\". Blank keeps invitations log-only (admins share the link)."
+  type        = string
+  default     = ""
+}
+
+variable "gmail_service_account_configured" {
+  description = <<-EOT
+    Set to true only after a version (the service account's JSON key, with
+    domain-wide delegation for gmail.send) has been added to the Gmail secret.
+    Cloud Run refuses to start a revision that references a secret with no
+    versions, so this switch gates the env var.
+  EOT
+  type        = bool
+  default     = false
+}
+
 # --- Cloud Build GitHub connection ---
 # All three come from the one-time manual GitHub App authorization described
 # in cloudbuild.tf. None of them has a sensible default.

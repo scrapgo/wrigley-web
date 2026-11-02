@@ -124,7 +124,7 @@ Get one by signing in through the portal (or any GCIP client), then either:
 - **Swagger:** click **Authorize** and paste the token without the `Bearer ` prefix.
 - **VS Code / Visual Studio:** open [`src/ScrapGo.Core.Api/ScrapGo.Core.Api.http`](src/ScrapGo.Core.Api/ScrapGo.Core.Api.http), paste the token into `@token`, and send the requests.
 
-Start with `POST /api/session`: it creates your user record on a Google Workspace sign-in (see [Internal users](#8-internal-users-google-workspace-sign-in)) and returns your access. `GET /api/me` returns the same thing afterwards; it never creates a user. External users join only by invitation (`POST /api/admin/invitations`); set `Invitations:FrontendBaseUrl` to the portal origin so the returned accept links point at it.
+Start with `POST /api/session`: it creates your user record on a Google Workspace sign-in (see [Internal users](#8-internal-users-google-workspace-sign-in)) and returns your access. `GET /api/me` returns the same thing afterwards; it never creates a user. External users join only by invitation (`POST /api/admin/invitations`). Accept links point back at the portal the admin is using when its origin is on `Invitations:FrontendOrigins`; otherwise at `Invitations:FrontendBaseUrl`.
 
 ### 7. Bootstrap the first Site Admin (once per database)
 
@@ -239,6 +239,10 @@ is in [`.env.example`](.env.example).
 | `INTERNAL_HD_ALLOWLIST`               | **Yes for internal users** | —                       | Google Workspace domains whose verified Google sign-ins `POST /api/session` creates as Internal users (with `scrapgo_user`): a comma-separated string as an env var, or a JSON array in appsettings (`["scrapgo.com"]`). Blank means nobody is created Internal. `hd` comes from the GCIP blocking function in [`infra/gcip-blocking-function/`](infra/gcip-blocking-function/README.md). Terraform default: `scrapgo.com` |
 | `Swagger:Enabled`                     | No                         | `true`                  | Serves `/swagger` (off in Cloud Run unless set)                                                                                                                                                                                                                                                                                                       |
 | `Identity:RequireMfaForExternalUsers` | No                         | `false`                 | When `true`, external users need a second factor (`mfa_required` otherwise). Keep off until MFA is enabled in GCIP                                                                                                                                                                                                                                    |
+| `Invitations:FrontendBaseUrl`         | For invite links           | user-secrets            | Fallback portal origin for invite links when the request comes from no listed origin, e.g. `http://localhost:5173` |
+| `Invitations:FrontendOrigins`         | For invite links           | appsettings             | Portal origins invite links may point at; a link follows the portal the admin used (`Origin`, or Firebase's `X-Forwarded-Host`). Lists the Firebase Hosting addresses |
+| `Invitations:Gmail:Sender`            | No                         | —                       | Workspace mailbox invitation emails come from. Blank (or no key below) keeps invitations log-only                                                                                                                                                                                                                                                     |
+| `Invitations:Gmail:ServiceAccountJson`| With the sender            | user-secrets            | Service account JSON key with domain-wide delegation for `gmail.send` (secret)                                                                                                                                                                                                                                                                        |
 
 Quickbase settings are validated on the first Quickbase call, not at startup,
 so the API runs without them; see [step 9](#9-connect-to-quickbase).
@@ -270,6 +274,31 @@ The latest Identity migration is `AccessModelV1`: it replaces the previous
 model's tables with the access model (`../docs/ACCESS-MODEL.md`), keeps users
 (`classification` becomes `user_type`), seeds roles, features, permissions and
 the matrix, and gives existing users the new system roles. It is forward-only.
+`InternalInvitations` then gives invitations a user type and several roles;
+existing invitations become External and keep their one role.
+
+## Deleting a user by hand
+
+The API only disables users. To remove one from the database, open
+[`scripts/delete-user.sql`](scripts/delete-user.sql) in DBeaver (or any SQL
+client). Replace `someone@acme.com` with the user's email in every statement,
+then run the four statements in order:
+
+1. Check who will be deleted.
+2. Delete their audit rows.
+3. Delete the invitations they sent, and those to their email.
+4. Delete the user.
+
+The database removes their roles, supplier links and feature targets with the
+user, and clears "assigned by", "linked by", "updated by" and "accepted by" on
+other rows.
+
+To be able to undo, switch to manual commit before step 2, then Commit or
+Rollback. Don't delete the last active Site Admin.
+
+It doesn't touch the Identity Platform account: a deleted staff member is created
+again as ScrapGo User at their next Google sign-in. To stop them signing in, also
+delete or disable the account in Identity Platform > Users.
 
 ## Tests
 
@@ -334,6 +363,27 @@ Specified in [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md); the code-leve
 - **Three system roles:** `site_admin`, `scrapgo_user` (Internal) and `user` (External). A permission counts only while its feature is on for the user.
 - **Joining:** internal staff sign in with Google Workspace; external users only by invitation (`/api/admin/invitations`).
 - **Administration** is under `/api/admin`: users, invitations, roles and permissions, features, audit. The last active Site Admin can't be removed.
+
+## Invitation emails
+
+Invitations are emailed through the Gmail API when `Invitations:Gmail:Sender`
+and `Invitations:Gmail:ServiceAccountJson` are both set; otherwise they are
+only logged and the admin copies the link from the Invitations tab. One-time
+Google Workspace setup:
+
+1. In a GCP project, enable the Gmail API and create a service account with a JSON key.
+2. Workspace Admin → Security → API controls → Domain-wide delegation: add the
+   service account's client ID with scope `https://www.googleapis.com/auth/gmail.send`.
+3. Choose the sender (a real Workspace mailbox or alias, e.g. `noreply@scrapgo.com`).
+4. Locally: `dotnet user-secrets set "Invitations:Gmail:Sender" "noreply@scrapgo.com" --project src/ScrapGo.Core.Api`
+   and the same for `Invitations:Gmail:ServiceAccountJson` with the key's JSON.
+   In GCP: the `…-gmail-sa` secret plus the `gmail_sender` and
+   `gmail_service_account_configured` Terraform variables.
+
+A failed send never fails the invitation: the API answers `emailSent: false`
+and the admin shares the link instead. The invitee's verification email (sent
+by GCIP) links back to `/login?invitation=…`, so each portal origin must be an
+authorized domain in GCIP (`localhost` is by default).
 
 ## Suppliers
 

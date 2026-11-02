@@ -83,8 +83,11 @@ export type InvitationStatus = 'Pending' | 'Accepted' | 'Revoked' | 'Expired'
 export interface Invitation {
     id: number
     email: string
-    roleId: number
-    roleKey: string
+    /** Fixed by the email's domain: staff addresses are Internal. */
+    userType: UserType
+    roleIds: number[]
+    roleKeys: string[]
+    /** External invitations only. */
     supplierRecordIds: number[]
     /** Effective status: a lapsed Pending invitation reads as Expired. */
     status: InvitationStatus
@@ -99,14 +102,25 @@ export interface Invitation {
 export interface IssuedInvitation {
     invitation: Invitation
     acceptLink: string
+    /** Whether the invitation email went out; when false, share the link by hand. */
+    emailSent: boolean
 }
 
-/** A role an invitation can grant (external roles only). */
+/** A role an invitation can grant: internal roles to staff emails, external roles to the rest. */
 export interface InvitableRole {
     id: number
     key: string
     name: string
     description: string | null
+    userType: UserType
+    /** Only users.manage can grant it (Site Admin). */
+    requiresUsersManage: boolean
+}
+
+/** What the invite form needs: the internal email domains and the roles to offer. */
+export interface InvitationForm {
+    internalDomains: string[]
+    roles: InvitableRole[]
 }
 
 export type FeatureState = 'Off' | 'On' | 'Targeted'
@@ -217,11 +231,12 @@ export function listInvitations(page: number, pageSize: number): Promise<PagedRe
     return apiClient.fetchWithAuth<PagedResult<Invitation>>(`/api/admin/invitations?page=${page}&pageSize=${pageSize}`)
 }
 
-export function listInvitableRoles(): Promise<InvitableRole[]> {
-    return apiClient.fetchWithAuth<InvitableRole[]>('/api/admin/invitations/roles')
+export function getInvitationForm(): Promise<InvitationForm> {
+    return apiClient.fetchWithAuth<InvitationForm>('/api/admin/invitations/form')
 }
 
-export function createInvitation(input: { email: string; roleId: number; supplierRecordIds: number[] }): Promise<IssuedInvitation> {
+/** Internal (staff) invitations take internal roles and no suppliers; external ones an external role and suppliers. */
+export function createInvitation(input: { email: string; roleIds: number[]; supplierRecordIds: number[] }): Promise<IssuedInvitation> {
     return apiClient.fetchWithAuth<IssuedInvitation>('/api/admin/invitations', {
         method: 'POST',
         body: JSON.stringify(input),

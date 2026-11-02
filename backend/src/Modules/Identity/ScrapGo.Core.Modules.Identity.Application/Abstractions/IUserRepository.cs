@@ -27,6 +27,9 @@ public interface IUserRepository
 
     Task<int?> GetIdByUidAsync(string identityPlatformUid, CancellationToken cancellationToken);
 
+    /// <summary>Whether any user (of any type or status) has this email, compared case-insensitively.</summary>
+    Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken);
+
     /// <summary>The emails of the users with these ids; ids with no user are missing.</summary>
     Task<IReadOnlyDictionary<int, string>> GetEmailsAsync(IReadOnlyCollection<int> userIds, CancellationToken cancellationToken);
 

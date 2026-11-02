@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Copy, Loader2, MailPlus, RotateCw, Send, Tra
 
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
+import { Checkbox } from "../ui/checkbox"
 import { EmptyState } from "../ui/empty-state"
 import { Input } from "../ui/input"
 import { Label } from "../ui/label"
@@ -11,15 +12,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { useToast } from "../ui/toast"
 import {
     useCreateInvitation,
-    useInvitableRoles,
+    useInvitationForm,
     useInvitations,
     useResendInvitation,
     useRevokeInvitation,
 } from "../../hooks/useAdminQueries"
+import { useAccess } from "../../hooks/useAccess"
 import { useSuppliers } from "../../hooks/useSupplierQueries"
 import { adminErrorMessage } from "../../lib/admin-errors"
 import { formatDateTime, SELECT_CLASS } from "../../lib/admin-format"
-import type { Invitation, InvitationStatus, IssuedInvitation } from "../../lib/admin-api"
+import type { Invitation, InvitationStatus, IssuedInvitation, UserType } from "../../lib/admin-api"
 import type { SupplierSummary } from "../../lib/supplier-api"
 
 const PAGE_SIZE = 25
@@ -31,38 +33,81 @@ const STATUS_VARIANT: Record<InvitationStatus, "success" | "neutral" | "warning"
     Expired: "danger",
 }
 
+/** The user type an email joins as: staff domains are Internal. Null until the email has a domain. */
+function userTypeOf(email: string, internalDomains: string[]): UserType | null {
+    const at = email.trim().lastIndexOf("@")
+    const domain = at > 0 ? email.trim().slice(at + 1).toLowerCase() : ""
+    if (!domain.includes(".")) {
+        return null
+    }
+    return internalDomains.includes(domain) ? "Internal" : "External"
+}
+
 /**
  * The invite form (users.invite). Lives on the Users page so inviting and
- * managing access are one workflow, not a separate tab.
+ * managing access are one workflow, not a separate tab. The email decides the
+ * user type: staff (an internal domain) get internal roles and see every
+ * supplier; anyone else gets an external role and the suppliers chosen here.
  */
 export function InviteForm({ onIssued }: { onIssued: (issued: IssuedInvitation) => void }) {
     const { toast } = useToast()
-    const roles = useInvitableRoles()
+    const { can } = useAccess()
+    const canManageUsers = can("users.manage")
+    const form = useInvitationForm()
     const create = useCreateInvitation()
     const [email, setEmail] = useState("")
-    const [roleId, setRoleId] = useState<number | "">("")
+    const [externalRoleId, setExternalRoleId] = useState<number | "">("")
+    // Null until the admin changes it: then ScrapGo User is preselected.
+    const [internalRoleIds, setInternalRoleIds] = useState<Set<number> | null>(null)
     const [suppliers, setSuppliers] = useState<SupplierSummary[]>([])
     const [lastLink, setLastLink] = useState<string | null>(null)
 
-    const chosenRoleId = roleId || roles.data?.[0]?.id
+    const roles = form.data?.roles ?? []
+    const internalRoles = roles.filter((role) => role.userType === "Internal")
+    const externalRoles = roles.filter((role) => role.userType === "External")
+    const userType = userTypeOf(email, form.data?.internalDomains ?? [])
+
+    const chosenExternalRoleId = externalRoleId || externalRoles[0]?.id
+    const chosenInternalRoleIds =
+        internalRoleIds ?? new Set(internalRoles.filter((role) => role.key === "scrapgo_user").map((role) => role.id))
+
+    const roleIds =
+        userType === "Internal" ? [...chosenInternalRoleIds] : userType === "External" && chosenExternalRoleId ? [chosenExternalRoleId] : []
+    const ready = userType === "Internal" ? roleIds.length > 0 : userType === "External" && roleIds.length > 0 && suppliers.length > 0
+
+    const toggleInternalRole = (id: number, checked: boolean) => {
+        const next = new Set(chosenInternalRoleIds)
+        if (checked) next.add(id)
+        else next.delete(id)
+        setInternalRoleIds(next)
+    }
 
     const submit = async (e: FormEvent) => {
         e.preventDefault()
-        if (!chosenRoleId || suppliers.length === 0) {
+        if (!ready) {
             return
         }
 
         try {
             const issued = await create.mutateAsync({
                 email: email.trim(),
-                roleId: chosenRoleId,
-                supplierRecordIds: suppliers.map((supplier) => supplier.recordId),
+                roleIds,
+                supplierRecordIds: userType === "External" ? suppliers.map((supplier) => supplier.recordId) : [],
             })
             onIssued(issued)
             setLastLink(issued.acceptLink)
             setEmail("")
             setSuppliers([])
-            toast({ title: "Invitation created", description: "Copy the link and send it to them.", variant: "success" })
+            setInternalRoleIds(null)
+            toast(
+                issued.emailSent
+                    ? { title: "Invitation sent", description: `Emailed to ${issued.invitation.email}.`, variant: "success" }
+                    : {
+                          title: "Invitation created, but the email couldn't be sent",
+                          description: "Copy the link and send it to them.",
+                          variant: "destructive",
+                      }
+            )
         } catch (err) {
             toast({ title: "Could not create the invitation", description: adminErrorMessage(err), variant: "destructive" })
         }
@@ -71,36 +116,73 @@ export function InviteForm({ onIssued }: { onIssued: (issued: IssuedInvitation) 
     return (
         <div className="space-y-4">
             <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
+                <div className="space-y-2 sm:col-span-2">
                     <Label htmlFor="invite-email">Email</Label>
                     <Input id="invite-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+                    <UserTypeHint userType={userType} />
                 </div>
-                <div className="space-y-2">
-                    <Label htmlFor="invite-role">Role</Label>
-                    <select
-                        id="invite-role"
-                        className={`${SELECT_CLASS} w-full`}
-                        value={chosenRoleId ?? ""}
-                        onChange={(e) => setRoleId(Number(e.target.value))}
-                        disabled={!roles.data}
-                    >
-                        {(roles.data ?? []).map((role) => (
-                            <option key={role.id} value={role.id}>
-                                {role.name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-                <div className="space-y-2 sm:col-span-2">
-                    <Label>Suppliers</Label>
-                    <SupplierPicker
-                        selected={suppliers}
-                        onAdd={(supplier) => setSuppliers((current) => [...current, supplier])}
-                        onRemove={(recordId) => setSuppliers((current) => current.filter((s) => s.recordId !== recordId))}
-                    />
-                </div>
+
+                {userType === "Internal" && (
+                    <fieldset className="space-y-2 sm:col-span-2">
+                        <legend className="text-sm font-medium text-ink-900">Roles</legend>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                            {internalRoles.map((role) => {
+                                const locked = role.requiresUsersManage && !canManageUsers
+                                return (
+                                    <label
+                                        key={role.id}
+                                        className={`flex min-h-11 items-start gap-3 rounded-lg border border-border p-3 ${locked ? "opacity-60" : "cursor-pointer"}`}
+                                    >
+                                        <Checkbox
+                                            checked={chosenInternalRoleIds.has(role.id)}
+                                            disabled={locked}
+                                            onCheckedChange={(checked) => toggleInternalRole(role.id, checked === true)}
+                                            aria-label={role.name}
+                                        />
+                                        <span className="leading-tight">
+                                            <span className="block text-sm font-medium text-ink-900">{role.name}</span>
+                                            <span className="block text-xs text-muted-foreground">
+                                                {locked ? "Only someone who can manage users can grant this." : role.description}
+                                            </span>
+                                        </span>
+                                    </label>
+                                )
+                            })}
+                        </div>
+                    </fieldset>
+                )}
+
+                {userType === "External" && (
+                    <>
+                        <div className="space-y-2 sm:col-span-2">
+                            <Label htmlFor="invite-role">Role</Label>
+                            <select
+                                id="invite-role"
+                                className={`${SELECT_CLASS} w-full`}
+                                value={chosenExternalRoleId ?? ""}
+                                onChange={(e) => setExternalRoleId(Number(e.target.value))}
+                                disabled={!form.data}
+                            >
+                                {externalRoles.map((role) => (
+                                    <option key={role.id} value={role.id}>
+                                        {role.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="space-y-2 sm:col-span-2">
+                            <Label>Suppliers</Label>
+                            <SupplierPicker
+                                selected={suppliers}
+                                onAdd={(supplier) => setSuppliers((current) => [...current, supplier])}
+                                onRemove={(recordId) => setSuppliers((current) => current.filter((s) => s.recordId !== recordId))}
+                            />
+                        </div>
+                    </>
+                )}
+
                 <div className="sm:col-span-2">
-                    <Button type="submit" size="lg" disabled={create.isPending || suppliers.length === 0 || !chosenRoleId}>
+                    <Button type="submit" size="lg" disabled={create.isPending || !ready}>
                         {create.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                         Create invitation
                     </Button>
@@ -108,6 +190,22 @@ export function InviteForm({ onIssued }: { onIssued: (issued: IssuedInvitation) 
             </form>
             {lastLink && <IssuedLink link={lastLink} />}
         </div>
+    )
+}
+
+/** Says which kind of user the email makes, and how they will get in. */
+function UserTypeHint({ userType }: { userType: UserType | null }) {
+    if (!userType) {
+        return <p className="text-xs text-muted-foreground">Enter their email to choose roles.</p>
+    }
+
+    return (
+        <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <Badge variant={userType === "Internal" ? "success" : "neutral"}>{userType}</Badge>
+            {userType === "Internal"
+                ? "ScrapGo staff: they sign in with their Google account and see every supplier."
+                : "Outside party: they accept with the emailed link and see only the suppliers you choose."}
+        </p>
     )
 }
 
@@ -225,8 +323,17 @@ export function InvitationsTable({
 
     const onResend = async (invitation: Invitation) => {
         try {
-            onIssued(await resend.mutateAsync(invitation.id))
-            toast({ title: "New link issued", description: "The old link no longer works. Copy the new one.", variant: "success" })
+            const issued = await resend.mutateAsync(invitation.id)
+            onIssued(issued)
+            toast(
+                issued.emailSent
+                    ? { title: "Invitation resent", description: `A new link was emailed to ${invitation.email}; the old one no longer works.`, variant: "success" }
+                    : {
+                          title: "New link issued, but the email couldn't be sent",
+                          description: "The old link no longer works. Copy the new one and send it.",
+                          variant: "destructive",
+                      }
+            )
         } catch (err) {
             toast({ title: "Could not resend", description: adminErrorMessage(err), variant: "destructive" })
         }
@@ -265,7 +372,9 @@ export function InvitationsTable({
                                 <div>
                                     <p className="font-medium text-ink-900">{invitation.email}</p>
                                     <p className="text-xs text-muted-foreground">
-                                        {invitation.roleKey} · {invitation.supplierRecordIds.map((id) => `#${id}`).join(", ") || "No suppliers"}
+                                        {invitation.userType} · {invitation.roleKeys.join(", ")}
+                                        {invitation.userType === "External" &&
+                                            ` · ${invitation.supplierRecordIds.map((id) => `#${id}`).join(", ") || "No suppliers"}`}
                                     </p>
                                 </div>
                                 <Badge variant={STATUS_VARIANT[invitation.status]} className="text-[0.75rem]">
@@ -314,7 +423,10 @@ export function InvitationsTable({
                             return (
                                 <TableRow key={invitation.id}>
                                     <TableCell className="font-medium text-ink-900">{invitation.email}</TableCell>
-                                    <TableCell>{invitation.roleKey}</TableCell>
+                                    <TableCell>
+                                        <span className="block">{invitation.roleKeys.join(", ")}</span>
+                                        <span className="block text-xs text-muted-foreground">{invitation.userType}</span>
+                                    </TableCell>
                                     <TableCell className="text-muted-foreground">
                                         {invitation.supplierRecordIds.map((id) => `#${id}`).join(", ")}
                                     </TableCell>

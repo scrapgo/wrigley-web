@@ -36,9 +36,23 @@ public static class IdentityInfrastructureServiceCollectionExtensions
         var internalHostedDomains = InternalHdAllowlistConfiguration.Read(configuration);
         services.Configure<InternalHdAllowlistOptions>(options => options.HostedDomains = internalHostedDomains);
 
-        // V1 sender only logs; the admin shares the accept link from the API response.
+        // Invitation emails go through the Gmail API when a sender mailbox and a
+        // service account key are configured; otherwise they're only logged and
+        // the admin shares the accept link from the API response.
         services.Configure<InvitationOptions>(configuration.GetSection(InvitationOptions.SectionName));
-        services.AddScoped<IInvitationSender, LoggingInvitationSender>();
+        var gmailSection = configuration.GetSection(GmailOptions.SectionName);
+        services.Configure<GmailOptions>(gmailSection);
+        if (gmailSection.Get<GmailOptions>() is { IsConfigured: true })
+        {
+            services.AddHttpClient(ServiceAccountTokenSource.HttpClientName);
+            services.AddHttpClient(GmailInvitationSender.HttpClientName);
+            services.AddSingleton<IGmailAccessTokenSource, ServiceAccountTokenSource>();
+            services.AddScoped<IInvitationSender, GmailInvitationSender>();
+        }
+        else
+        {
+            services.AddScoped<IInvitationSender, LoggingInvitationSender>();
+        }
 
         // Off unless explicitly turned on (Decision 4b: MFA isn't enabled in GCIP yet).
         var requireMfa = configuration.GetValue<bool>(ExternalUserMfaOptions.ConfigurationKey);

@@ -38,3 +38,20 @@ resource "google_secret_manager_secret_iam_member" "quickbase_user_token_accesso
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.cloud_run.email}"
 }
+
+# The Gmail service account key (invitation emails) is created empty too, for
+# the same reason. Add it out of band:
+#   gcloud secrets versions add <name>-gmail-sa --data-file=key.json
+# then set gmail_service_account_configured = true.
+resource "google_secret_manager_secret" "gmail_service_account" {
+  secret_id = "${local.name}-gmail-sa"
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_iam_member" "gmail_service_account_accessor" {
+  secret_id = google_secret_manager_secret.gmail_service_account.id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.cloud_run.email}"
+}

@@ -8,14 +8,15 @@ using PermissionCatalog = ScrapGo.Core.Modules.Identity.Domain.Authorization.Per
 
 namespace ScrapGo.Core.Modules.Identity.Api.Invitations;
 
-/// <param name="Email">The invitee's email.</param>
-/// <param name="RoleId">An external role.</param>
-/// <param name="SupplierRecordIds">One or more Quickbase Suppliers Record IDs.</param>
-public sealed record CreateInvitationRequest(string? Email, int RoleId, IReadOnlyList<int>? SupplierRecordIds);
+/// <param name="Email">The invitee's email. An internal domain makes an Internal invitation, any other an External one.</param>
+/// <param name="RoleIds">One or more roles of the invitation's user type. Site Admin needs <c>users.manage</c>.</param>
+/// <param name="SupplierRecordIds">External: one or more Quickbase Suppliers Record IDs. Internal: none.</param>
+public sealed record CreateInvitationRequest(string? Email, IReadOnlyList<int>? RoleIds, IReadOnlyList<int>? SupplierRecordIds);
 
 /// <summary>
-/// Invitations for external users (ACCESS-MODEL.md section 9). The invitee
-/// accepts by signing in and calling <c>POST /api/session</c> with the token.
+/// Invitations (ACCESS-MODEL.md section 9). An external invitee accepts by
+/// signing in and calling <c>POST /api/session</c> with the token; an internal
+/// one by their first Google Workspace sign-in.
 /// This controller parses, calls <see cref="InvitationService"/> and maps the outcome.
 /// </summary>
 [ApiController]
@@ -37,13 +38,13 @@ public sealed class InvitationsController(InvitationService invitations) : Contr
             : InvalidRequest(
                 $"page must be 1 or more, pageSize 1 to {PageRequest.MaxPageSize}, and status one of: {string.Join(", ", Enum.GetNames<InvitationStatus>())}.");
 
-    /// <summary>The roles an invitation can grant (external roles), for the invite form.</summary>
-    [HttpGet("roles")]
+    /// <summary>For the invite form: the internal email domains and the roles an invitation can grant.</summary>
+    [HttpGet("form")]
     [RequirePermission(PermissionCatalog.UsersInvite)]
-    [ProducesResponseType<IReadOnlyList<InvitableRoleDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<InvitationFormDto>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> ListRoles(CancellationToken cancellationToken) =>
-        Ok(await invitations.ListInvitableRolesAsync(cancellationToken));
+    public async Task<IActionResult> GetForm(CancellationToken cancellationToken) =>
+        Ok(await invitations.GetFormAsync(cancellationToken));
 
     [HttpGet("{id:int}")]
     [RequirePermission(PermissionCatalog.UsersView, PermissionCatalog.UsersInvite)]
@@ -63,7 +64,7 @@ public sealed class InvitationsController(InvitationService invitations) : Contr
     public async Task<IActionResult> Create([FromBody] CreateInvitationRequest? request, CancellationToken cancellationToken)
     {
         var result = await invitations.CreateAsync(
-            new CreateInvitationCommand(request?.Email, request?.RoleId ?? 0, request?.SupplierRecordIds), cancellationToken);
+            new CreateInvitationCommand(request?.Email, request?.RoleIds, request?.SupplierRecordIds, RequestOrigin()), cancellationToken);
 
         return result is { Outcome: InvitationOutcome.Success, Issued: { } issued }
             ? CreatedAtAction(nameof(Get), new { id = issued.Invitation.Id }, issued)
@@ -79,7 +80,7 @@ public sealed class InvitationsController(InvitationService invitations) : Contr
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Resend(int id, CancellationToken cancellationToken)
     {
-        var result = await invitations.ResendAsync(id, cancellationToken);
+        var result = await invitations.ResendAsync(id, RequestOrigin(), cancellationToken);
 
         return result is { Outcome: InvitationOutcome.Success, Issued: { } issued } ? Ok(issued) : Problem(result.Outcome);
     }
@@ -97,17 +98,36 @@ public sealed class InvitationsController(InvitationService invitations) : Contr
         return outcome == InvitationOutcome.Success ? NoContent() : Problem(outcome);
     }
 
+    /// <summary>
+    /// The portal the admin is using: the browser's <c>Origin</c>, or the host
+    /// Firebase Hosting forwarded the call from. Only an origin on
+    /// <c>Invitations:FrontendOrigins</c> is ever used for links.
+    /// </summary>
+    private string? RequestOrigin()
+    {
+        if (Request.Headers.Origin.ToString() is { Length: > 0 } origin && origin != "null")
+        {
+            return origin;
+        }
+
+        return Request.Headers["X-Forwarded-Host"].ToString() is { Length: > 0 } forwardedHost
+            ? $"https://{forwardedHost.Split(',')[0].Trim()}"
+            : null;
+    }
+
     private static IActionResult Problem(InvitationOutcome outcome) => outcome switch
     {
         InvitationOutcome.RoleNotFound => ProblemResults.Create(
             StatusCodes.Status400BadRequest, "Role not found", "No such active role.", "role_not_found").ToActionResult(),
-        InvitationOutcome.RoleNotExternal => ProblemResults.Create(
-            StatusCodes.Status400BadRequest, "Role not external",
-            "Invitations are for external users; choose an external role.", "role_not_external").ToActionResult(),
-        InvitationOutcome.InternalEmail => ProblemResults.Create(
-            StatusCodes.Status400BadRequest, "Internal email",
-            "ScrapGo staff don't need an invitation: they sign in with their Google Workspace account.",
-            "internal_email_not_invitable").ToActionResult(),
+        InvitationOutcome.RoleTypeMismatch => ProblemResults.Create(
+            StatusCodes.Status400BadRequest, "Role of the wrong user type",
+            "ScrapGo emails take internal roles; every other email takes external roles.", "role_type_mismatch").ToActionResult(),
+        InvitationOutcome.SiteAdminRequiresUsersManage => ProblemResults.Create(
+            StatusCodes.Status403Forbidden, "Site Admin needs users.manage",
+            "Only someone who can manage users can invite a Site Admin.", "site_admin_requires_users_manage").ToActionResult(),
+        InvitationOutcome.UserExists => ProblemResults.Create(
+            StatusCodes.Status409Conflict, "User exists",
+            "A user with this email already exists. Change their roles from the user list instead.", "user_exists").ToActionResult(),
         InvitationOutcome.AlreadyPending => ProblemResults.Create(
             StatusCodes.Status409Conflict, "Invitation pending",
             "This email already has a pending invitation. Resend or revoke it.", "invitation_pending").ToActionResult(),

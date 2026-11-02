@@ -14,11 +14,12 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Invitations;
 /// </remarks>
 public sealed partial class LoggingInvitationSender(ILogger<LoggingInvitationSender> logger) : IInvitationSender
 {
-    public Task SendAsync(InvitationMessage message, CancellationToken cancellationToken)
+    /// <returns>False: nothing was emailed, so the admin must share the link.</returns>
+    public Task<bool> SendAsync(InvitationMessage message, CancellationToken cancellationToken)
     {
         LogInvitationReady(message.InvitationId, message.Email, message.ExpiresAt);
 
-        return Task.CompletedTask;
+        return Task.FromResult(false);
     }
 
     [LoggerMessage(Level = LogLevel.Information,

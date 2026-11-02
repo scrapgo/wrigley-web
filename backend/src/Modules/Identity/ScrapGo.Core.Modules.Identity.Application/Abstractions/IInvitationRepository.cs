@@ -21,6 +21,16 @@ public interface IInvitationRepository
     Task LockByTokenHashAsync(string tokenHash, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Row-locks the email's Pending invitation until the ambient transaction
+    /// ends, so it is applied at most once. Must run inside
+    /// <see cref="IUnitOfWork.ExecuteInTransactionAsync"/>.
+    /// </summary>
+    Task LockPendingByEmailAsync(string email, CancellationToken cancellationToken);
+
+    /// <summary>The email's Pending invitation, tracked, or null. <paramref name="email"/> is normalized first.</summary>
+    Task<Invitation?> FindPendingByEmailAsync(string email, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Marks the email's lapsed Pending invitations Expired, immediately, so
     /// a new one can take the one-pending-per-email slot.
     /// </summary>

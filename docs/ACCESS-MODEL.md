@@ -156,7 +156,7 @@ Follow repo conventions: `int` identity keys, snake\_case, `text` enums with `Ha
 
 | `user\_suppliers` | `user\_id`, `user\_type` (always External), `supplier\_record\_id` (int, the Quickbase Suppliers Record ID), `linked\_at`, `linked\_by\_user\_id` | PK `(user\_id, supplier\_record\_id)`; FK `(user\_id, user\_type)` → users; CHECK `user\_type = 'External'` |
 
-| `invitations` | `email`, `role\_id`, `supplier\_record\_ids` (int\[]), `token\_hash` (SHA-256), `status` (Pending/Accepted/Revoked/Expired), `expires\_at`, `invited\_by\_user\_id`, `accepted\_by\_user\_id`, `accepted\_at`, `created\_at` | unique `token\_hash`; partial unique `(email) WHERE status = 'Pending'` |
+| `invitations` | `email`, `user\_type` (Internal/External), `role\_ids` (int\[], at least one), `supplier\_record\_ids` (int\[], external only), `token\_hash` (SHA-256), `status` (Pending/Accepted/Revoked/Expired), `expires\_at`, `invited\_by\_user\_id`, `accepted\_by\_user\_id`, `accepted\_at`, `created\_at` | unique `token\_hash`; partial unique `(email) WHERE status = 'Pending'` |
 
 
 
@@ -230,9 +230,9 @@ Every sign-in ends with `POST /api/session` (optional body `{ "invitationToken":
 
 | User found, Disabled | 403 `account\_disabled`; audit `access.denied` |
 
-| Not found, passes the internal rule | Create Internal user + `scrapgo\_user`; audit `user.provisioned` |
+| Not found, passes the internal rule | Create Internal user with the roles of the email's open internal invitation (mark it accepted; audit `invitation.accepted`), else `scrapgo\_user`; audit `user.provisioned` (one transaction; no token needed) |
 
-| Not found, valid invitation token | Create External user with the invited role and supplier links; mark accepted; audit `invitation.accepted` (one transaction) |
+| Not found, valid invitation token | Create External user with the invited roles and supplier links; mark accepted; audit `invitation.accepted` (one transaction). An internal invitation's token is refused: staff accept by signing in with Google |
 
 | Not found, anything else | 403 `no\_access`; audit `access.denied`; no user row is created |
 
@@ -242,7 +242,7 @@ No other endpoint creates users. `GET /api/me` returns 403 `no\_access` for an u
 
 
 
-Invitations: created by `users.invite` (Site Admin and ScrapGo User), external role only, never to an email on an `INTERNAL\_HD\_ALLOWLIST` domain (staff join as Internal by signing in with Google; 400 `internal\_email\_not\_invitable`), one or more supplier Record IDs, 32 random bytes base64url token, only its SHA-256 stored, 7-day expiry. Acceptance requires the token, `email\_verified`, and the token's email matching the invitation email (case-insensitive). Resending issues a new token.
+Invitations: created by `users.invite` (Site Admin and ScrapGo User). The email's domain fixes the invitation's user type: an `INTERNAL\_HD\_ALLOWLIST` domain makes it Internal (one or more internal roles, no supplier Record IDs), any other External (an external role and one or more supplier Record IDs); a role of the other type is 400 `role\_type\_mismatch`. Granting `site\_admin` also needs `users.manage` (403 `site\_admin\_requires\_users\_manage`), so a ScrapGo User can't create an admin. `GET /api/admin/invitations/form` gives the invite form the internal domains and every role with its user type. 32 random bytes base64url token, only its SHA-256 stored, 7-day expiry. An internal invitation is emailed with a link to the sign-in page and applied at the invitee's first Google Workspace sign-in (which already proves the email); staff with no invitation still get `scrapgo\_user`. An external invitation's acceptance requires the token, `email\_verified`, and the token's email matching the invitation email (case-insensitive). Resending issues a new token. The invitation is emailed to the invitee (Gmail API, when configured; the admin can always copy the link). The invitee either continues with Google (any Google account for the invited email, e.g. Gmail: Google has already verified it, so that sign-in accepts at once), or creates a password account with their name, verifies their email through the link GCIP sends, which brings them back to the sign-in page carrying the invitation, and signs in: that `POST /api/session` creates their active External account.
 
 
 
@@ -300,7 +300,9 @@ public sealed record AccessContext(
 
 | `GET /api/admin/invitations` | `users.view` or `users.invite` | |
 
-| `POST /api/admin/invitations` | `users.invite` | 201 + Location |
+| `GET /api/admin/invitations/form` | `users.invite` | Internal domains + invitable roles |
+
+| `POST /api/admin/invitations` | `users.invite` (+ `users.manage` to grant `site\_admin`) | 201 + Location |
 
 | `POST /api/admin/invitations/{id}/resend` | `users.invite` | |
 
@@ -351,6 +353,8 @@ The Identity schema reaches this model in one of two ways. Either way, back up t
 \- Also clear `audit.audit\_logs` (`TRUNCATE audit.audit\_logs RESTART IDENTITY`). New users get ids from 1 again, and audit rows refer to users by id only, so old rows would otherwise show the wrong person.
 
 \- Then restore an administrator: sign in once with a scrapgo.com Google account, and run `bootstrap-site-admin --uid <uid>`.
+
+\- To delete a single user instead, use `backend/scripts/delete-user.sql` (four statements to run in order with the email filled in; see backend/README.md, "Deleting a user by hand"). It removes the user, their dependent rows, the invitations they sent or received, and their audit rows. Don't delete the last active Site Admin.
 
 \- Done on dev on 2026-10-21 (instance `wrigley-postgres`, database `identity\_platform`). That run also applied the pending Audit migration `UnmapOrganizationId`.
 

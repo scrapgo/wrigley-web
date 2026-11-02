@@ -1,4 +1,5 @@
 // B11: invitations (ACCESS-MODEL.md sections 7 and 9) and their acceptance through POST /api/session.
+// External invitations are accepted with the token; internal ones at the invitee's first Google sign-in.
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -18,7 +19,7 @@ public class InvitationSpecs
             var inviterUid = await SeedScrapGoUserAsync(fixture);
             var email = NewEmail();
 
-            var response = await CreateAsync(fixture, inviterUid, email, await ExternalRoleIdAsync(fixture), [17511, 9583]);
+            var response = await CreateAsync(fixture, inviterUid, email, [await ExternalRoleIdAsync(fixture)], [17511, 9583]);
 
             Assert.Equal(HttpStatusCode.Created, response.StatusCode);
             Assert.NotNull(response.Headers.Location);
@@ -27,7 +28,8 @@ public class InvitationSpecs
             Assert.StartsWith($"{IdentitySpecFixture.FrontendBaseUrl}/invite/accept?token=", acceptLink);
             var invitation = body.GetProperty("invitation");
             Assert.Equal("Pending", invitation.GetProperty("status").GetString());
-            Assert.Equal(DefaultRoleNames.User, invitation.GetProperty("roleKey").GetString());
+            Assert.Equal("External", invitation.GetProperty("userType").GetString());
+            Assert.Equal([DefaultRoleNames.User], invitation.GetProperty("roleKeys").EnumerateArray().Select(r => r.GetString()));
             Assert.Equal([9583, 17511], invitation.GetProperty("supplierRecordIds").EnumerateArray().Select(i => i.GetInt32()));
             var expiresIn = invitation.GetProperty("expiresAt").GetDateTimeOffset() - DateTimeOffset.UtcNow;
             Assert.InRange(expiresIn, TimeSpan.FromDays(7) - TimeSpan.FromMinutes(5), TimeSpan.FromDays(7));
@@ -60,17 +62,38 @@ public class InvitationSpecs
         }
 
         [Fact]
-        public async Task They_can_list_the_invitable_roles_which_are_external_only()
+        public async Task The_invite_form_lists_the_internal_domains_and_every_role_with_its_user_type()
         {
             var inviterUid = await SeedScrapGoUserAsync(fixture);
 
-            var response = await fixture.SendAsync(HttpMethod.Get, $"{InvitationsPath}/roles", fixture.CreateToken(inviterUid));
+            var response = await fixture.SendAsync(HttpMethod.Get, $"{InvitationsPath}/form", fixture.CreateToken(inviterUid));
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var keys = (await response.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray().Select(r => r.GetProperty("key").GetString()).ToList();
-            Assert.Contains(DefaultRoleNames.User, keys);
-            Assert.DoesNotContain(DefaultRoleNames.ScrapGoUser, keys);
-            Assert.DoesNotContain(DefaultRoleNames.SiteAdmin, keys);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal([IdentitySpecFixture.InternalDomain], body.GetProperty("internalDomains").EnumerateArray().Select(d => d.GetString()));
+            var roles = body.GetProperty("roles").EnumerateArray().ToDictionary(
+                r => r.GetProperty("key").GetString()!,
+                r => (UserType: r.GetProperty("userType").GetString(), RequiresUsersManage: r.GetProperty("requiresUsersManage").GetBoolean()));
+            Assert.Equal(("External", false), roles[DefaultRoleNames.User]);
+            Assert.Equal(("Internal", false), roles[DefaultRoleNames.ScrapGoUser]);
+            Assert.Equal(("Internal", true), roles[DefaultRoleNames.SiteAdmin]);
+        }
+
+        [Fact]
+        public async Task They_can_invite_staff_as_scrapgo_user_and_get_the_sign_in_link()
+        {
+            var inviterUid = await SeedScrapGoUserAsync(fixture);
+            var email = NewStaffEmail();
+
+            var response = await CreateAsync(fixture, inviterUid, email, [await RoleIdAsync(fixture, DefaultRoleNames.ScrapGoUser)], []);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal($"{IdentitySpecFixture.FrontendBaseUrl}/login", body.GetProperty("acceptLink").GetString());
+            var invitation = body.GetProperty("invitation");
+            Assert.Equal("Internal", invitation.GetProperty("userType").GetString());
+            Assert.Equal([DefaultRoleNames.ScrapGoUser], invitation.GetProperty("roleKeys").EnumerateArray().Select(r => r.GetString()));
+            Assert.Empty(invitation.GetProperty("supplierRecordIds").EnumerateArray());
         }
 
         [Fact]
@@ -89,32 +112,69 @@ public class InvitationSpecs
         // Sad paths, kept separate.
 
         [Fact]
-        public async Task An_internal_role_is_rejected()
+        public async Task An_internal_role_for_an_external_email_is_rejected()
         {
             var inviterUid = await SeedScrapGoUserAsync(fixture);
             var email = NewEmail();
             var internalRoleId = await RoleIdAsync(fixture, DefaultRoleNames.ScrapGoUser);
 
-            var response = await CreateAsync(fixture, inviterUid, email, internalRoleId, [17511]);
+            var response = await CreateAsync(fixture, inviterUid, email, [internalRoleId], [17511]);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Equal("role_not_external", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+            Assert.Equal("role_type_mismatch", await IdentitySpecFixture.ReadProblemReasonAsync(response));
             Assert.False(await fixture.DbContext.Invitations.AnyAsync(i => i.Email == email));
         }
 
-        // Staff join as Internal users via Google sign-in; an invitation would make them External.
+        // Staff addresses take internal roles: an external role would make them External.
         [Theory]
-        [InlineData("staff@scrapgo.example")]
-        [InlineData("Staff@SCRAPGO.EXAMPLE")]
-        public async Task An_email_on_the_internal_domain_is_rejected(string email)
+        [InlineData("staff-a@scrapgo.example")]
+        [InlineData("Staff-B@SCRAPGO.EXAMPLE")]
+        public async Task An_external_role_for_an_internal_email_is_rejected(string email)
         {
             var inviterUid = await SeedScrapGoUserAsync(fixture);
 
-            var response = await CreateAsync(fixture, inviterUid, email, await ExternalRoleIdAsync(fixture), [17511]);
+            var response = await CreateAsync(fixture, inviterUid, email, [await ExternalRoleIdAsync(fixture)], []);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            Assert.Equal("internal_email_not_invitable", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+            Assert.Equal("role_type_mismatch", await IdentitySpecFixture.ReadProblemReasonAsync(response));
             Assert.False(await fixture.DbContext.Invitations.AnyAsync(i => i.Email == email.ToLowerInvariant()));
+        }
+
+        // Only users.manage (Site Admin) can create a Site Admin.
+        [Fact]
+        public async Task Inviting_a_site_admin_is_forbidden()
+        {
+            var inviterUid = await SeedScrapGoUserAsync(fixture);
+            var email = NewStaffEmail();
+
+            var response = await CreateAsync(fixture, inviterUid, email, [await RoleIdAsync(fixture, DefaultRoleNames.SiteAdmin)], []);
+
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Equal("site_admin_requires_users_manage", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+            Assert.False(await fixture.DbContext.Invitations.AnyAsync(i => i.Email == email));
+        }
+
+        // Internal users see every supplier, so links would mean nothing.
+        [Fact]
+        public async Task Supplier_record_ids_on_an_internal_invitation_are_rejected()
+        {
+            var inviterUid = await SeedScrapGoUserAsync(fixture);
+
+            var response = await CreateAsync(fixture, inviterUid, NewStaffEmail(), [await RoleIdAsync(fixture, DefaultRoleNames.ScrapGoUser)], [17511]);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal("invalid_request", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+        }
+
+        [Fact]
+        public async Task No_roles_is_rejected()
+        {
+            var inviterUid = await SeedScrapGoUserAsync(fixture);
+
+            var response = await CreateAsync(fixture, inviterUid, NewEmail(), [], [17511]);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal("invalid_request", await IdentitySpecFixture.ReadProblemReasonAsync(response));
         }
 
         [Fact]
@@ -122,10 +182,38 @@ public class InvitationSpecs
         {
             var inviterUid = await SeedScrapGoUserAsync(fixture);
 
-            var response = await CreateAsync(fixture, inviterUid, NewEmail(), await ExternalRoleIdAsync(fixture), []);
+            var response = await CreateAsync(fixture, inviterUid, NewEmail(), [await ExternalRoleIdAsync(fixture)], []);
 
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
             Assert.Equal("invalid_request", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+        }
+
+        // An existing account gets role changes, not an invitation; any case of the email matches.
+        [Fact]
+        public async Task An_email_that_already_has_a_user_is_a_conflict()
+        {
+            var inviterUid = await SeedScrapGoUserAsync(fixture);
+            var email = NewEmail();
+            await fixture.SeedUserAsync(email);
+
+            var response = await CreateAsync(fixture, inviterUid, email.ToUpperInvariant(), [await ExternalRoleIdAsync(fixture)], [17511]);
+
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Equal("user_exists", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+            Assert.False(await fixture.DbContext.Invitations.AnyAsync(i => i.Email == email));
+        }
+
+        [Fact]
+        public async Task An_existing_staff_member_is_a_conflict_too()
+        {
+            var inviterUid = await SeedScrapGoUserAsync(fixture);
+            var email = NewStaffEmail();
+            await fixture.SeedUserAsync(email, UserType.Internal);
+
+            var response = await CreateAsync(fixture, inviterUid, email, [await RoleIdAsync(fixture, DefaultRoleNames.ScrapGoUser)], []);
+
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Equal("user_exists", await IdentitySpecFixture.ReadProblemReasonAsync(response));
         }
 
         [Fact]
@@ -135,10 +223,98 @@ public class InvitationSpecs
             var email = NewEmail();
             await CreateOkAsync(fixture, inviterUid, email);
 
-            var response = await CreateAsync(fixture, inviterUid, email.ToUpperInvariant(), await ExternalRoleIdAsync(fixture), [17511]);
+            var response = await CreateAsync(fixture, inviterUid, email.ToUpperInvariant(), [await ExternalRoleIdAsync(fixture)], [17511]);
 
             Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
             Assert.Equal("invitation_pending", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+        }
+    }
+
+    public class Given_a_site_admin(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    {
+        [Fact]
+        public async Task They_can_invite_staff_as_site_admin_and_scrapgo_user()
+        {
+            var inviterUid = await SeedSiteAdminAsync(fixture);
+            var email = NewStaffEmail();
+            int[] roleIds = [await RoleIdAsync(fixture, DefaultRoleNames.SiteAdmin), await RoleIdAsync(fixture, DefaultRoleNames.ScrapGoUser)];
+
+            var response = await CreateAsync(fixture, inviterUid, email, roleIds, []);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            var invitation = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("invitation");
+            Assert.Equal(
+                [DefaultRoleNames.ScrapGoUser, DefaultRoleNames.SiteAdmin],
+                invitation.GetProperty("roleKeys").EnumerateArray().Select(r => r.GetString()));
+        }
+    }
+
+    public class Given_an_internal_invitation(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    {
+        [Fact]
+        public async Task The_first_google_sign_in_gets_the_invited_roles_and_accepts_it()
+        {
+            var email = NewStaffEmail();
+            int[] roleIds = [await RoleIdAsync(fixture, DefaultRoleNames.SiteAdmin), await RoleIdAsync(fixture, DefaultRoleNames.ScrapGoUser)];
+            var id = await CreateStaffOkAsync(fixture, await SeedSiteAdminAsync(fixture), email, roleIds);
+            var staffUid = Guid.NewGuid().ToString();
+
+            // No token: Google proves the email.
+            var response = await fixture.StartSessionAsync(fixture.CreateWorkspaceToken(staffUid, email.ToUpperInvariant()));
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var me = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal("Internal", me.GetProperty("user").GetProperty("userType").GetString());
+            Assert.Equal(
+                [DefaultRoleNames.ScrapGoUser, DefaultRoleNames.SiteAdmin],
+                me.GetProperty("roles").EnumerateArray().Select(r => r.GetString()).Order());
+            var userId = await UserIdOfAsync(fixture, staffUid);
+            var invitation = await fixture.DbContext.Invitations.AsNoTracking().SingleAsync(i => i.Id == id);
+            Assert.Equal(InvitationStatus.Accepted, invitation.Status);
+            Assert.Equal(userId, invitation.AcceptedByUserId);
+            Assert.True(await fixture.DbContext.AuditLogs.AnyAsync(
+                a => a.EventType == IdentityAuditEventTypes.InvitationAccepted && a.UserId == userId));
+        }
+
+        [Fact]
+        public async Task Staff_without_an_invitation_still_get_scrapgo_user()
+        {
+            var staffUid = Guid.NewGuid().ToString();
+
+            var response = await fixture.StartSessionAsync(fixture.CreateWorkspaceToken(staffUid, NewStaffEmail()));
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var me = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal([DefaultRoleNames.ScrapGoUser], me.GetProperty("roles").EnumerateArray().Select(r => r.GetString()));
+        }
+
+        [Fact]
+        public async Task An_expired_internal_invitation_is_ignored()
+        {
+            var email = NewStaffEmail();
+            var id = await CreateStaffOkAsync(fixture, await SeedSiteAdminAsync(fixture), email, [await RoleIdAsync(fixture, DefaultRoleNames.SiteAdmin)]);
+            await fixture.DbContext.Invitations.Where(i => i.Id == id)
+                .ExecuteUpdateAsync(set => set.SetProperty(i => i.ExpiresAt, DateTimeOffset.UtcNow.AddMinutes(-1)));
+
+            var response = await fixture.StartSessionAsync(fixture.CreateWorkspaceToken(Guid.NewGuid().ToString(), email));
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var me = await response.Content.ReadFromJsonAsync<JsonElement>();
+            Assert.Equal([DefaultRoleNames.ScrapGoUser], me.GetProperty("roles").EnumerateArray().Select(r => r.GetString()));
+        }
+
+        // Staff accept with Google only: a password account with the token gets nothing.
+        [Fact]
+        public async Task A_password_sign_in_with_its_token_is_refused()
+        {
+            var email = NewStaffEmail();
+            var inviterUid = await SeedSiteAdminAsync(fixture);
+            var id = await CreateStaffOkAsync(fixture, inviterUid, email, [await RoleIdAsync(fixture, DefaultRoleNames.ScrapGoUser)]);
+            var token = "internal-token";
+            await fixture.DbContext.Invitations.Where(i => i.Id == id)
+                .ExecuteUpdateAsync(set => set.SetProperty(i => i.TokenHash, Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(token)))));
+
+            await AssertNoAccessAsync(fixture, email, token);
         }
     }
 
@@ -150,7 +326,7 @@ public class InvitationSpecs
             var uid = await SeedExternalUserAsync(fixture);
             var email = NewEmail();
 
-            var response = await CreateAsync(fixture, uid, email, await ExternalRoleIdAsync(fixture), [17511]);
+            var response = await CreateAsync(fixture, uid, email, [await ExternalRoleIdAsync(fixture)], [17511]);
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
             Assert.Equal("missing_permission", await IdentitySpecFixture.ReadProblemReasonAsync(response));
@@ -158,11 +334,11 @@ public class InvitationSpecs
         }
 
         [Fact]
-        public async Task They_cannot_list_the_invitable_roles()
+        public async Task They_cannot_read_the_invite_form()
         {
             var uid = await SeedExternalUserAsync(fixture);
 
-            var response = await fixture.SendAsync(HttpMethod.Get, $"{InvitationsPath}/roles", fixture.CreateToken(uid));
+            var response = await fixture.SendAsync(HttpMethod.Get, $"{InvitationsPath}/form", fixture.CreateToken(uid));
 
             Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         }
@@ -195,8 +371,8 @@ public class InvitationSpecs
             var me = await response.Content.ReadFromJsonAsync<JsonElement>();
             Assert.Equal("External", me.GetProperty("user").GetProperty("userType").GetString());
             Assert.Equal([DefaultRoleNames.User], me.GetProperty("roles").EnumerateArray().Select(r => r.GetString()));
-
             var userId = await UserIdOfAsync(fixture, inviteeUid);
+
             Assert.Equal(
                 [9583, 17511],
                 await fixture.DbContext.UserSuppliers.AsNoTracking().Where(s => s.UserId == userId)
@@ -302,6 +478,8 @@ public class InvitationSpecs
 
     private static string NewEmail() => $"buyer-{Guid.NewGuid():N}@acme.example";
 
+    private static string NewStaffEmail() => $"staff-{Guid.NewGuid():N}@{IdentitySpecFixture.InternalDomain}";
+
     private static async Task AssertNoAccessAsync(IdentitySpecFixture fixture, string email, string token, bool emailVerified = true)
     {
         var uid = Guid.NewGuid().ToString();
@@ -323,13 +501,21 @@ public class InvitationSpecs
             new { invitationToken = token });
 
     private static Task<HttpResponseMessage> CreateAsync(
-        IdentitySpecFixture fixture, string inviterUid, string email, int roleId, int[] supplierRecordIds) =>
-        fixture.SendAsync(HttpMethod.Post, InvitationsPath, fixture.CreateToken(inviterUid), new { email, roleId, supplierRecordIds });
+        IdentitySpecFixture fixture, string inviterUid, string email, int[] roleIds, int[] supplierRecordIds) =>
+        fixture.SendAsync(HttpMethod.Post, InvitationsPath, fixture.CreateToken(inviterUid), new { email, roleIds, supplierRecordIds });
+
+    private static async Task<int> CreateStaffOkAsync(IdentitySpecFixture fixture, string inviterUid, string email, int[] roleIds)
+    {
+        var response = await CreateAsync(fixture, inviterUid, email, roleIds, []);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+
+        return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("invitation").GetProperty("id").GetInt32();
+    }
 
     private static async Task<(int Id, string Token)> CreateOkAsync(
         IdentitySpecFixture fixture, string inviterUid, string email, int[]? supplierRecordIds = null)
     {
-        var response = await CreateAsync(fixture, inviterUid, email, await ExternalRoleIdAsync(fixture), supplierRecordIds ?? [17511]);
+        var response = await CreateAsync(fixture, inviterUid, email, [await ExternalRoleIdAsync(fixture)], supplierRecordIds ?? [17511]);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
 
@@ -345,6 +531,14 @@ public class InvitationSpecs
     {
         var (uid, userId) = await fixture.SeedUserAsync($"staff-{Guid.NewGuid():N}@scrapgo.example", UserType.Internal);
         await fixture.AssignRoleAsync(userId, await RoleIdAsync(fixture, DefaultRoleNames.ScrapGoUser));
+
+        return uid;
+    }
+
+    private static async Task<string> SeedSiteAdminAsync(IdentitySpecFixture fixture)
+    {
+        var (uid, userId) = await fixture.SeedUserAsync($"admin-{Guid.NewGuid():N}@scrapgo.example", UserType.Internal);
+        await fixture.AssignRoleAsync(userId, await RoleIdAsync(fixture, DefaultRoleNames.SiteAdmin));
 
         return uid;
     }

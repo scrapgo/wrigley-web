@@ -127,9 +127,6 @@ VITE_GCIP_PROJECT_ID=wrigley-cloud-prod
 # Web client id of the Google provider in GCIP (Identity Platform > Providers >
 # Google). Public. Blank hides "Sign in with Google".
 VITE_GOOGLE_CLIENT_ID=
-
-# Keep blank: external users sign in with Google too, and a hint hides them.
-VITE_GOOGLE_HOSTED_DOMAIN=
 ```
 
 Vite reads these only at startup: restart `npm run dev` after changing them.

@@ -9,8 +9,11 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
+using ScrapGo.Core.Modules.Identity.Application.Invitations;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Authentication;
+using ScrapGo.Core.Modules.Identity.Infrastructure.Invitations;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Persistence;
 using ScrapGo.Core.Shared.Infrastructure.Audit;
 using Testcontainers.PostgreSql;
@@ -146,6 +149,12 @@ public class IdentitySpecFixture : IAsyncLifetime
                 // Test-only probe routes (Fixtures/ProbeController.cs),
                 // registered here so they never exist in the production host.
                 services.AddControllers().AddApplicationPart(typeof(IdentitySpecFixture).Assembly);
+
+                // The host runs as Development, so it loads the developer's
+                // user-secrets, Gmail key included. Tests must never send real
+                // email: invitations are only logged unless a fixture replaces
+                // the sender again in ConfigureTestServices.
+                services.Replace(ServiceDescriptor.Scoped<IInvitationSender, LoggingInvitationSender>());
 
                 ConfigureTestServices(services);
             }));

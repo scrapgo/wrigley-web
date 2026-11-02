@@ -273,6 +273,39 @@ The latest Identity migration is `AccessModelV1`: it replaces the previous
 model's tables with the access model (`../docs/ACCESS-MODEL.md`), keeps users
 (`classification` becomes `user_type`), seeds roles, features, permissions and
 the matrix, and gives existing users the new system roles. It is forward-only.
+`InternalInvitations` then gives invitations a user type and several roles;
+existing invitations become External and keep their one role.
+
+## Deleting a user by hand
+
+The API only disables users. To remove one from the database, with everything
+that depends on them, use [`scripts/delete-user.sql`](scripts/delete-user.sql).
+It runs as a dry run unless you add `-v confirm=yes`. The dry run shows the user,
+their roles and how many rows each table loses, then rolls back. With the proxy
+running and the `PG*` variables set for the database:
+
+```bash
+psql -v ON_ERROR_STOP=1 -v email=someone@acme.com -f scripts/delete-user.sql                 # dry run
+psql -v ON_ERROR_STOP=1 -v email=someone@acme.com -v confirm=yes -f scripts/delete-user.sql  # delete
+```
+
+Use `-v uid=<identity platform uid>` instead of `email` when an email matches
+more than one user. In one transaction the script deletes:
+
+- invitations the user sent
+- invitations to the user's email
+- the user's audit rows: their own events, and events that name their UID or email
+- the user row itself
+
+The database then drops their roles, supplier links and feature targets, and
+clears "assigned by", "linked by", "updated by" and "accepted by" on other rows.
+
+It refuses to delete the last active Site Admin.
+
+It doesn't touch the Identity Platform account. A deleted staff member is created
+again as ScrapGo User at their next Google sign-in; a deleted external user gets
+`no_access` until invited again. To stop them signing in, also delete or disable
+the account in Identity Platform > Users.
 
 ## Tests
 

@@ -22,18 +22,18 @@ export function AccessPanel() {
     return (
         <div className="space-y-4">
             <Tabs defaultValue={defaultTab}>
-                {/* Horizontally scrollable pill bar on mobile so tabs never wrap awkwardly. */}
-                <TabsList className="flex-wrap overflow-x-auto pb-1 whitespace-nowrap scrollbar-hide">
+                {/* All tabs visible at all times — they wrap on mobile instead of hiding off-screen. Ultra-compact. */}
+                <TabsList className="flex-wrap gap-0.5">
                     {canRoles && (
-                        <TabsTrigger value="roles">
-                            <ShieldCheck className="h-4 w-4" />
-                            Roles
+                        <TabsTrigger value="roles" className="whitespace-normal text-center px-1.5 py-1 gap-1">
+                            <ShieldCheck className="h-3 w-3 mb-0" />
+                            <span className="block text-[0.6rem] leading-none">Roles</span>
                         </TabsTrigger>
                     )}
                     {canFeatures && (
-                        <TabsTrigger value="features">
-                            <ToggleRight className="h-4 w-4" />
-                            Features
+                        <TabsTrigger value="features" className="whitespace-normal text-center px-1.5 py-1 gap-1">
+                            <ToggleRight className="h-3 w-3 mb-0" />
+                            <span className="block text-[0.6rem] leading-none">Features</span>
                         </TabsTrigger>
                     )}
                 </TabsList>

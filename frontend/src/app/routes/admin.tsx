@@ -47,14 +47,14 @@ function AdminComponent() {
     return (
         <AppShell active={active ?? 'admin'} title="Administration" subtitle="Users, roles, features and the audit log.">
             <Tabs value={active} onValueChange={(tab) => navigate({ search: { tab: tab as AdminTab } })}>
-                {/* Horizontally scrollable pill bar on mobile so tabs never wrap awkwardly. */}
-                <TabsList className="flex-wrap overflow-x-auto pb-1 whitespace-nowrap scrollbar-hide">
+                {/* All tabs visible at all times — they wrap on mobile instead of hiding off-screen. Ultra-compact. */}
+                <TabsList className="flex-wrap gap-0.5">
                     {tabs.map((item) => {
                         const Icon = item.icon
                         return (
-                            <TabsTrigger key={item.key} value={item.tab!} className="whitespace-nowrap">
-                                <Icon className="h-4 w-4 hidden sm:block" />
-                                <span className="block sm:inline">{item.label}</span>
+                            <TabsTrigger key={item.key} value={item.tab!} className="whitespace-normal text-center px-1.5 py-1 gap-1">
+                                <Icon className="h-3 w-3 mb-0" />
+                                <span className="block text-[0.6rem] leading-none">{item.label}</span>
                             </TabsTrigger>
                         )
                     })}

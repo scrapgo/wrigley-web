@@ -1,7 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from "react"
 import { Link, useNavigate } from "@tanstack/react-router"
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu"
-import { Menu, X, Bell, Search, ChevronRight, ChevronsUpDown, Check, Building2, LogOut } from "lucide-react"
+import { Menu, X, Bell, Search, ChevronRight, ChevronsUpDown, Check, Building2, LogOut, LayoutDashboard } from "lucide-react"
 
 import { cn } from "../lib/utils"
 import { NAV, type NavItem, type NavKey } from "../lib/nav"
@@ -101,17 +101,14 @@ export function AppShell({ active, title, subtitle, actions, children }: AppShel
                 {/* Top bar */}
                 <header className="sticky top-0 z-30 border-b border-border glass">
                     <div className="flex h-16 items-center gap-3 px-4 sm:px-6 lg:px-8">
-                        <button
-                            onClick={() => setMobileOpen(true)}
-                            className="rounded-lg p-2 text-ink-700 hover:bg-muted lg:hidden"
-                            aria-label="Open navigation"
+                        {/* Clickable logo → dashboard */}
+                        <Link
+                            to="/dashboard"
+                            aria-label="ScrapGo home"
+                            className="flex items-center gap-2"
                         >
-                            <Menu className="h-5 w-5" />
-                        </button>
-
-                        <div className="lg:hidden">
                             <BrandLogo size={30} withWordmark={false} />
-                        </div>
+                        </Link>
 
                         <div className="relative hidden max-w-md flex-1 md:block">
                             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -135,33 +132,57 @@ export function AppShell({ active, title, subtitle, actions, children }: AppShel
                                 <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand-500 ring-2 ring-card" />
                             </button>
 
-                            <Link
-                                to="/settings"
-                                aria-label="Your profile and settings"
-                                className="hidden items-center gap-3 rounded-full border border-border bg-card py-1 pl-1 pr-3 transition-colors hover:bg-muted sm:flex"
-                            >
-                                <span className="flex h-8 w-8 items-center justify-center rounded-full brand-gradient text-xs font-bold text-white">
-                                    {initials || "SG"}
-                                </span>
-                                <span className="leading-tight">
-                                    <span className="block text-xs font-semibold text-ink-900">
-                                        {user?.displayName || user?.email || "ScrapGo User"}
-                                    </span>
-                                    <span className="block text-[0.6875rem] text-muted-foreground">
-                                        {user?.userType || "Member"}
-                                    </span>
-                                </span>
-                            </Link>
+                            {/* User profile dropdown with sign out */}
+                            <DropdownMenu.Root>
+                                <DropdownMenu.Trigger asChild>
+                                    <Button variant="ghost" size="icon" className="text-ink-600" aria-label="User menu">
+                                        <LayoutDashboard className="h-5 w-5" />
+                                    </Button>
+                                </DropdownMenu.Trigger>
+                                <DropdownMenu.Portal>
+                                    <DropdownMenu.Content
+                                        align="end"
+                                        className="z-50 w-[16rem] rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-elevated animate-fade-in"
+                                    >
+                                        <DropdownMenu.Label className="px-2.5 py-1.5 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                                            Account
+                                        </DropdownMenu.Label>
+                                        <DropdownMenu.Item
+                                            onSelect={() => navigate({ to: "/settings" })}
+                                            className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm outline-none transition-colors data-[highlighted]:bg-muted"
+                                        >
+                                            <span className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-50 text-brand-600">
+                                                <span className="text-[0.6rem] font-bold">{initials || "SG"}</span>
+                                            </span>
+                                            <span className="min-w-0 flex-1 leading-tight">
+                                                <span className="block truncate font-medium text-ink-900">
+                                                    {user?.displayName || user?.email || "ScrapGo User"}
+                                                </span>
+                                                <span className="block text-[0.6875rem] text-muted-foreground">
+                                                    {user?.userType || "Member"}
+                                                </span>
+                                            </span>
+                                        </DropdownMenu.Item>
+                                        <DropdownMenu.Separator className="my-1.5" />
+                                        <DropdownMenu.Item
+                                            onSelect={logout}
+                                            className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm outline-none transition-colors data-[highlighted]:bg-muted text-destructive"
+                                        >
+                                            <LogOut className="h-4 w-4" />
+                                            <span>Sign out</span>
+                                        </DropdownMenu.Item>
+                                    </DropdownMenu.Content>
+                                </DropdownMenu.Portal>
+                            </DropdownMenu.Root>
 
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={logout}
-                                aria-label="Sign out"
-                                className="text-ink-600"
+                            {/* Mobile hamburger menu — opens the navigation drawer */}
+                            <button
+                                onClick={() => setMobileOpen(true)}
+                                className="rounded-lg p-2 text-ink-700 hover:bg-muted lg:hidden"
+                                aria-label="Open navigation"
                             >
-                                <LogOut className="h-5 w-5" />
-                            </Button>
+                                <Menu className="h-5 w-5" />
+                            </button>
                         </div>
                     </div>
                 </header>

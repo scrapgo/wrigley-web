@@ -1,11 +1,13 @@
-import { Fragment, useState } from "react"
-import { Loader2, ShieldCheck } from "lucide-react"
+import { useState } from "react"
+import { ArrowLeft, Loader2, ShieldCheck } from "lucide-react"
 
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
 import { Checkbox } from "../ui/checkbox"
 import { EmptyState } from "../ui/empty-state"
+import { Link } from "@tanstack/react-router"
 import { Skeleton } from "../ui/skeleton"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table"
 import { useToast } from "../ui/toast"
 import { useAccess } from "../../hooks/useAccess"
 import { usePermissionGroups, useRoles, useSetRolePermissions } from "../../hooks/useAdminQueries"
@@ -19,9 +21,10 @@ function fits(permission: Permission, role: Role) {
 }
 
 /**
- * Roles tab (roles.view): permissions grouped by feature down the side, roles
- * across the top, a checkbox at each crossing. Saved per role; read-only
- * without roles.manage.
+ * Roles tab (roles.view): a list of roles, each with a count of the
+ * permissions it grants. Click a role to see and edit exactly which
+ * permissions it grants — one role at a time, so nothing is overwhelming.
+ * Read-only without roles.manage.
  */
 export function RolesPanel() {
     const { can } = useAccess()
@@ -30,7 +33,8 @@ export function RolesPanel() {
     const roles = useRoles()
     const groups = usePermissionGroups()
     const save = useSetRolePermissions()
-    // Unsaved edits per role id; a role without an entry shows what it grants.
+    // The role currently being edited, and its draft permissions.
+    const [editingRoleId, setEditingRoleId] = useState<number | null>(null)
     const [drafts, setDrafts] = useState<Record<number, Set<string>>>({})
     const [savingRoleId, setSavingRoleId] = useState<number | null>(null)
 
@@ -42,13 +46,114 @@ export function RolesPanel() {
         return <EmptyState icon={ShieldCheck} title="Could not load roles" description={adminErrorMessage(roles.error ?? groups.error)} />
     }
 
-    const granted = (role: Role) => drafts[role.id] ?? new Set(role.permissions)
-    const isDirty = (role: Role) => {
-        const draft = drafts[role.id]
-        return draft !== undefined && (draft.size !== role.permissions.length || role.permissions.some((key) => !draft.has(key)))
+    // A role being edited: show the drill-in view.
+    if (editingRoleId !== null) {
+        const role = roles.data.find((r) => r.id === editingRoleId)
+        if (!role) {
+            setEditingRoleId(null)
+        } else {
+            return (
+                <RoleEditor
+                    role={role}
+                    groups={groups.data}
+                    canManage={canManage}
+                    save={save}
+                    drafts={drafts}
+                    setDrafts={setDrafts}
+                    savingRoleId={savingRoleId}
+                    setSavingRoleId={setSavingRoleId}
+                    onBack={() => setEditingRoleId(null)}
+                    toast={toast}
+                />
+            )
+        }
     }
 
-    const toggle = (role: Role, key: string, checked: boolean) =>
+    return (
+        <div className="space-y-3">
+            <div className="flex items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Roles
+                </h2>
+                <HelpButton
+                    title="Roles"
+                    description="A role is a bundle of permissions. Every user holds one or more roles, and a role's permissions decide what they can do in ScrapGo. Click a role to see which permissions it grants and to change them. Saving applies to everyone who holds that role within 30 seconds."
+                />
+            </div>
+            {!canManage && <p className="text-xs text-muted-foreground">Read-only: changing roles needs the roles.manage permission.</p>}
+            <div className="rounded-xl border border-border bg-card">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="text-xs">Role</TableHead>
+                            <TableHead className="text-center text-xs">Type</TableHead>
+                            <TableHead className="text-center text-xs">Permissions</TableHead>
+                            <TableHead className="text-center text-xs">Users</TableHead>
+                            <TableHead className="text-right text-xs">Action</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {roles.data.map((role) => (
+                            <TableRow key={role.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setEditingRoleId(role.id)}>
+                                <TableCell className="font-medium text-ink-900 text-sm">{role.name}</TableCell>
+                                <TableCell className="text-center">
+                                    <Badge variant={role.userType === "Internal" ? "success" : "neutral"} className="text-[0.65rem]">
+                                        {role.userType}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell className="text-center text-muted-foreground text-sm">{role.permissions.length}</TableCell>
+                                <TableCell className="text-center text-muted-foreground text-sm">{role.holderCount}</TableCell>
+                                <TableCell className="text-right">
+                                    {canManage && (
+                                        <Button variant="ghost" size="icon" onClick={(e) => {
+                                            e.stopPropagation()
+                                            setEditingRoleId(role.id)
+                                        }}>
+                                            <ShieldCheck className="h-3.5 w-3.5" />
+                                        </Button>
+                                    )}
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+            {roles.data.length === 0 && <EmptyState icon={ShieldCheck} title="No roles" description="There are no roles to manage." />}
+        </div>
+    )
+}
+
+/** Edit one role's permissions, grouped by feature. */
+function RoleEditor({
+    role,
+    groups,
+    canManage,
+    save,
+    drafts,
+    setDrafts,
+    savingRoleId,
+    setSavingRoleId,
+    onBack,
+    toast,
+}: {
+    role: Role
+    groups: { featureKey: string; featureName: string; permissions: Permission[] }[]
+    canManage: boolean
+    save: ReturnType<typeof useSetRolePermissions>
+    drafts: Record<number, Set<string>>
+    setDrafts: React.Dispatch<React.SetStateAction<Record<number, Set<string>>>>
+    savingRoleId: number | null
+    setSavingRoleId: React.Dispatch<React.SetStateAction<number | null>>
+    onBack: () => void
+    toast: ReturnType<typeof useToast>["toast"]
+}) {
+    const granted = drafts[role.id] ?? new Set(role.permissions)
+    const isDirty =
+        drafts[role.id] !== undefined &&
+        (granted.size !== role.permissions.length || role.permissions.some((key) => !granted.has(key)))
+
+    const toggle = (key: string, checked: boolean) =>
         setDrafts((current) => {
             const next = new Set(current[role.id] ?? role.permissions)
             if (checked) next.add(key)
@@ -56,16 +161,17 @@ export function RolesPanel() {
             return { ...current, [role.id]: next }
         })
 
-    const onSave = async (role: Role) => {
+    const onSave = async () => {
         setSavingRoleId(role.id)
         try {
-            await save.mutateAsync({ id: role.id, permissions: [...granted(role)] })
+            await save.mutateAsync({ id: role.id, permissions: [...granted] })
             setDrafts((current) => {
                 const next = { ...current }
                 delete next[role.id]
                 return next
             })
             toast({ title: `${role.name} saved`, variant: "success" })
+            onBack()
         } catch (err) {
             toast({ title: `Could not save ${role.name}`, description: adminErrorMessage(err), variant: "destructive" })
         } finally {
@@ -75,94 +181,70 @@ export function RolesPanel() {
 
     return (
         <div className="space-y-3">
+            <Button variant="ghost" asChild onClick={onBack}>
+                <Link to="/admin" search={{ tab: "access" }}>
+                    <ArrowLeft className="h-4 w-4" />
+                    All roles
+                </Link>
+            </Button>
             <div className="flex items-center justify-between gap-2">
                 <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                     <ShieldCheck className="h-4 w-4" />
-                    Roles
+                    {role.name}
                 </h2>
-                <HelpButton
-                    title="Roles"
-                    description="A role is a bundle of permissions. Every user holds one or more roles, and a role's permissions decide what they can do in ScrapGo. Check a box to grant a permission to a role; uncheck to remove it. Saving applies to everyone who holds that role within 30 seconds."
-                />
+                <Badge variant={role.userType === "Internal" ? "success" : "neutral"} className="text-[0.75rem]">
+                    {role.userType}
+                </Badge>
             </div>
+            <p className="text-sm text-muted-foreground">
+                {role.permissions.length} permission{role.permissions.length === 1 ? "" : "s"} · {role.holderCount} user{role.holderCount === 1 ? "" : "s"} hold this role
+            </p>
             {!canManage && <p className="text-sm text-muted-foreground">Read-only: changing roles needs the roles.manage permission.</p>}
-            <div className="overflow-x-auto rounded-xl border border-border bg-card">
-                <table className="w-full min-w-[40rem] text-sm">
-                    <thead>
-                        <tr className="border-b border-border">
-                            <th className="px-4 py-3 text-left font-semibold text-ink-900">Permission</th>
-                            {roles.data.map((role) => (
-                                <th key={role.id} className="px-4 py-3 text-center align-top">
-                                    <span className="block font-semibold text-ink-900">{role.name}</span>
-                                    <Badge variant={role.userType === "Internal" ? "success" : "neutral"} className="mt-1">
-                                        {role.userType}
-                                    </Badge>
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {groups.data.map((group) => (
-                            <Fragment key={group.featureKey}>
-                                <tr className="bg-muted/50">
-                                    <td colSpan={roles.data.length + 1} className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                        {group.featureName}
-                                    </td>
-                                </tr>
-                                {group.permissions.map((permission) => (
-                                    <tr key={permission.key} className="border-b border-border last:border-0">
-                                        <td className="px-4 py-2">
-                                            <span className="block font-medium text-ink-900">{permission.name}</span>
-                                            <span className="block text-xs text-muted-foreground">
-                                                {permission.key} · {permission.audience}
-                                            </span>
-                                        </td>
-                                        {roles.data.map((role) => {
-                                            const allowed = fits(permission, role)
-                                            return (
-                                                <td key={role.id} className={allowed ? "px-4 py-2 text-center" : "bg-muted/60 px-4 py-2 text-center"}>
-                                                    {allowed ? (
-                                                        <span className="inline-flex min-h-11 min-w-11 items-center justify-center">
-                                                            <Checkbox
-                                                                checked={granted(role).has(permission.key)}
-                                                                disabled={!canManage}
-                                                                onCheckedChange={(checked) => toggle(role, permission.key, checked === true)}
-                                                                aria-label={`${role.name}: ${permission.name}`}
-                                                            />
-                                                        </span>
-                                                    ) : (
-                                                        <span
-                                                            className="text-xs text-muted-foreground"
-                                                            title={`${permission.audience} permissions can't go on ${role.userType.toLowerCase()} roles`}
-                                                        >
-                                                            —
-                                                        </span>
-                                                    )}
-                                                </td>
-                                            )
-                                        })}
-                                    </tr>
+            <div className="space-y-3">
+                {groups.map((group) => {
+                    const allowed = group.permissions.filter((p) => fits(p, role))
+                    if (allowed.length === 0) return null
+                    return (
+                        <div key={group.featureKey} className="rounded-xl border border-border bg-card">
+                            <div className="border-b border-border bg-muted/50 px-3 py-2">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.featureName}</p>
+                            </div>
+                            <div className="divide-y divide-border p-3">
+                                {allowed.map((permission) => (
+                                    <label
+                                        key={permission.key}
+                                        className="flex items-center justify-between gap-3 rounded-lg border border-transparent p-2 hover:bg-muted/50 cursor-pointer"
+                                    >
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium text-ink-900 truncate">{permission.name}</p>
+                                            <p className="text-xs text-muted-foreground truncate">{permission.key}</p>
+                                        </div>
+                                        <Checkbox
+                                            checked={granted.has(permission.key)}
+                                            disabled={!canManage}
+                                            onCheckedChange={(checked) => toggle(permission.key, checked === true)}
+                                            aria-label={`${role.name}: ${permission.name}`}
+                                        />
+                                    </label>
                                 ))}
-                            </Fragment>
-                        ))}
-                    </tbody>
-                    {canManage && (
-                        <tfoot>
-                            <tr className="border-t border-border">
-                                <td className="px-4 py-3 text-xs text-muted-foreground">Saving applies to every holder within 30 seconds.</td>
-                                {roles.data.map((role) => (
-                                    <td key={role.id} className="px-4 py-3 text-center">
-                                        <Button size="sm" disabled={!isDirty(role) || savingRoleId !== null} onClick={() => void onSave(role)}>
-                                            {savingRoleId === role.id && <Loader2 className="h-4 w-4 animate-spin" />}
-                                            Save
-                                        </Button>
-                                    </td>
-                                ))}
-                            </tr>
-                        </tfoot>
-                    )}
-                </table>
+                            </div>
+                        </div>
+                    )
+                })}
             </div>
+            {canManage && (
+                <div className="pt-4">
+                    <Button
+                        size="lg"
+                        disabled={!isDirty || savingRoleId !== null}
+                        onClick={() => void onSave()}
+                        className="w-full"
+                    >
+                        {savingRoleId === role.id && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                        Save {role.name}
+                    </Button>
+                </div>
+            )}
         </div>
     )
 }

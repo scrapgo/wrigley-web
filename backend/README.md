@@ -278,34 +278,26 @@ existing invitations become External and keep their one role.
 
 ## Deleting a user by hand
 
-The API only disables users. To remove one from the database, with everything
-that depends on them, use [`scripts/delete-user.sql`](scripts/delete-user.sql).
-It runs as a dry run unless you add `-v confirm=yes`. The dry run shows the user,
-their roles and how many rows each table loses, then rolls back. With the proxy
-running and the `PG*` variables set for the database:
+The API only disables users. To remove one from the database, open
+[`scripts/delete-user.sql`](scripts/delete-user.sql) in DBeaver (or any SQL
+client). Replace `someone@acme.com` with the user's email in every statement,
+then run the four statements in order:
 
-```bash
-psql -v ON_ERROR_STOP=1 -v email=someone@acme.com -f scripts/delete-user.sql                 # dry run
-psql -v ON_ERROR_STOP=1 -v email=someone@acme.com -v confirm=yes -f scripts/delete-user.sql  # delete
-```
+1. Check who will be deleted.
+2. Delete their audit rows.
+3. Delete the invitations they sent, and those to their email.
+4. Delete the user.
 
-Use `-v uid=<identity platform uid>` instead of `email` when an email matches
-more than one user. In one transaction the script deletes:
+The database removes their roles, supplier links and feature targets with the
+user, and clears "assigned by", "linked by", "updated by" and "accepted by" on
+other rows.
 
-- invitations the user sent
-- invitations to the user's email
-- the user's audit rows: their own events, and events that name their UID or email
-- the user row itself
+To be able to undo, switch to manual commit before step 2, then Commit or
+Rollback. Don't delete the last active Site Admin.
 
-The database then drops their roles, supplier links and feature targets, and
-clears "assigned by", "linked by", "updated by" and "accepted by" on other rows.
-
-It refuses to delete the last active Site Admin.
-
-It doesn't touch the Identity Platform account. A deleted staff member is created
-again as ScrapGo User at their next Google sign-in; a deleted external user gets
-`no_access` until invited again. To stop them signing in, also delete or disable
-the account in Identity Platform > Users.
+It doesn't touch the Identity Platform account: a deleted staff member is created
+again as ScrapGo User at their next Google sign-in. To stop them signing in, also
+delete or disable the account in Identity Platform > Users.
 
 ## Tests
 

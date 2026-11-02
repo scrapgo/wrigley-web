@@ -354,7 +354,7 @@ The Identity schema reaches this model in one of two ways. Either way, back up t
 
 \- Then restore an administrator: sign in once with a scrapgo.com Google account, and run `bootstrap-site-admin --uid <uid>`.
 
-\- To delete a single user instead, use `backend/scripts/delete-user.sql` (dry run by default; see backend/README.md, "Deleting a user by hand"). It removes the user, their dependent rows, the invitations they sent or received, and their audit rows, and refuses to delete the last active Site Admin.
+\- To delete a single user instead, use `backend/scripts/delete-user.sql` (four statements to run in order with the email filled in; see backend/README.md, "Deleting a user by hand"). It removes the user, their dependent rows, the invitations they sent or received, and their audit rows. Don't delete the last active Site Admin.
 
 \- Done on dev on 2026-10-21 (instance `wrigley-postgres`, database `identity\_platform`). That run also applied the pending Audit migration `UnmapOrganizationId`.
 

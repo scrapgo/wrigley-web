@@ -26,11 +26,11 @@ export function HomePanel() {
     const [selectedTab, setSelectedTab] = useState<"users" | "invitations" | "audit" | null>(null)
 
     const users = useUsers({ status: "Disabled", page: 1, pageSize: PAGE_SIZE })
-    const invitations = useInvitations(1, PAGE_SIZE)
+    const invitations = useInvitations(1, PAGE_SIZE, "Pending")
     const audit = useAudit({ page: 1, pageSize: PAGE_SIZE })
 
     const disabledUsers = users.data?.items ?? []
-    const pendingInvitations = invitations.data?.items.filter((i) => i.status === "Pending") ?? []
+    const pendingInvitations = invitations.data?.items ?? []
     const recentAudit = audit.data?.items ?? []
 
     const isLoading = users.isLoading || invitations.isLoading || audit.isLoading

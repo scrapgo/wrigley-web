@@ -317,7 +317,7 @@ export function InvitationsTable({
 }) {
     const { toast } = useToast()
     const [page, setPage] = useState(1)
-    const { data, isLoading, isError, error } = useInvitations(page, PAGE_SIZE)
+    const { data, isLoading, isError, error } = useInvitations(page, PAGE_SIZE, "Pending")
     const resend = useResendInvitation()
     const revoke = useRevokeInvitation()
 

@@ -16,6 +16,7 @@ import {
     setFeatureState,
     setFeatureTargets,
     type FeatureState,
+    type InvitationStatus,
     setRolePermissions,
     listRoles,
     listUsers,
@@ -36,7 +37,8 @@ export const adminKeys = {
     userDetail: (id: number) => ['admin', 'user', id] as const,
     roles: ['admin', 'roles'] as const,
     invitations: ['admin', 'invitations'] as const,
-    invitationList: (page: number, pageSize: number) => ['admin', 'invitations', page, pageSize] as const,
+    invitationList: (page: number, pageSize: number, status?: InvitationStatus) =>
+        ['admin', 'invitations', page, pageSize, status ?? 'all'] as const,
     invitationForm: ['admin', 'invitations', 'form'] as const,
     features: ['admin', 'features'] as const,
     audit: (query: AuditQuery) => ['admin', 'audit', query] as const,
@@ -76,10 +78,10 @@ export function useRoles(enabled = true) {
     })
 }
 
-export function useInvitations(page: number, pageSize: number) {
+export function useInvitations(page: number, pageSize: number, status?: InvitationStatus) {
     return useQuery({
-        queryKey: adminKeys.invitationList(page, pageSize),
-        queryFn: () => listInvitations(page, pageSize),
+        queryKey: adminKeys.invitationList(page, pageSize, status),
+        queryFn: () => listInvitations(page, pageSize, status),
         placeholderData: keepPreviousData,
     })
 }

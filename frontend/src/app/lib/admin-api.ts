@@ -227,8 +227,10 @@ export function setUserSuppliers(id: number, supplierRecordIds: number[]): Promi
 /*  Invitations (users.view or users.invite to read, users.invite to change)   */
 /* -------------------------------------------------------------------------- */
 
-export function listInvitations(page: number, pageSize: number): Promise<PagedResult<Invitation>> {
-    return apiClient.fetchWithAuth<PagedResult<Invitation>>(`/api/admin/invitations?page=${page}&pageSize=${pageSize}`)
+/** Newest first. `status` filters on the effective status (a lapsed Pending invitation is Expired). */
+export function listInvitations(page: number, pageSize: number, status?: InvitationStatus): Promise<PagedResult<Invitation>> {
+    const filter = status ? `&status=${status}` : ''
+    return apiClient.fetchWithAuth<PagedResult<Invitation>>(`/api/admin/invitations?page=${page}&pageSize=${pageSize}${filter}`)
 }
 
 export function getInvitationForm(): Promise<InvitationForm> {

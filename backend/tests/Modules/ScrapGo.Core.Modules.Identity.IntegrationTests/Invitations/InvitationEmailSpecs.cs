@@ -2,6 +2,7 @@
 // behaviour when sending works and when it fails.
 using System.Buffers.Text;
 using System.Collections.Concurrent;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -102,6 +103,68 @@ public class InvitationEmailSpecs
         }
     }
 
+    // Links point back at whichever listed portal address the admin used.
+    public class Given_a_portal_origin(CapturingSenderFixture fixture) : IClassFixture<CapturingSenderFixture>
+    {
+        private const string FirebasePortal = "https://wrigley-cloud-prod.web.app";
+
+        [Fact]
+        public async Task A_listed_origin_is_used_for_the_accept_link()
+        {
+            var link = await CreateLinkAsync(fixture, request => request.Headers.Add("Origin", FirebasePortal));
+
+            Assert.StartsWith($"{FirebasePortal}/invite/accept?token=", link);
+        }
+
+        // Firebase Hosting forwards /api calls to Cloud Run with the portal host here.
+        [Fact]
+        public async Task The_forwarded_host_is_used_when_there_is_no_origin()
+        {
+            var link = await CreateLinkAsync(fixture, request => request.Headers.Add("X-Forwarded-Host", "wrigley-cloud-prod.firebaseapp.com"));
+
+            Assert.StartsWith("https://wrigley-cloud-prod.firebaseapp.com/invite/accept?token=", link);
+        }
+
+        [Fact]
+        public async Task An_unlisted_origin_falls_back_to_the_configured_base_url()
+        {
+            var link = await CreateLinkAsync(fixture, request => request.Headers.Add("Origin", "https://evil.example"));
+
+            Assert.StartsWith($"{IdentitySpecFixture.FrontendBaseUrl}/invite/accept?token=", link);
+        }
+
+        private static async Task<string> CreateLinkAsync(CapturingSenderFixture fixture, Action<HttpRequestMessage> decorate)
+        {
+            var inviterUid = await SeedScrapGoUserAsync(fixture);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/admin/invitations")
+            {
+                Headers = { Authorization = new AuthenticationHeaderValue("Bearer", fixture.CreateToken(inviterUid)) },
+                Content = JsonContent.Create(InvitationBody(fixture, $"buyer-{Guid.NewGuid():N}@acme.example")),
+            };
+            decorate(request);
+
+            var response = await fixture.Client.SendAsync(request);
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("acceptLink").GetString()!;
+        }
+    }
+
+    // Without Gmail settings nothing is emailed, and the admin is told to share the link.
+    public class Given_email_is_not_configured(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    {
+        [Fact]
+        public async Task The_invitation_is_created_with_email_sent_false()
+        {
+            var inviterUid = await SeedScrapGoUserAsync(fixture);
+
+            var response = await CreateAsync(fixture, inviterUid, $"buyer-{Guid.NewGuid():N}@acme.example");
+
+            Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+            Assert.False((await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("emailSent").GetBoolean());
+        }
+    }
+
     // Sad path, kept separate: a failed email never fails the invitation.
 
     public class Given_sending_fails(FailingSenderFixture fixture) : IClassFixture<FailingSenderFixture>
@@ -140,16 +203,16 @@ public class InvitationEmailSpecs
 
     private sealed class CapturingSender(ConcurrentQueue<InvitationMessage> sent) : IInvitationSender
     {
-        public Task SendAsync(InvitationMessage message, CancellationToken cancellationToken)
+        public Task<bool> SendAsync(InvitationMessage message, CancellationToken cancellationToken)
         {
             sent.Enqueue(message);
-            return Task.CompletedTask;
+            return Task.FromResult(true);
         }
     }
 
     private sealed class FailingSender : IInvitationSender
     {
-        public Task SendAsync(InvitationMessage message, CancellationToken cancellationToken) =>
+        public Task<bool> SendAsync(InvitationMessage message, CancellationToken cancellationToken) =>
             throw new HttpRequestException("Gmail API returned 503.");
     }
 
@@ -182,12 +245,14 @@ public class InvitationEmailSpecs
     }
 
     private static Task<HttpResponseMessage> CreateAsync(IdentitySpecFixture fixture, string inviterUid, string email) =>
-        fixture.SendAsync(HttpMethod.Post, "/api/admin/invitations", fixture.CreateToken(inviterUid), new
-        {
-            email,
-            roleIds = new[] { fixture.DbContext.Roles.AsNoTracking().Where(r => r.Key == DefaultRoleNames.User).Select(r => r.Id).Single() },
-            supplierRecordIds = new[] { 17511 },
-        });
+        fixture.SendAsync(HttpMethod.Post, "/api/admin/invitations", fixture.CreateToken(inviterUid), InvitationBody(fixture, email));
+
+    private static object InvitationBody(IdentitySpecFixture fixture, string email) => new
+    {
+        email,
+        roleIds = new[] { fixture.DbContext.Roles.AsNoTracking().Where(r => r.Key == DefaultRoleNames.User).Select(r => r.Id).Single() },
+        supplierRecordIds = new[] { 17511 },
+    };
 
     private static async Task<string> SeedScrapGoUserAsync(IdentitySpecFixture fixture)
     {

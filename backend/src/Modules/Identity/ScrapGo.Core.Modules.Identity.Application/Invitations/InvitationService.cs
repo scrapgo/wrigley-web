@@ -143,11 +143,14 @@ public sealed class InvitationService(
             return new(InvitationOutcome.AlreadyPending);
         }
 
-        return new(InvitationOutcome.Success, await IssueAsync(invitation, granted.Select(role => role.Key), token, now, cancellationToken));
+        return new(
+            InvitationOutcome.Success,
+            await IssueAsync(invitation, granted.Select(role => role.Key), token, now, command.RequestOrigin, cancellationToken));
     }
 
     /// <summary>Issues a new token with a fresh 7-day expiry; the old link stops working.</summary>
-    public async Task<InvitationResult> ResendAsync(int invitationId, CancellationToken cancellationToken)
+    /// <param name="requestOrigin">The portal the admin is using; the new link points back to it when listed.</param>
+    public async Task<InvitationResult> ResendAsync(int invitationId, string? requestOrigin, CancellationToken cancellationToken)
     {
         if (await invitations.FindAsync(invitationId, cancellationToken) is not { } invitation)
         {
@@ -170,7 +173,7 @@ public sealed class InvitationService(
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         var roleKeys = await RoleKeysOfAsync(invitation.RoleIds, cancellationToken);
-        return new(InvitationOutcome.Success, await IssueAsync(invitation, roleKeys, token, now, cancellationToken));
+        return new(InvitationOutcome.Success, await IssueAsync(invitation, roleKeys, token, now, requestOrigin, cancellationToken));
     }
 
     /// <summary>Revoking is idempotent; an accepted invitation can't be revoked.</summary>
@@ -201,18 +204,25 @@ public sealed class InvitationService(
     }
 
     private async Task<IssuedInvitationDto> IssueAsync(
-        Invitation invitation, IEnumerable<string> roleKeys, string token, DateTimeOffset now, CancellationToken cancellationToken)
+        Invitation invitation,
+        IEnumerable<string> roleKeys,
+        string token,
+        DateTimeOffset now,
+        string? requestOrigin,
+        CancellationToken cancellationToken)
     {
         // Staff need no token: their first Google sign-in finds the invitation by email.
         var signInWithGoogle = invitation.UserType == UserType.Internal;
-        var acceptLink = signInWithGoogle ? options.Value.BuildSignInLink() : options.Value.BuildAcceptLink(token);
+        var acceptLink = signInWithGoogle
+            ? options.Value.BuildSignInLink(requestOrigin)
+            : options.Value.BuildAcceptLink(token, requestOrigin);
 
         // The invitation is already committed: a failed email mustn't undo it.
         // The admin still gets the link to share by hand.
-        var emailSent = true;
+        bool emailSent;
         try
         {
-            await sender.SendAsync(
+            emailSent = await sender.SendAsync(
                 new InvitationMessage(invitation.Id, invitation.Email, acceptLink, invitation.ExpiresAt, signInWithGoogle), cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

@@ -7,7 +7,9 @@ namespace ScrapGo.Core.Modules.Identity.Application.Invitations;
 /// </param>
 /// <param name="RoleIds">One or more active roles, all of the invitation's user type.</param>
 /// <param name="SupplierRecordIds">External: one or more Quickbase Suppliers Record IDs, linked on acceptance. Internal: none.</param>
-public sealed record CreateInvitationCommand(string? Email, IReadOnlyList<int>? RoleIds, IReadOnlyList<int>? SupplierRecordIds);
+/// <param name="RequestOrigin">The portal the admin is using; links point back to it when it's a listed frontend origin.</param>
+public sealed record CreateInvitationCommand(
+    string? Email, IReadOnlyList<int>? RoleIds, IReadOnlyList<int>? SupplierRecordIds, string? RequestOrigin = null);
 
 public sealed record ListInvitationsQuery(string? Status, int? Page, int? PageSize);
 

@@ -5,10 +5,11 @@ namespace ScrapGo.Core.Modules.Identity.Application.Invitations;
 public sealed record InvitationMessage(int InvitationId, string Email, string AcceptLink, DateTimeOffset ExpiresAt, bool SignInWithGoogle = false);
 
 /// <summary>
-/// Delivers an invitation to the invitee. V1 only logs (the admin copies the
-/// link from the API response); real email is a later task.
+/// Delivers an invitation to the invitee: by Gmail when configured, otherwise
+/// only logged (the admin copies the link from the API response).
 /// </summary>
 public interface IInvitationSender
 {
-    Task SendAsync(InvitationMessage message, CancellationToken cancellationToken);
+    /// <returns>True when the email went out; false when delivery isn't configured. Throws when sending fails.</returns>
+    Task<bool> SendAsync(InvitationMessage message, CancellationToken cancellationToken);
 }

@@ -64,7 +64,7 @@ public sealed class InvitationsController(InvitationService invitations) : Contr
     public async Task<IActionResult> Create([FromBody] CreateInvitationRequest? request, CancellationToken cancellationToken)
     {
         var result = await invitations.CreateAsync(
-            new CreateInvitationCommand(request?.Email, request?.RoleIds, request?.SupplierRecordIds), cancellationToken);
+            new CreateInvitationCommand(request?.Email, request?.RoleIds, request?.SupplierRecordIds, RequestOrigin()), cancellationToken);
 
         return result is { Outcome: InvitationOutcome.Success, Issued: { } issued }
             ? CreatedAtAction(nameof(Get), new { id = issued.Invitation.Id }, issued)
@@ -80,7 +80,7 @@ public sealed class InvitationsController(InvitationService invitations) : Contr
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Resend(int id, CancellationToken cancellationToken)
     {
-        var result = await invitations.ResendAsync(id, cancellationToken);
+        var result = await invitations.ResendAsync(id, RequestOrigin(), cancellationToken);
 
         return result is { Outcome: InvitationOutcome.Success, Issued: { } issued } ? Ok(issued) : Problem(result.Outcome);
     }
@@ -96,6 +96,23 @@ public sealed class InvitationsController(InvitationService invitations) : Contr
         var outcome = await invitations.RevokeAsync(id, cancellationToken);
 
         return outcome == InvitationOutcome.Success ? NoContent() : Problem(outcome);
+    }
+
+    /// <summary>
+    /// The portal the admin is using: the browser's <c>Origin</c>, or the host
+    /// Firebase Hosting forwarded the call from. Only an origin on
+    /// <c>Invitations:FrontendOrigins</c> is ever used for links.
+    /// </summary>
+    private string? RequestOrigin()
+    {
+        if (Request.Headers.Origin.ToString() is { Length: > 0 } origin && origin != "null")
+        {
+            return origin;
+        }
+
+        return Request.Headers["X-Forwarded-Host"].ToString() is { Length: > 0 } forwardedHost
+            ? $"https://{forwardedHost.Split(',')[0].Trim()}"
+            : null;
     }
 
     private static IActionResult Problem(InvitationOutcome outcome) => outcome switch

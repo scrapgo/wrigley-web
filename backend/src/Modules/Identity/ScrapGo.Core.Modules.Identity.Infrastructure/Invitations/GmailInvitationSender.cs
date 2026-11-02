@@ -19,7 +19,7 @@ public sealed class GmailInvitationSender(
 
     public const string SendUrl = "https://gmail.googleapis.com/gmail/v1/users/me/messages/send";
 
-    public async Task SendAsync(InvitationMessage message, CancellationToken cancellationToken)
+    public async Task<bool> SendAsync(InvitationMessage message, CancellationToken cancellationToken)
     {
         var raw = Base64Url.EncodeToString(Encoding.UTF8.GetBytes(InvitationEmail.Build(options.Value.Sender, message)));
 
@@ -32,5 +32,7 @@ public sealed class GmailInvitationSender(
             throw new HttpRequestException(
                 $"Gmail API returned {(int)response.StatusCode} sending invitation {message.InvitationId}.", inner: null, response.StatusCode);
         }
+
+        return true;
     }
 }

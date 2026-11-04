@@ -1,11 +1,10 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from '@tanstack/react-router'
-import { ChevronLeft, ChevronRight, Search, Users } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, SortAsc, SortDesc, Filter } from 'lucide-react'
 
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
-import { Skeleton } from '../ui/skeleton'
-import { EmptyState } from '../ui/empty-state'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import {
     Table,
     TableBody,
@@ -15,18 +14,49 @@ import {
     TableRow,
 } from '../ui/table'
 import { useSuppliers } from '../../hooks/useSupplierQueries'
-import { adminErrorMessage } from '../../lib/admin-errors'
+import { useAccess } from '../../hooks/useAccess'
 import { htmlToText } from '../../lib/supplier-format'
-import { FreshnessBadge } from './freshness-badge'
 
 const PAGE_SIZE = 25
+const FETCH_PAGE_SIZE = 1000
+
+type SortKey = 'recordId' | 'account' | 'city' | 'state' | 'totalActivities'
+
+interface SortState {
+    key: SortKey
+    direction: 'asc' | 'desc'
+}
+
+const DEFAULT_SORT: SortState = { key: 'account', direction: 'asc' }
+
+interface FilterState {
+    recordId: string
+    account: string
+    city: string
+    state: string
+}
+
+const DEFAULT_FILTER: FilterState = { recordId: '', account: '', city: '', state: '' }
+
+/** US state abbreviations for the state filter dropdown. */
+const STATE_ABBREVIATIONS = [
+    'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS',
+    'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY',
+    'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV',
+    'WI', 'WY',
+]
 
 export function SuppliersPanel({ initialSearch = '' }: { initialSearch?: string }) {
     const [searchInput, setSearchInput] = useState(initialSearch)
     const [search, setSearch] = useState(initialSearch)
     const [skip, setSkip] = useState(0)
+    const [sort, setSort] = useState<SortState>(DEFAULT_SORT)
+    const [filter, setFilter] = useState<FilterState>(DEFAULT_FILTER)
+    const [showFilters, setShowFilters] = useState(false)
 
-    const { data, isLoading, isError, error, isFetching } = useSuppliers(search, skip, PAGE_SIZE)
+    const { data, isFetching } = useSuppliers(search, 0, FETCH_PAGE_SIZE)
+    const { can } = useAccess()
+    const canViewInternal = can('suppliers.view_all')
 
     // The global topbar search navigates here with a `search` param. If we're
     // already on this page the component stays mounted, so sync the form state
@@ -45,11 +75,67 @@ export function SuppliersPanel({ initialSearch = '' }: { initialSearch?: string 
         setSearch(searchInput.trim())
     }
 
-    const total = data?.totalRecords ?? 0
-    const from = total === 0 ? 0 : skip + 1
-    const to = Math.min(skip + PAGE_SIZE, total)
+    const items = useMemo(() => {
+        let list = data?.items ?? []
+
+        // Apply column filters
+        if (filter.recordId) {
+            const term = filter.recordId.toLowerCase()
+            list = list.filter((s) => String(s.recordId).toLowerCase().includes(term))
+        }
+        if (filter.account) {
+            const term = filter.account.toLowerCase()
+            list = list.filter((s) => (s.account ?? '').toLowerCase().includes(term))
+        }
+        if (filter.city) {
+            const term = filter.city.toLowerCase()
+            list = list.filter((s) => (s.city ?? '').toLowerCase().includes(term))
+        }
+        if (filter.state) {
+            const term = filter.state.toUpperCase()
+            list = list.filter((s) => (s.state ?? '').toUpperCase() === term)
+        }
+
+        // Apply sort
+        return [...list].sort((a, b) => {
+            const aVal = a[sort.key]
+            const bVal = b[sort.key]
+            if (aVal == null && bVal == null) return 0
+            if (aVal == null) return 1
+            if (bVal == null) return -1
+            const cmp = String(aVal).localeCompare(String(bVal), undefined, { numeric: true })
+            return sort.direction === 'asc' ? cmp : -cmp
+        })
+    }, [data, sort, filter])
+
+    const total = items.length
     const hasPrev = skip > 0
     const hasNext = skip + PAGE_SIZE < total
+
+    const sortIcon = (key: SortKey) => {
+        if (sort.key !== key) return null
+        return sort.direction === 'asc' ? <SortAsc className="h-3 w-3" /> : <SortDesc className="h-3 w-3" />
+    }
+
+    const sortableHeader = (key: SortKey, label: string, className?: string) => {
+        return (
+            <TableHead key={key} className={className}>
+                <div
+                    className="flex items-center justify-between gap-2 cursor-pointer hover:bg-muted/50 rounded px-2 py-1"
+                    onClick={() =>
+                        setSort((prev) =>
+                            prev.key === key
+                                ? { ...prev, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
+                                : { key, direction: 'asc' }
+                        )
+                    }
+                >
+                    <span className="text-xs font-medium text-muted-foreground">{label}</span>
+                    {sortIcon(key)}
+                </div>
+            </TableHead>
+        )
+    }
 
     return (
         <div className="space-y-4">
@@ -60,7 +146,7 @@ export function SuppliersPanel({ initialSearch = '' }: { initialSearch?: string 
                 </p>
             </div>
 
-            {/* Search form */}
+            {/* Global search form */}
             <form onSubmit={onSubmit} className="flex gap-2">
                 <div className="relative flex-1">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -75,99 +161,146 @@ export function SuppliersPanel({ initialSearch = '' }: { initialSearch?: string 
                     <Search className="h-4 w-4" />
                     Search
                 </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowFilters((prev) => !prev)}
+                >
+                    <Filter className="h-3 w-3 mr-1" />
+                    {showFilters ? 'Hide Filters' : 'Filters'}
+                </Button>
             </form>
 
-            {isLoading ? (
-                <div className="space-y-2 rounded-xl border border-border bg-card p-4">
-                    {[0, 1, 2, 3, 4].map((i) => (
-                        <Skeleton key={i} className="h-12 w-full" />
-                    ))}
-                </div>
-            ) : isError ? (
-                <EmptyState
-                    icon={Users}
-                    title="Could not load suppliers"
-                    description={adminErrorMessage(error)}
-                />
-            ) : !data || data.items.length === 0 ? (
-                <EmptyState
-                    icon={Users}
-                    title="No suppliers found"
-                    description={
-                        search
-                            ? 'No suppliers match that name. Try a different search.'
-                            : 'There are no suppliers to show yet.'
-                    }
-                />
-            ) : (
-                <>
-                    <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm text-muted-foreground">
-                            Showing <span className="font-medium text-ink-800">{from}</span>–
-                            <span className="font-medium text-ink-800">{to}</span> of{' '}
-                            <span className="font-medium text-ink-800">{total}</span>
-                        </p>
-                        <FreshnessBadge freshness={data.freshness} />
-                    </div>
+            <div className="rounded-xl border border-border bg-card">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            {sortableHeader('recordId', 'Record ID', 'min-w-[120px] sm:min-w-[160px]')}
+                            {sortableHeader('account', 'Supplier', 'min-w-[160px] sm:min-w-[240px]')}
+                            {sortableHeader('city', 'City', 'min-w-[100px] sm:min-w-[140px]')}
+                            {sortableHeader('state', 'State', 'min-w-[80px] sm:min-w-[100px]')}
+                            {sortableHeader('totalActivities', 'Total Activity', 'min-w-[110px] sm:min-w-[140px] text-right')}
+                            <TableHead className="text-right min-w-[100px]">Actions</TableHead>
+                        </TableRow>
+                        {showFilters && (
+                            <TableRow>
+                                <TableHead className="w-32">
+                                    <Input
+                                        value={filter.recordId ?? ''}
+                                        onChange={(e) => setFilter((f) => ({ ...f, recordId: e.target.value }))}
+                                        placeholder="Filter"
+                                        className="h-7 text-xs border-none bg-transparent focus:ring-0"
+                                    />
+                                </TableHead>
+                                <TableHead className="min-w-[160px] sm:min-w-[240px]">
+                                    <Input
+                                        value={filter.account}
+                                        onChange={(e) => setFilter((f) => ({ ...f, account: e.target.value }))}
+                                        placeholder="Filter"
+                                        className="h-7 text-xs border-none bg-transparent focus:ring-0"
+                                    />
+                                </TableHead>
+                                <TableHead className="min-w-[100px] sm:min-w-[140px]">
+                                    <Input
+                                        value={filter.city}
+                                        onChange={(e) => setFilter((f) => ({ ...f, city: e.target.value }))}
+                                        placeholder="Filter"
+                                        className="h-7 text-xs border-none bg-transparent focus:ring-0"
+                                    />
+                                </TableHead>
+                                <TableHead className="min-w-[80px] sm:min-w-[100px]">
+                                    <Select
+                                        value={filter.state}
+                                        onValueChange={(value) => setFilter((f) => ({ ...f, state: value }))}
+                                    >
+                                        <SelectTrigger className="h-7 text-xs border-none bg-transparent focus:ring-0">
+                                            <SelectValue placeholder="Filter" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="">All</SelectItem>
+                                            {STATE_ABBREVIATIONS.map((abbr) => (
+                                                <SelectItem key={abbr} value={abbr}>
+                                                    {abbr}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </TableHead>
+                                <TableHead className="min-w-[110px] sm:min-w-[140px] text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                        <span className="text-xs font-medium text-muted-foreground">Total Activity</span>
+                                    </div>
+                                </TableHead>
+                                <TableHead className="text-right min-w-[100px]">Actions</TableHead>
+                            </TableRow>
+                        )}
+                    </TableHeader>
+                    <TableBody>
+                        {items.slice(skip, skip + PAGE_SIZE).map((supplier) => (
+                            <TableRow key={supplier.recordId}>
+                                <TableCell className="font-mono text-xs text-muted-foreground">
+                                    {supplier.recordId}
+                                </TableCell>
+                                <TableCell className="font-medium text-ink-900">
+                                    {htmlToText(supplier.account) || '—'}
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground">
+                                    {htmlToText(supplier.city) || '—'}
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground">
+                                    {htmlToText(supplier.state) || '—'}
+                                </TableCell>
+                                <TableCell className="text-xs text-muted-foreground text-right">
+                                    {supplier.totalActivities ?? 0} loads
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex justify-end gap-2">
+                                        <Button variant="outline" size="sm" asChild>
+                                            <Link
+                                                to="/supplier/dashboard/$recordId"
+                                                params={{ recordId: supplier.recordId.toString() }}
+                                            >
+                                                Dashboard
+                                            </Link>
+                                        </Button>
+                                        {canViewInternal && (
+                                            <Button variant="outline" size="sm" asChild>
+                                                <Link
+                                                    to="/suppliers/$recordId"
+                                                    params={{ recordId: supplier.recordId.toString() }}
+                                                >
+                                                    Admin
+                                                </Link>
+                                            </Button>
+                                        )}
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
 
-                    <div className="rounded-xl border border-border bg-card">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-32">Record ID</TableHead>
-                                    <TableHead>Supplier</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {data.items.map((supplier) => (
-                                    <TableRow key={supplier.recordId}>
-                                        <TableCell className="font-mono text-xs text-muted-foreground">
-                                            {supplier.recordId}
-                                        </TableCell>
-                                        <TableCell className="font-medium text-ink-900">
-                                            {htmlToText(supplier.account) || '—'}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex justify-end">
-                                                <Button variant="outline" size="sm" asChild>
-                                                    <Link
-                                                        to="/suppliers/$recordId"
-                                                        params={{ recordId: supplier.recordId.toString() }}
-                                                    >
-                                                        View
-                                                    </Link>
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSkip((s) => Math.max(0, s - PAGE_SIZE))}
-                            disabled={!hasPrev || isFetching}
-                        >
-                            <ChevronLeft className="h-4 w-4" />
-                            Previous
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSkip((s) => s + PAGE_SIZE)}
-                            disabled={!hasNext || isFetching}
-                        >
-                            Next
-                            <ChevronRight className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </>
-            )}
+            <div className="flex items-center justify-between">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSkip((s) => Math.max(0, s - PAGE_SIZE))}
+                    disabled={!hasPrev || isFetching}
+                >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSkip((s) => s + PAGE_SIZE)}
+                    disabled={!hasNext || isFetching}
+                >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                </Button>
+            </div>
         </div>
     )
 }

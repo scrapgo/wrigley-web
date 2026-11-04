@@ -17,8 +17,10 @@ import { Route as NoAccessRouteImport } from './routes/no-access'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SuppliersRouteImport } from './routes/suppliers'
 import { Route as InviteAcceptRouteImport } from './routes/invite.accept'
+import { Route as SupplierDashboardRouteImport } from './routes/supplier.dashboard'
 import { Route as SuppliersRecordIdRouteImport } from './routes/suppliers_.$recordId'
 import { Route as AdminUsersUserIdRouteImport } from './routes/admin_.users.$userId'
+import { Route as SupplierDashboardRecordIdRouteImport } from './routes/supplier.dashboard_.$recordId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -60,6 +62,11 @@ const InviteAcceptRoute = InviteAcceptRouteImport.update({
   path: '/invite/accept',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SupplierDashboardRoute = SupplierDashboardRouteImport.update({
+  id: '/supplier/dashboard',
+  path: '/supplier/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SuppliersRecordIdRoute = SuppliersRecordIdRouteImport.update({
   id: '/suppliers_/$recordId',
   path: '/suppliers/$recordId',
@@ -70,6 +77,12 @@ const AdminUsersUserIdRoute = AdminUsersUserIdRouteImport.update({
   path: '/admin/users/$userId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SupplierDashboardRecordIdRoute =
+  SupplierDashboardRecordIdRouteImport.update({
+    id: '/supplier/dashboard_/$recordId',
+    path: '/supplier/dashboard/$recordId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -80,8 +93,10 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/suppliers': typeof SuppliersRoute
   '/invite/accept': typeof InviteAcceptRoute
+  '/supplier/dashboard': typeof SupplierDashboardRoute
   '/suppliers/$recordId': typeof SuppliersRecordIdRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
+  '/supplier/dashboard/$recordId': typeof SupplierDashboardRecordIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -92,8 +107,10 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/suppliers': typeof SuppliersRoute
   '/invite/accept': typeof InviteAcceptRoute
+  '/supplier/dashboard': typeof SupplierDashboardRoute
   '/suppliers/$recordId': typeof SuppliersRecordIdRoute
   '/admin/users/$userId': typeof AdminUsersUserIdRoute
+  '/supplier/dashboard/$recordId': typeof SupplierDashboardRecordIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -105,8 +122,10 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/suppliers': typeof SuppliersRoute
   '/invite/accept': typeof InviteAcceptRoute
+  '/supplier/dashboard': typeof SupplierDashboardRoute
   '/suppliers_/$recordId': typeof SuppliersRecordIdRoute
   '/admin_/users/$userId': typeof AdminUsersUserIdRoute
+  '/supplier/dashboard_/$recordId': typeof SupplierDashboardRecordIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -119,8 +138,10 @@ export interface FileRouteTypes {
     | '/settings'
     | '/suppliers'
     | '/invite/accept'
+    | '/supplier/dashboard'
     | '/suppliers/$recordId'
     | '/admin/users/$userId'
+    | '/supplier/dashboard/$recordId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -131,8 +152,10 @@ export interface FileRouteTypes {
     | '/settings'
     | '/suppliers'
     | '/invite/accept'
+    | '/supplier/dashboard'
     | '/suppliers/$recordId'
     | '/admin/users/$userId'
+    | '/supplier/dashboard/$recordId'
   id:
     | '__root__'
     | '/'
@@ -143,8 +166,10 @@ export interface FileRouteTypes {
     | '/settings'
     | '/suppliers'
     | '/invite/accept'
+    | '/supplier/dashboard'
     | '/suppliers_/$recordId'
     | '/admin_/users/$userId'
+    | '/supplier/dashboard_/$recordId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -156,8 +181,10 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   SuppliersRoute: typeof SuppliersRoute
   InviteAcceptRoute: typeof InviteAcceptRoute
+  SupplierDashboardRoute: typeof SupplierDashboardRoute
   SuppliersRecordIdRoute: typeof SuppliersRecordIdRoute
   AdminUsersUserIdRoute: typeof AdminUsersUserIdRoute
+  SupplierDashboardRecordIdRoute: typeof SupplierDashboardRecordIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -218,6 +245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteAcceptRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/supplier/dashboard': {
+      id: '/supplier/dashboard'
+      path: '/supplier/dashboard'
+      fullPath: '/supplier/dashboard'
+      preLoaderRoute: typeof SupplierDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/suppliers_/$recordId': {
       id: '/suppliers_/$recordId'
       path: '/suppliers/$recordId'
@@ -232,6 +266,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersUserIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/supplier/dashboard_/$recordId': {
+      id: '/supplier/dashboard_/$recordId'
+      path: '/supplier/dashboard/$recordId'
+      fullPath: '/supplier/dashboard/$recordId'
+      preLoaderRoute: typeof SupplierDashboardRecordIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -244,8 +285,10 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   SuppliersRoute: SuppliersRoute,
   InviteAcceptRoute: InviteAcceptRoute,
+  SupplierDashboardRoute: SupplierDashboardRoute,
   SuppliersRecordIdRoute: SuppliersRecordIdRoute,
   AdminUsersUserIdRoute: AdminUsersUserIdRoute,
+  SupplierDashboardRecordIdRoute: SupplierDashboardRecordIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

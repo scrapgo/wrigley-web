@@ -13,7 +13,7 @@ export interface NavItem {
     label: string
     icon: ComponentType<{ className?: string }>
     section: 'Workspace' | 'Administration'
-    to: '/dashboard' | '/suppliers' | '/admin'
+    to: '/dashboard' | '/suppliers' | '/admin' | '/supplier/dashboard'
     /** The `/admin` tab this entry opens. */
     tab?: AdminTab
     /** Shown to callers holding any of these permission keys. */

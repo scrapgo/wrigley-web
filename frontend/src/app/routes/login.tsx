@@ -54,7 +54,7 @@ function LoginComponent() {
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
-    const { login, loginWithGoogle, isAuthenticated } = useAuth()
+    const { login, loginWithGoogle, isAuthenticated, me } = useAuth()
     const { invitation } = Route.useSearch()
     const navigate = useNavigate()
     const googleButtonRef = useRef<HTMLDivElement>(null)
@@ -110,12 +110,19 @@ function LoginComponent() {
         })
     }, [loginWithGoogle, onSignInError, storeInvitation])
 
-    // An accepted invitation opens the suppliers it linked; any other sign-in the dashboard.
+    // An accepted invitation opens the suppliers it linked; external users go to
+    // the suppliers list to pick their dashboard; internal users go to the main dashboard.
     useEffect(() => {
-        if (isAuthenticated) {
-            navigate({ to: invitation ? '/suppliers' : '/dashboard' })
+        if (!isAuthenticated) {
+            return
         }
-    }, [isAuthenticated, invitation, navigate])
+        const isExternal = me?.user.userType === 'External'
+        if (invitation || isExternal) {
+            navigate({ to: '/suppliers' })
+        } else {
+            navigate({ to: '/dashboard' })
+        }
+    }, [isAuthenticated, me, invitation, navigate])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()

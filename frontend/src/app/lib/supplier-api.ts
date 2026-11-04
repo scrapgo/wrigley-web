@@ -35,14 +35,6 @@ export const RICH_TEXT_FIELD_IDS = [192, 197] as const
 /*  DTOs (mirror the backend contracts)                                       */
 /* -------------------------------------------------------------------------- */
 
-/** A supplier in a list: enough to pick one. */
-export interface SupplierSummary {
-    /** Quickbase Record ID# (field 3), the only unique key. Names repeat. */
-    recordId: number
-    /** The supplier's name (field 8), as stored. */
-    account: string
-}
-
 /** A Quickbase user, e.g. who a lead is assigned to. */
 export interface SupplierUser {
     id: string | null
@@ -88,7 +80,8 @@ export interface DataFreshness {
 }
 
 export interface SupplierListResponse {
-    items: SupplierSummary[]
+    /** Full supplier records, the same as the detail endpoint's: pick the columns to show. */
+    items: SupplierDetail[]
     skip: number
     top: number
     totalRecords: number

@@ -60,7 +60,7 @@ public interface ISupplierSource
 public sealed record Sourced<T>(T Value, DataFreshness Freshness);
 
 /// <param name="TotalRecords">Every matching record, not just this page.</param>
-public sealed record SupplierPage(IReadOnlyList<SupplierSummaryDto> Items, int TotalRecords);
+public sealed record SupplierPage(IReadOnlyList<SupplierDto> Items, int TotalRecords);
 
 /// <summary>The supplier source failed (e.g. Quickbase down) and no cached copy could stand in.</summary>
 public sealed class SupplierSourceUnavailableException(string message, Exception? innerException = null)

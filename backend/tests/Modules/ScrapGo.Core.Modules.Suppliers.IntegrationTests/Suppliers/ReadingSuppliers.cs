@@ -96,7 +96,7 @@ public class ReadingSuppliers
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var query = fixture.Quickbase.Queries.Last();
             Assert.Equal("bqrcgnatz", query.TableId);
-            Assert.Equal([3, 8], query.Select);
+            Assert.Equal([3, 8, 9, 10, 11, 64, 12, 355, 123, 320, 301, 74, 28, 133, 116, 346, 129, 214, 321], query.Select);
             Assert.Equal("{8.XEX.''}", query.Where);
             var sort = Assert.Single(query.SortBy!);
             Assert.Equal(8, sort.FieldId);
@@ -111,6 +111,27 @@ public class ReadingSuppliers
             Assert.Equal(8701, items[0].GetProperty("recordId").GetInt32());
             Assert.Equal(" C & M Car Crushing Inc", items[0].GetProperty("account").GetString());
             Assert.Equal("\"Cash For Junk Cars\" Michael's Auto & Towing", items[1].GetProperty("account").GetString());
+        }
+
+        // Each row carries every detail field, so the frontend picks the columns it shows.
+        [Fact]
+        public async Task List_items_are_full_supplier_records()
+        {
+            var token = await fixture.SeedSupplierReaderAsync();
+            fixture.Quickbase.RespondWith(SupplierResponses.FirstClassAutoSalvage);
+
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(), token);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var item = Assert.Single((await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("items").EnumerateArray());
+            Assert.Equal(17511, item.GetProperty("recordId").GetInt32());
+            Assert.Equal("1st Class Auto Salvage", item.GetProperty("account").GetString());
+            Assert.Equal("Apopka", item.GetProperty("city").GetString());
+            Assert.Equal("FL", item.GetProperty("state").GetString());
+            Assert.Equal("Net 5", item.GetProperty("paymentTerms").GetString());
+            Assert.Equal("john@scrapgo.com", item.GetProperty("leadAssignedTo").GetProperty("email").GetString());
+            Assert.Equal(67, item.GetProperty("relevantConsumerDistances").GetInt32());
+            Assert.True(item.TryGetProperty("deadFreight", out _));
         }
 
         [Fact]

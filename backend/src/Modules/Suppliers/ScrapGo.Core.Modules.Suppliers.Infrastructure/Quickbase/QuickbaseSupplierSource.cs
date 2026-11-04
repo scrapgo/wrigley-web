@@ -223,12 +223,10 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
             cancellationToken);
 
         using var document = JsonDocument.Parse(result.ResponseJson);
+        // Rows without a Record ID# map to null and are dropped.
         var items = Rows(document)
-            .Select(row => new QuickbaseRecord(row))
-            .Where(record => record.Int(SuppliersTable.RecordId) is not null)
-            .Select(record => new SupplierSummaryDto(
-                record.Int(SuppliersTable.RecordId)!.Value,
-                record.Text(SuppliersTable.Account) ?? string.Empty))
+            .Select(row => ToSupplier(new QuickbaseRecord(row)))
+            .OfType<SupplierDto>()
             .ToList();
 
         var total = document.RootElement.TryGetProperty("metadata", out var metadata)

@@ -117,8 +117,8 @@ public static class SuppliersTable
         RecordId, LeadSource, LastReassignedSupplier, LastModifiedBy, RelatedSupplierOffice, OutOfBusiness,
     ];
 
-    /// <summary>The list view's fields.</summary>
-    public static readonly IReadOnlyList<int> ListFields = [RecordId, Account];
+    /// <summary>The list's fields: every detail field, so the frontend picks the columns it shows.</summary>
+    public static readonly IReadOnlyList<int> ListFields = DetailFields;
 
     /// <summary>
     /// <c>{3.EX.'17511'}</c>: exactly this record.

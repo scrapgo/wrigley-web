@@ -1,10 +1,5 @@
 namespace ScrapGo.Core.Modules.Suppliers.Application.Suppliers;
 
-/// <summary>A supplier in a list: enough to pick one.</summary>
-/// <param name="RecordId">Quickbase Record ID# (field 3), the only unique key. Names repeat.</param>
-/// <param name="Account">The supplier's name (field 8), as stored.</param>
-public sealed record SupplierSummaryDto(int RecordId, string Account);
-
 /// <summary>A Quickbase user, e.g. who a lead is assigned to.</summary>
 public sealed record SupplierUserDto(string? Id, string? Email, string? Name);
 
@@ -279,5 +274,6 @@ public sealed record SupplierOtherProspectInformationResponse(
 
 public sealed record SupplierCallProspectStatusResponse(SupplierCallProspectStatusDto CallProspectStatus, DataFreshness Freshness);
 
+/// <param name="Items">Full supplier records, the same as <see cref="SupplierResponse"/>'s; the frontend picks the columns.</param>
 public sealed record SupplierListResponse(
-    IReadOnlyList<SupplierSummaryDto> Items, int Skip, int Top, int TotalRecords, DataFreshness Freshness);
+    IReadOnlyList<SupplierDto> Items, int Skip, int Top, int TotalRecords, DataFreshness Freshness);

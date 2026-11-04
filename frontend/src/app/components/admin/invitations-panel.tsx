@@ -22,7 +22,7 @@ import { useSuppliers } from "../../hooks/useSupplierQueries"
 import { adminErrorMessage } from "../../lib/admin-errors"
 import { formatDateTime, SELECT_CLASS } from "../../lib/admin-format"
 import type { Invitation, InvitationStatus, IssuedInvitation, UserType } from "../../lib/admin-api"
-import type { SupplierSummary } from "../../lib/supplier-api"
+import type { SupplierDetail } from "../../lib/supplier-api"
 
 const PAGE_SIZE = 25
 
@@ -59,7 +59,7 @@ export function InviteForm({ onIssued }: { onIssued: (issued: IssuedInvitation) 
     const [externalRoleId, setExternalRoleId] = useState<number | "">("")
     // Null until the admin changes it: then ScrapGo User is preselected.
     const [internalRoleIds, setInternalRoleIds] = useState<Set<number> | null>(null)
-    const [suppliers, setSuppliers] = useState<SupplierSummary[]>([])
+    const [suppliers, setSuppliers] = useState<SupplierDetail[]>([])
     const [lastLink, setLastLink] = useState<string | null>(null)
 
     const roles = form.data?.roles ?? []
@@ -215,8 +215,8 @@ function SupplierPicker({
     onAdd,
     onRemove,
 }: {
-    selected: SupplierSummary[]
-    onAdd: (supplier: SupplierSummary) => void
+    selected: SupplierDetail[]
+    onAdd: (supplier: SupplierDetail) => void
     onRemove: (recordId: number) => void
 }) {
     const [term, setTerm] = useState("")
@@ -234,7 +234,7 @@ function SupplierPicker({
                             <button
                                 type="button"
                                 className="rounded-full p-1 hover:bg-brand-100"
-                                aria-label={`Remove ${supplier.account}`}
+                                aria-label={`Remove ${supplier.account || `#${supplier.recordId}`}`}
                                 onClick={() => onRemove(supplier.recordId)}
                             >
                                 <X className="h-3.5 w-3.5" />

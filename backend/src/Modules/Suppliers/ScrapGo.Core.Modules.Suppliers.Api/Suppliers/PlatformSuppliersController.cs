@@ -15,8 +15,9 @@ namespace ScrapGo.Core.Modules.Suppliers.Api.Suppliers;
 public sealed class PlatformSuppliersController(SupplierService suppliers) : ControllerBase
 {
     /// <summary>
-    /// Suppliers with a name, sorted by name, one page at a time. <c>search</c>
-    /// filters by a name substring; <c>top</c> is 1 to 1000 (default 100).
+    /// Suppliers with a name, sorted by name, one page at a time, each a full
+    /// supplier record (the same fields as <c>GET /api/suppliers/{recordId}</c>).
+    /// <c>search</c> filters by a name substring; <c>top</c> is 1 to 1000 (default 100).
     /// </summary>
     [HttpGet]
     [ProducesResponseType<SupplierListResponse>(StatusCodes.Status200OK)]

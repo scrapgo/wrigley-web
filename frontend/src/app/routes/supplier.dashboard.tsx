@@ -23,7 +23,7 @@ export const Route = createFileRoute('/supplier/dashboard')({
 function SupplierDashboardLanding() {
     const { me } = useAuth()
     const navigate = useNavigate()
-    const { data, isLoading } = useSuppliers(undefined, 0, 100)
+    const { data, isLoading } = useSuppliers('', 0, 100)
 
     useEffect(() => {
         if (isLoading || !data) {

@@ -6,7 +6,7 @@ export const ADMIN_TABS = ['home', 'users', 'access', 'audit'] as const
 
 export type AdminTab = (typeof ADMIN_TABS)[number]
 
-export type NavKey = 'home' | 'suppliers' | AdminTab | 'admin' | 'settings'
+export type NavKey = 'home' | 'suppliers' | 'supplier-dashboard' | AdminTab | 'admin' | 'settings'
 
 export interface NavItem {
     key: NavKey

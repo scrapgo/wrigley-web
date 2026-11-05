@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from '@tanstack/react-router'
-import { ChevronLeft, ChevronRight, Search, SortAsc, SortDesc, Filter } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, SortAsc, SortDesc, Filter, X } from 'lucide-react'
 
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -38,6 +38,38 @@ interface FilterState {
 
 const DEFAULT_FILTER: FilterState = { recordId: '', account: '', city: '', state: '' }
 
+/** Radix Select can't hold an empty value, so "All states" uses this and maps to ''. */
+const ALL_STATES = 'all'
+
+/** A column filter box with a button that clears it while it has a value. */
+function FilterInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+    return (
+        <div className="relative">
+            <Input
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder="Filter"
+                aria-label={`Filter by ${label}`}
+                className="h-7 pr-7 text-xs border-none bg-transparent focus:ring-0"
+            />
+            {value && <ClearButton label={label} onClick={() => onChange('')} />}
+        </div>
+    )
+}
+
+function ClearButton({ label, onClick }: { label: string; onClick: () => void }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-label={`Clear ${label} filter`}
+            className="absolute right-0 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-ink-900"
+        >
+            <X className="h-3.5 w-3.5" />
+        </button>
+    )
+}
+
 /** US state abbreviations for the state filter dropdown. */
 const STATE_ABBREVIATIONS = [
     'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS',
@@ -73,6 +105,22 @@ export function SuppliersPanel({ initialSearch = '' }: { initialSearch?: string 
         e.preventDefault()
         setSkip(0)
         setSearch(searchInput.trim())
+    }
+
+    // Any filter change starts again at page 1, so a narrower list never leaves an empty page.
+    const setFilterValue = (key: keyof FilterState, value: string) => {
+        setFilter((current) => ({ ...current, [key]: value }))
+        setSkip(0)
+    }
+
+    const activeFilterCount = Object.values(filter).filter(Boolean).length
+    const anythingToClear = activeFilterCount > 0 || searchInput !== '' || search !== ''
+
+    const clearAll = () => {
+        setFilter(DEFAULT_FILTER)
+        setSearchInput('')
+        setSearch('')
+        setSkip(0)
     }
 
     const items = useMemo(() => {
@@ -162,13 +210,21 @@ export function SuppliersPanel({ initialSearch = '' }: { initialSearch?: string 
                     Search
                 </Button>
                 <Button
+                    type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => setShowFilters((prev) => !prev)}
                 >
                     <Filter className="h-3 w-3 mr-1" />
                     {showFilters ? 'Hide Filters' : 'Filters'}
+                    {activeFilterCount > 0 && ` (${activeFilterCount})`}
                 </Button>
+                {anythingToClear && (
+                    <Button type="button" variant="ghost" size="sm" onClick={clearAll}>
+                        <X className="h-3 w-3 mr-1" />
+                        Clear filters
+                    </Button>
+                )}
             </form>
 
             <div className="rounded-xl border border-border bg-card">
@@ -185,46 +241,37 @@ export function SuppliersPanel({ initialSearch = '' }: { initialSearch?: string 
                         {showFilters && (
                             <TableRow>
                                 <TableHead className="w-32">
-                                    <Input
-                                        value={filter.recordId ?? ''}
-                                        onChange={(e) => setFilter((f) => ({ ...f, recordId: e.target.value }))}
-                                        placeholder="Filter"
-                                        className="h-7 text-xs border-none bg-transparent focus:ring-0"
-                                    />
+                                    <FilterInput label="Record ID" value={filter.recordId} onChange={(value) => setFilterValue('recordId', value)} />
                                 </TableHead>
                                 <TableHead className="min-w-[160px] sm:min-w-[240px]">
-                                    <Input
-                                        value={filter.account}
-                                        onChange={(e) => setFilter((f) => ({ ...f, account: e.target.value }))}
-                                        placeholder="Filter"
-                                        className="h-7 text-xs border-none bg-transparent focus:ring-0"
-                                    />
+                                    <FilterInput label="Supplier" value={filter.account} onChange={(value) => setFilterValue('account', value)} />
                                 </TableHead>
                                 <TableHead className="min-w-[100px] sm:min-w-[140px]">
-                                    <Input
-                                        value={filter.city}
-                                        onChange={(e) => setFilter((f) => ({ ...f, city: e.target.value }))}
-                                        placeholder="Filter"
-                                        className="h-7 text-xs border-none bg-transparent focus:ring-0"
-                                    />
+                                    <FilterInput label="City" value={filter.city} onChange={(value) => setFilterValue('city', value)} />
                                 </TableHead>
                                 <TableHead className="min-w-[80px] sm:min-w-[100px]">
-                                    <Select
-                                        value={filter.state}
-                                        onValueChange={(value) => setFilter((f) => ({ ...f, state: value }))}
-                                    >
-                                        <SelectTrigger className="h-7 text-xs border-none bg-transparent focus:ring-0">
-                                            <SelectValue placeholder="Filter" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="">All</SelectItem>
-                                            {STATE_ABBREVIATIONS.map((abbr) => (
-                                                <SelectItem key={abbr} value={abbr}>
-                                                    {abbr}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <div className="relative">
+                                        <Select
+                                            value={filter.state || ALL_STATES}
+                                            onValueChange={(value) => setFilterValue('state', value === ALL_STATES ? '' : value)}
+                                        >
+                                            <SelectTrigger
+                                                aria-label="Filter by State"
+                                                className={`h-7 text-xs border-none bg-transparent focus:ring-0 ${filter.state ? 'pr-7' : ''}`}
+                                            >
+                                                <SelectValue placeholder="Filter" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value={ALL_STATES}>All states</SelectItem>
+                                                {STATE_ABBREVIATIONS.map((abbr) => (
+                                                    <SelectItem key={abbr} value={abbr}>
+                                                        {abbr}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {filter.state && <ClearButton label="State" onClick={() => setFilterValue('state', '')} />}
+                                    </div>
                                 </TableHead>
                                 <TableHead className="min-w-[110px] sm:min-w-[140px] text-right">
                                     <div className="flex items-center justify-end gap-2">

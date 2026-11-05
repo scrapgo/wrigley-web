@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { Link } from '@tanstack/react-router'
-import { ChevronLeft, ChevronRight, Search, SortAsc, SortDesc, Filter, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, SortAsc, SortDesc, Filter, X, Eye, Edit } from 'lucide-react'
 
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -227,19 +227,20 @@ export function SuppliersPanel({ initialSearch = '' }: { initialSearch?: string 
                 )}
             </form>
 
-            <div className="rounded-xl border border-border bg-card">
+            <div className="rounded-xl border border-border bg-card overflow-x-auto">
                 <Table>
                     <TableHeader>
                         <TableRow>
+                            <TableHead className="w-20 text-center">Actions</TableHead>
                             {sortableHeader('recordId', 'Record ID', 'min-w-[120px] sm:min-w-[160px]')}
                             {sortableHeader('account', 'Supplier', 'min-w-[160px] sm:min-w-[240px]')}
                             {sortableHeader('city', 'City', 'min-w-[100px] sm:min-w-[140px]')}
                             {sortableHeader('state', 'State', 'min-w-[80px] sm:min-w-[100px]')}
                             {sortableHeader('totalActivities', 'Total Activity', 'min-w-[110px] sm:min-w-[140px] text-right')}
-                            <TableHead className="text-right min-w-[100px]">Actions</TableHead>
                         </TableRow>
                         {showFilters && (
                             <TableRow>
+                                <TableHead className="w-20 text-center">Actions</TableHead>
                                 <TableHead className="w-32">
                                     <FilterInput label="Record ID" value={filter.recordId} onChange={(value) => setFilterValue('recordId', value)} />
                                 </TableHead>
@@ -285,6 +286,28 @@ export function SuppliersPanel({ initialSearch = '' }: { initialSearch?: string 
                     <TableBody>
                         {items.slice(skip, skip + PAGE_SIZE).map((supplier) => (
                             <TableRow key={supplier.recordId}>
+                                <TableCell className="w-20 text-center">
+                                    <div className="flex justify-center gap-2">
+                                        <Button variant="outline" size="sm" asChild className="p-1.5" title="View Supplier Dashboard">
+                                            <Link
+                                                to="/supplier/dashboard/$recordId"
+                                                params={{ recordId: supplier.recordId.toString() }}
+                                            >
+                                                <Eye className="h-4 w-4" />
+                                            </Link>
+                                        </Button>
+                                        {canViewInternal && (
+                                            <Button variant="outline" size="sm" asChild className="p-1.5" title="View Admin Details">
+                                                <Link
+                                                    to="/suppliers/$recordId"
+                                                    params={{ recordId: supplier.recordId.toString() }}
+                                                >
+                                                    <Edit className="h-4 w-4" />
+                                                </Link>
+                                            </Button>
+                                        )}
+                                    </div>
+                                </TableCell>
                                 <TableCell className="font-mono text-xs text-muted-foreground">
                                     {supplier.recordId}
                                 </TableCell>
@@ -299,28 +322,6 @@ export function SuppliersPanel({ initialSearch = '' }: { initialSearch?: string 
                                 </TableCell>
                                 <TableCell className="text-xs text-muted-foreground text-right">
                                     {supplier.totalActivities ?? 0} loads
-                                </TableCell>
-                                <TableCell>
-                                    <div className="flex justify-end gap-2">
-                                        <Button variant="outline" size="sm" asChild>
-                                            <Link
-                                                to="/supplier/dashboard/$recordId"
-                                                params={{ recordId: supplier.recordId.toString() }}
-                                            >
-                                                Dashboard
-                                            </Link>
-                                        </Button>
-                                        {canViewInternal && (
-                                            <Button variant="outline" size="sm" asChild>
-                                                <Link
-                                                    to="/suppliers/$recordId"
-                                                    params={{ recordId: supplier.recordId.toString() }}
-                                                >
-                                                    Admin
-                                                </Link>
-                                            </Button>
-                                        )}
-                                    </div>
                                 </TableCell>
                             </TableRow>
                         ))}

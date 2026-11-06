@@ -30,4 +30,6 @@ We are building a unified portal that acts as a proxy for Quickbase.
 
 - When modifying a data entity, update the Database schema (Postgres) if it's an Identity/Governance object, or the Quickbase Schema if it's an operational object.
 
+- When you add or change an API endpoint, or change a Quickbase query (table, `select`, `where`, `sortBy`, paging), update [`docs/QUICKBASE-QUERIES.md`](docs/QUICKBASE-QUERIES.md) in the same change.
+
 - Always maintain clear separation between the "Proxy" logic (handling legacy Quickbase data) and "Core" logic (Identity/Governance).

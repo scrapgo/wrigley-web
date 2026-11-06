@@ -78,7 +78,7 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 
 **QuickbaseEngine**: implements `IQuickbaseQueryService`, cache-aside over the Quickbase REST API, backed by `quickbase.query_caches`. Its Api project has no controllers.
 
-**Suppliers** (Application, Infrastructure, Api; no Domain or database, since Quickbase owns the data): read endpoints over the Quickbase Suppliers table `bqrcgnatz`, under `/api/suppliers`, every route (dropdowns included) behind `[RequirePermission(SupplierPermissions.ViewAll, SupplierPermissions.ViewOwn)]`. `suppliers.view_all` sees every supplier; `suppliers.view_own` only the caller's linked Record IDs (B13).
+**Suppliers** (Application, Infrastructure, Api; no Domain or database, since Quickbase owns the data): read endpoints over the Quickbase Suppliers table `bqrcgnatz`, under `/api/suppliers`, every route (dropdowns included) behind `[RequirePermission(SupplierPermissions.ViewAll, SupplierPermissions.ViewOwn)]`. `suppliers.view_all` sees every supplier; `suppliers.view_own` only the caller's linked Record IDs (B13). The exact Quickbase query behind each endpoint is in [`../docs/QUICKBASE-QUERIES.md`](../docs/QUICKBASE-QUERIES.md).
 - `GET /api/suppliers` returns names sorted by name, with `search`, `skip` and `top` (1–1000, default 100). A scoped caller's query gets `({3.EX.'id'}OR…)AND` in front (`SuppliersTable.NamedLike`); an empty scope is an empty page (`freshness.source` `None`) without a Quickbase call.
 - `GET …/suppliers/{recordId}` returns one supplier's details.
 - `GET …/suppliers/{recordId}/call-prospect-status` returns call & prospect status (fields 197, 192, 193, 236, 181, 238, 97).
@@ -111,6 +111,7 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 - They reach Quickbase only through `IQuickbaseQueryService` and check the caller through `IUserContext`. Both contracts live in **Shared.Kernel** (`Shared.Kernel.Quickbase`, `Shared.Kernel.Security`), so no module references QuickbaseEngine's or Identity's projects.
 - They check permissions with `IUserContext.HasPermissionAsync`, and filter suppliers by `IUserContext.GetSupplierScopeAsync` (`SupplierScope.All` with `suppliers.view_all`, the caller's linked Record IDs with `suppliers.view_own`, `None` otherwise).
 - They name Identity's permissions by string, with a spec pinning that string to Identity's `Permissions`.
+- When they add or change an endpoint or a Quickbase query, they update [`../docs/QUICKBASE-QUERIES.md`](../docs/QUICKBASE-QUERIES.md) in the same change.
 
 ## Quickbase Query Cache (QuickbaseEngine module)
 

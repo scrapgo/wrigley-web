@@ -627,6 +627,16 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("invited_by_user_id");
 
+                    b.Property<DateTimeOffset?>("LastRenewedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("last_renewed_at");
+
+                    b.Property<int>("RenewCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("renew_count");
+
                     b.PrimitiveCollection<List<int>>("RoleIds")
                         .IsRequired()
                         .HasColumnType("integer[]")
@@ -674,6 +684,8 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
 
                     b.ToTable("invitations", "identity", t =>
                         {
+                            t.HasCheckConstraint("ck_invitations_renew_count", "renew_count >= 0");
+
                             t.HasCheckConstraint("ck_invitations_role_ids", "cardinality(role_ids) > 0");
 
                             t.HasCheckConstraint("ck_invitations_status", "status IN ('Pending', 'Accepted', 'Revoked', 'Expired')");

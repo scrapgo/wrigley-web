@@ -12,7 +12,8 @@ public static class InvitationEmail
 
     public static string Build(string sender, InvitationMessage message)
     {
-        var expires = message.ExpiresAt.UtcDateTime.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture);
+        // Invitations are short-lived (minutes), so the time matters as much as the date.
+        var expires = message.ExpiresAt.UtcDateTime.ToString("h:mm tt 'UTC on' MMMM d, yyyy", CultureInfo.InvariantCulture);
         var link = message.AcceptLink;
         var boundary = $"scrapgo-{Guid.NewGuid():N}";
 
@@ -22,7 +23,7 @@ public static class InvitationEmail
             : "Accept the invitation and create your account";
         var terms = message.SignInWithGoogle
             ? $"Your access is ready when you first sign in, before {expires}."
-            : $"This link works once and expires on {expires}.";
+            : $"This link works once and expires at {expires}. If it has expired, open it anyway to get a new one.";
 
         var text = $"""
             You've been invited to the ScrapGo portal.

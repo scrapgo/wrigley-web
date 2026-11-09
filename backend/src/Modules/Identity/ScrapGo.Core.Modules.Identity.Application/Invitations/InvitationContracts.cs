@@ -94,6 +94,26 @@ public enum InvitationOutcome
 
     /// <summary>The invitation was accepted or revoked, so it can't be resent or revoked.</summary>
     NotPending,
+
+    /// <summary>
+    /// The invitee can't renew this invitation: it's still open, accepted,
+    /// revoked or internal, the user already exists, or the email has another pending one.
+    /// </summary>
+    NotRenewable,
+
+    /// <summary>The invitee asked for a new link less than <see cref="InvitationOptions.RenewCooldown"/> ago.</summary>
+    RenewTooSoon,
+
+    /// <summary>The invitee has used all <see cref="InvitationOptions.MaxRenewals"/> renewals; an admin must resend.</summary>
+    RenewLimitReached,
+}
+
+/// <summary>An invitation as the (anonymous) accept page sees it.</summary>
+/// <param name="Status">The effective status (Pending, Expired, Accepted, Revoked), or <see cref="NotFound"/>.</param>
+/// <param name="EmailHint">The invited email, masked (<c>j***@acme.com</c>); null when not found.</param>
+public sealed record InvitationLookupDto(string Status, string? EmailHint, DateTimeOffset? ExpiresAt)
+{
+    public const string NotFound = "NotFound";
 }
 
 public sealed record InvitationResult(InvitationOutcome Outcome, IssuedInvitationDto? Issued = null);

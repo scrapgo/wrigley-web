@@ -19,6 +19,9 @@ public static class IdentityAuditEventTypes
 
     public const string InvitationRevoked = "invitation.revoked";
 
+    /// <summary>The invitee asked for a new link with their expired one (no signed-in actor).</summary>
+    public const string InvitationRenewed = "invitation.renewed";
+
     /// <summary>A request was refused for a missing permission (ACCESS-MODEL.md section 10).</summary>
     public const string AccessDenied = "access.denied";
 

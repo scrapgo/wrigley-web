@@ -12,9 +12,6 @@ public static class InvitationTokens
 {
     public const int TokenBytes = 32;
 
-    /// <summary>How long an invitation (or a resent one) stays open.</summary>
-    public static readonly TimeSpan Lifetime = TimeSpan.FromDays(7);
-
     /// <returns>The token for the accept link, and the hash to store.</returns>
     public static (string Token, string Hash) Generate()
     {

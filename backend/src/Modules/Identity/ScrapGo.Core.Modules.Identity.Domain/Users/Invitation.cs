@@ -43,6 +43,11 @@ public class Invitation
 
     public DateTimeOffset CreatedAt { get; private set; }
 
+    /// <summary>How many times the invitee has asked for a new link since the last admin resend.</summary>
+    public int RenewCount { get; private set; }
+
+    public DateTimeOffset? LastRenewedAt { get; private set; }
+
     public static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
 
     public static Invitation Create(
@@ -74,12 +79,28 @@ public class Invitation
 
     public bool IsOpenAt(DateTimeOffset now) => Status == InvitationStatus.Pending && ExpiresAt > now;
 
-    /// <summary>Resending issues a new token, so the old link stops working.</summary>
+    /// <summary>
+    /// An admin resend: a new token, so the old link stops working, and the
+    /// invitation is Pending again, with the invitee's renewals reset.
+    /// </summary>
     public void Reissue(string tokenHash, DateTimeOffset expiresAt)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tokenHash);
         TokenHash = tokenHash;
         ExpiresAt = expiresAt;
+        Status = InvitationStatus.Pending;
+        RenewCount = 0;
+    }
+
+    /// <summary>The invitee asked for a new link: reissued like a resend, but counted.</summary>
+    public void Renew(string tokenHash, DateTimeOffset expiresAt, DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tokenHash);
+        TokenHash = tokenHash;
+        ExpiresAt = expiresAt;
+        Status = InvitationStatus.Pending;
+        RenewCount++;
+        LastRenewedAt = now;
     }
 
     public void Accept(int userId, DateTimeOffset now)

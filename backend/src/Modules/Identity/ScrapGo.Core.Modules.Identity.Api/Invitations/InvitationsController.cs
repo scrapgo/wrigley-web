@@ -71,7 +71,7 @@ public sealed class InvitationsController(InvitationService invitations) : Contr
             : Problem(result.Outcome);
     }
 
-    /// <summary>Issues a new token and a fresh 7-day expiry; the old link stops working.</summary>
+    /// <summary>Issues a new token and a fresh expiry (<c>Invitations:Lifetime</c>); the old link stops working. Works on Pending and Expired invitations.</summary>
     [HttpPost("{id:int}/resend")]
     [RequirePermission(PermissionCatalog.UsersInvite)]
     [ProducesResponseType<IssuedInvitationDto>(StatusCodes.Status200OK)]
@@ -98,22 +98,7 @@ public sealed class InvitationsController(InvitationService invitations) : Contr
         return outcome == InvitationOutcome.Success ? NoContent() : Problem(outcome);
     }
 
-    /// <summary>
-    /// The portal the admin is using: the browser's <c>Origin</c>, or the host
-    /// Firebase Hosting forwarded the call from. Only an origin on
-    /// <c>Invitations:FrontendOrigins</c> is ever used for links.
-    /// </summary>
-    private string? RequestOrigin()
-    {
-        if (Request.Headers.Origin.ToString() is { Length: > 0 } origin && origin != "null")
-        {
-            return origin;
-        }
-
-        return Request.Headers["X-Forwarded-Host"].ToString() is { Length: > 0 } forwardedHost
-            ? $"https://{forwardedHost.Split(',')[0].Trim()}"
-            : null;
-    }
+    private string? RequestOrigin() => Request.PortalOrigin();
 
     private static IActionResult Problem(InvitationOutcome outcome) => outcome switch
     {

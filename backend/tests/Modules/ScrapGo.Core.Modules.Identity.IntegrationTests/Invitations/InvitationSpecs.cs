@@ -1,4 +1,4 @@
-// B11: invitations (ACCESS-MODEL.md sections 7 and 9) and their acceptance through POST /api/session.
+﻿// B11: invitations (ACCESS-MODEL.md sections 7 and 9) and their acceptance through POST /api/session.
 // External invitations are accepted with the token; internal ones at the invitee's first Google sign-in.
 using System.Net.Http.Json;
 using System.Security.Cryptography;
@@ -32,7 +32,7 @@ public class InvitationSpecs
             Assert.Equal([DefaultRoleNames.User], invitation.GetProperty("roleKeys").EnumerateArray().Select(r => r.GetString()));
             Assert.Equal([9583, 17511], invitation.GetProperty("supplierRecordIds").EnumerateArray().Select(i => i.GetInt32()));
             var expiresIn = invitation.GetProperty("expiresAt").GetDateTimeOffset() - DateTimeOffset.UtcNow;
-            Assert.InRange(expiresIn, TimeSpan.FromDays(7) - TimeSpan.FromMinutes(5), TimeSpan.FromDays(7));
+            Assert.InRange(expiresIn, TimeSpan.FromMinutes(14), TimeSpan.FromMinutes(15));
         }
 
         [Fact]
@@ -401,6 +401,137 @@ public class InvitationSpecs
         }
     }
 
+    public class Given_an_expired_invitation(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    {
+        [Fact]
+        public async Task Lookup_shows_it_expired_with_a_masked_email()
+        {
+            var (id, token) = await CreateOkAsync(fixture, await SeedScrapGoUserAsync(fixture), NewEmail());
+            await ExpireAsync(fixture, id);
+
+            var lookup = await LookupAsync(fixture, token);
+
+            Assert.Equal("Expired", lookup.GetProperty("status").GetString());
+            Assert.Equal("b***@acme.example", lookup.GetProperty("emailHint").GetString());
+        }
+
+        [Fact]
+        public async Task The_invitee_can_renew_it_and_the_old_link_stops_working()
+        {
+            var (id, token) = await CreateOkAsync(fixture, await SeedScrapGoUserAsync(fixture), NewEmail());
+            await ExpireAsync(fixture, id);
+
+            var renew = await RenewAsync(fixture, token);
+
+            Assert.Equal(HttpStatusCode.Accepted, renew.StatusCode);
+            Assert.Equal(string.Empty, await renew.Content.ReadAsStringAsync());
+            var renewed = await fixture.DbContext.Invitations.AsNoTracking().SingleAsync(i => i.Id == id);
+            Assert.Equal(InvitationStatus.Pending, renewed.Status);
+            Assert.True(renewed.ExpiresAt > DateTimeOffset.UtcNow.AddMinutes(14));
+            Assert.Equal(1, renewed.RenewCount);
+            Assert.NotEqual(HashOf(token), renewed.TokenHash);
+            Assert.Equal("NotFound", (await LookupAsync(fixture, token)).GetProperty("status").GetString());
+            Assert.True(await fixture.DbContext.AuditLogs.AnyAsync(
+                a => a.EventType == IdentityAuditEventTypes.InvitationRenewed && a.UserId == null));
+        }
+
+        [Fact]
+        public async Task An_admin_can_resend_it_and_renewals_reset()
+        {
+            var inviterUid = await SeedScrapGoUserAsync(fixture);
+            var email = NewEmail();
+            var (id, _) = await CreateOkAsync(fixture, inviterUid, email);
+            await fixture.DbContext.Invitations.Where(i => i.Id == id).ExecuteUpdateAsync(set => set
+                .SetProperty(i => i.Status, InvitationStatus.Expired)
+                .SetProperty(i => i.RenewCount, 3));
+
+            var resend = await fixture.SendAsync(HttpMethod.Post, $"{InvitationsPath}/{id}/resend", fixture.CreateToken(inviterUid));
+
+            Assert.Equal(HttpStatusCode.OK, resend.StatusCode);
+            var newToken = TokenOf((await resend.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("acceptLink").GetString()!);
+            var resent = await fixture.DbContext.Invitations.AsNoTracking().SingleAsync(i => i.Id == id);
+            Assert.Equal(InvitationStatus.Pending, resent.Status);
+            Assert.Equal(0, resent.RenewCount);
+            Assert.Equal(HttpStatusCode.OK, (await AcceptAsync(fixture, Guid.NewGuid().ToString(), email, newToken)).StatusCode);
+        }
+    }
+
+    // Renewal refusals, kept separate.
+
+    public class Given_an_invitation_that_cannot_be_renewed(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
+    {
+        [Fact]
+        public async Task An_open_invitation_is_refused()
+        {
+            var (_, token) = await CreateOkAsync(fixture, await SeedScrapGoUserAsync(fixture), NewEmail());
+
+            await AssertRenewRefusedAsync(fixture, token, HttpStatusCode.Conflict, "invitation_not_renewable");
+        }
+
+        [Fact]
+        public async Task A_second_renewal_within_a_minute_is_refused()
+        {
+            var (id, token) = await CreateOkAsync(fixture, await SeedScrapGoUserAsync(fixture), NewEmail());
+            await fixture.DbContext.Invitations.Where(i => i.Id == id).ExecuteUpdateAsync(set => set
+                .SetProperty(i => i.ExpiresAt, DateTimeOffset.UtcNow.AddMinutes(-1))
+                .SetProperty(i => i.LastRenewedAt, DateTimeOffset.UtcNow.AddSeconds(-10)));
+
+            await AssertRenewRefusedAsync(fixture, token, HttpStatusCode.TooManyRequests, "renew_too_soon");
+        }
+
+        [Fact]
+        public async Task A_sixth_renewal_is_refused()
+        {
+            var (id, token) = await CreateOkAsync(fixture, await SeedScrapGoUserAsync(fixture), NewEmail());
+            await fixture.DbContext.Invitations.Where(i => i.Id == id).ExecuteUpdateAsync(set => set
+                .SetProperty(i => i.ExpiresAt, DateTimeOffset.UtcNow.AddMinutes(-1))
+                .SetProperty(i => i.RenewCount, 5));
+
+            await AssertRenewRefusedAsync(fixture, token, HttpStatusCode.Conflict, "renew_limit_reached");
+        }
+
+        [Fact]
+        public async Task A_revoked_invitation_is_refused()
+        {
+            var inviterUid = await SeedScrapGoUserAsync(fixture);
+            var (id, token) = await CreateOkAsync(fixture, inviterUid, NewEmail());
+            (await fixture.SendAsync(HttpMethod.Delete, $"{InvitationsPath}/{id}", fixture.CreateToken(inviterUid))).EnsureSuccessStatusCode();
+
+            await AssertRenewRefusedAsync(fixture, token, HttpStatusCode.Conflict, "invitation_not_renewable");
+        }
+
+        [Fact]
+        public async Task An_accepted_invitation_is_refused()
+        {
+            var email = NewEmail();
+            var (id, token) = await CreateOkAsync(fixture, await SeedScrapGoUserAsync(fixture), email);
+            (await AcceptAsync(fixture, Guid.NewGuid().ToString(), email, token)).EnsureSuccessStatusCode();
+            await ExpireAsync(fixture, id);
+
+            await AssertRenewRefusedAsync(fixture, token, HttpStatusCode.Conflict, "invitation_not_renewable");
+        }
+
+        [Fact]
+        public async Task An_internal_invitation_is_refused()
+        {
+            var id = await CreateStaffOkAsync(
+                fixture, await SeedScrapGoUserAsync(fixture), NewStaffEmail(), [await RoleIdAsync(fixture, DefaultRoleNames.ScrapGoUser)]);
+            const string token = "known-internal-token";
+            await fixture.DbContext.Invitations.Where(i => i.Id == id).ExecuteUpdateAsync(set => set
+                .SetProperty(i => i.TokenHash, HashOf(token))
+                .SetProperty(i => i.ExpiresAt, DateTimeOffset.UtcNow.AddMinutes(-1)));
+
+            await AssertRenewRefusedAsync(fixture, token, HttpStatusCode.Conflict, "invitation_not_renewable");
+        }
+
+        [Fact]
+        public async Task An_unknown_token_is_not_found()
+        {
+            Assert.Equal(HttpStatusCode.NotFound, (await RenewAsync(fixture, "not-a-real-token")).StatusCode);
+            Assert.Equal("NotFound", (await LookupAsync(fixture, "not-a-real-token")).GetProperty("status").GetString());
+        }
+    }
+
     // Sad paths, kept separate: each refusal is 403 no_access and creates no user.
 
     public class Given_an_invitation_that_cannot_be_accepted(IdentitySpecFixture fixture) : IClassFixture<IdentitySpecFixture>
@@ -475,6 +606,32 @@ public class InvitationSpecs
             Assert.Equal(HttpStatusCode.Conflict, revoke.StatusCode);
         }
     }
+
+    private static Task ExpireAsync(IdentitySpecFixture fixture, int id) =>
+        fixture.DbContext.Invitations.Where(i => i.Id == id)
+            .ExecuteUpdateAsync(set => set.SetProperty(i => i.ExpiresAt, DateTimeOffset.UtcNow.AddMinutes(-1)));
+
+    private static async Task<JsonElement> LookupAsync(IdentitySpecFixture fixture, string token)
+    {
+        var response = await fixture.Client.PostAsJsonAsync("/api/invitations/lookup", new { token });
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        return await response.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    /// <summary>Anonymous, as the accept page calls it before anyone signs in.</summary>
+    private static Task<HttpResponseMessage> RenewAsync(IdentitySpecFixture fixture, string token) =>
+        fixture.Client.PostAsJsonAsync("/api/invitations/renew", new { token });
+
+    private static async Task AssertRenewRefusedAsync(IdentitySpecFixture fixture, string token, HttpStatusCode status, string reason)
+    {
+        var response = await RenewAsync(fixture, token);
+
+        Assert.Equal(status, response.StatusCode);
+        Assert.Equal(reason, await IdentitySpecFixture.ReadProblemReasonAsync(response));
+    }
+
+    private static string HashOf(string token) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 
     private static string NewEmail() => $"buyer-{Guid.NewGuid():N}@acme.example";
 

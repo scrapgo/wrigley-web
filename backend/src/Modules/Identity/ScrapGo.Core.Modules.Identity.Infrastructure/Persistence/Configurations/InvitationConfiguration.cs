@@ -53,6 +53,14 @@ public sealed class InvitationConfiguration : IEntityTypeConfiguration<Invitatio
             .HasColumnType("timestamptz")
             .IsRequired();
 
+        builder.Property(i => i.RenewCount)
+            .IsRequired()
+            .HasDefaultValue(0);
+
+        builder.Property(i => i.LastRenewedAt)
+            .HasColumnType("timestamptz")
+            .IsRequired(false);
+
         builder.HasIndex(i => i.TokenHash)
             .IsUnique()
             .HasDatabaseName(IdentityUniqueConstraints.InvitationTokenHash);
@@ -68,6 +76,7 @@ public sealed class InvitationConfiguration : IEntityTypeConfiguration<Invitatio
             t.HasCheckConstraint("ck_invitations_status", "status IN ('Pending', 'Accepted', 'Revoked', 'Expired')");
             t.HasCheckConstraint("ck_invitations_user_type", "user_type IN ('Internal', 'External')");
             t.HasCheckConstraint("ck_invitations_role_ids", "cardinality(role_ids) > 0");
+            t.HasCheckConstraint("ck_invitations_renew_count", "renew_count >= 0");
         });
 
         builder.HasOne<User>()

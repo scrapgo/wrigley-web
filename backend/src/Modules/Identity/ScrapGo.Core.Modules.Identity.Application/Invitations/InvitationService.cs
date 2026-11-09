@@ -112,7 +112,7 @@ public sealed class InvitationService(
         var now = timeProvider.GetUtcNow();
         var (token, hash) = InvitationTokens.Generate();
         var invitation = Invitation.Create(
-            command.Email!, userType, roleIds, supplierRecordIds, hash, now + InvitationTokens.Lifetime, actorId, now);
+            command.Email!, userType, roleIds, supplierRecordIds, hash, now + options.Value.Lifetime, actorId, now);
 
         try
         {
@@ -148,7 +148,10 @@ public sealed class InvitationService(
             await IssueAsync(invitation, granted.Select(role => role.Key), token, now, command.RequestOrigin, cancellationToken));
     }
 
-    /// <summary>Issues a new token with a fresh 7-day expiry; the old link stops working.</summary>
+    /// <summary>
+    /// Issues a new token with a fresh expiry (<see cref="InvitationOptions.Lifetime"/>);
+    /// the old link stops working. A Pending or Expired invitation can be resent.
+    /// </summary>
     /// <param name="requestOrigin">The portal the admin is using; the new link points back to it when listed.</param>
     public async Task<InvitationResult> ResendAsync(int invitationId, string? requestOrigin, CancellationToken cancellationToken)
     {
@@ -157,23 +160,123 @@ public sealed class InvitationService(
             return new(InvitationOutcome.NotFound);
         }
 
-        if (invitation.Status != InvitationStatus.Pending)
+        if (invitation.Status is not (InvitationStatus.Pending or InvitationStatus.Expired))
         {
             return new(InvitationOutcome.NotPending);
+        }
+
+        // They may have joined some other way since; their roles are changed on the user list.
+        if (await users.ExistsByEmailAsync(invitation.Email, cancellationToken))
+        {
+            return new(InvitationOutcome.UserExists);
         }
 
         var actorId = await ActorIdAsync(cancellationToken);
         var now = timeProvider.GetUtcNow();
         var (token, hash) = InvitationTokens.Generate();
-        invitation.Reissue(hash, now + InvitationTokens.Lifetime);
+        invitation.Reissue(hash, now + options.Value.Lifetime);
         auditLog.Record(new AuditEvent(
             IdentityAuditEventTypes.InvitationResent,
             UserId: actorId,
             Metadata: JsonSerializer.Serialize(new { invitationId = invitation.Id, email = invitation.Email })));
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        if (!await TrySaveReopenedAsync(cancellationToken))
+        {
+            return new(InvitationOutcome.AlreadyPending);
+        }
 
         var roleKeys = await RoleKeysOfAsync(invitation.RoleIds, cancellationToken);
         return new(InvitationOutcome.Success, await IssueAsync(invitation, roleKeys, token, now, requestOrigin, cancellationToken));
+    }
+
+    /// <summary>
+    /// What the accept page shows before anyone signs up: the invitation's
+    /// effective status and a masked email. Anonymous, so it reveals nothing else.
+    /// </summary>
+    public async Task<InvitationLookupDto> LookupAsync(string? token, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(token)
+            || await invitations.FindByTokenHashAsync(InvitationTokens.Hash(token), cancellationToken) is not { } invitation)
+        {
+            return new(InvitationLookupDto.NotFound, null, null);
+        }
+
+        var status = InvitationDto.EffectiveStatus(invitation.Status, invitation.ExpiresAt, timeProvider.GetUtcNow());
+        return new(status.ToString(), MaskEmail(invitation.Email), invitation.ExpiresAt);
+    }
+
+    /// <summary>
+    /// The invitee asks for a new link with their expired one. The new link is
+    /// emailed to the invited address only, never returned. Anonymous: the
+    /// token is the credential. Limited to one per
+    /// <see cref="InvitationOptions.RenewCooldown"/> and
+    /// <see cref="InvitationOptions.MaxRenewals"/> in all, until an admin resends.
+    /// </summary>
+    public async Task<InvitationOutcome> RenewAsync(string? token, string? requestOrigin, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(token)
+            || await invitations.FindByTokenHashAsync(InvitationTokens.Hash(token), cancellationToken) is not { } invitation)
+        {
+            return InvitationOutcome.NotFound;
+        }
+
+        var now = timeProvider.GetUtcNow();
+
+        // Only an expired external invitation: a live one still works, an accepted
+        // or revoked one is over, and internal invitations have no token to renew.
+        if (invitation.UserType != UserType.External
+            || InvitationDto.EffectiveStatus(invitation.Status, invitation.ExpiresAt, now) != InvitationStatus.Expired
+            || await users.ExistsByEmailAsync(invitation.Email, cancellationToken))
+        {
+            return InvitationOutcome.NotRenewable;
+        }
+
+        if (invitation.RenewCount >= InvitationOptions.MaxRenewals)
+        {
+            return InvitationOutcome.RenewLimitReached;
+        }
+
+        if (invitation.LastRenewedAt is { } last && now - last < InvitationOptions.RenewCooldown)
+        {
+            return InvitationOutcome.RenewTooSoon;
+        }
+
+        var (newToken, hash) = InvitationTokens.Generate();
+        invitation.Renew(hash, now + options.Value.Lifetime, now);
+        auditLog.Record(new AuditEvent(
+            IdentityAuditEventTypes.InvitationRenewed,
+            ActorType: AuditActorType.System,
+            Metadata: JsonSerializer.Serialize(new { invitationId = invitation.Id, email = invitation.Email, renewCount = invitation.RenewCount })));
+        if (!await TrySaveReopenedAsync(cancellationToken))
+        {
+            return InvitationOutcome.NotRenewable;
+        }
+
+        await IssueAsync(invitation, [], newToken, now, requestOrigin, cancellationToken);
+        return InvitationOutcome.Success;
+    }
+
+    /// <summary>
+    /// Saves an invitation made Pending again. False when the email meanwhile
+    /// got another pending invitation (one pending per email).
+    /// </summary>
+    private async Task<bool> TrySaveReopenedAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch (UniqueConstraintViolationException e) when (e.ConstraintName == IdentityUniqueConstraints.PendingInvitationEmail)
+        {
+            return false;
+        }
+    }
+
+    /// <summary><c>jane@acme.com</c> as <c>j***@acme.com</c>: enough for the invitee to recognise, too little to harvest.</summary>
+    private static string MaskEmail(string email)
+    {
+        var at = email.LastIndexOf('@');
+        return at <= 0 ? "***" : $"{email[0]}***{email[at..]}";
     }
 
     /// <summary>Revoking is idempotent; an accepted invitation can't be revoked.</summary>

@@ -1,15 +1,16 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { KeyRound, Loader2, MailCheck } from 'lucide-react'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { Clock, KeyRound, Loader2, MailCheck } from 'lucide-react'
 
 import { BrandLogo } from '../components/brand-logo'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { useAuth } from '../hooks/useAuth'
-import { accessDenialOf, apiClient, PENDING_INVITATION_KEY } from '../lib/api-client'
+import { accessDenialOf, ApiError, apiClient, PENDING_INVITATION_KEY } from '../lib/api-client'
 import { GOOGLE_CLIENT_ID, renderGoogleSignInButton } from '../lib/google-identity'
-import { INVITATION_REFUSED, invitationContinueUrl } from '../lib/invitation'
+import { INVITATION_REFUSED, invitationContinueUrl, renewErrorMessage } from '../lib/invitation'
 
 export const Route = createFileRoute('/invite/accept')({
     component: AcceptInvitationComponent,
@@ -22,6 +23,118 @@ type Step = 'choose' | 'create' | 'verify' | 'signin'
 
 function AcceptInvitationComponent() {
     const { token } = Route.useSearch()
+
+    // Check the link before anyone creates an account: an expired one can be renewed instead.
+    const lookup = useQuery({
+        queryKey: ['invitation-lookup', token],
+        queryFn: () => apiClient.lookupInvitation(token!),
+        enabled: !!token,
+        retry: false,
+        staleTime: Infinity,
+    })
+
+    if (!token) {
+        return (
+            <Frame>
+                <h1 className="text-xl font-bold text-ink-900">This invitation link is incomplete</h1>
+                <p className="mt-2 text-sm text-muted-foreground">
+                    Open the full link from your invitation, or ask ScrapGo to send a new one.
+                </p>
+            </Frame>
+        )
+    }
+
+    if (lookup.isPending) {
+        return (
+            <Frame>
+                <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" aria-label="Checking your invitation" />
+            </Frame>
+        )
+    }
+
+    // If the check itself failed, fall through to the sign-in: POST /api/session still checks the token.
+    switch (lookup.data?.status) {
+        case 'Expired':
+            return <ExpiredInvitation token={token} emailHint={lookup.data.emailHint} />
+        case 'Accepted':
+            return (
+                <ClosedInvitation title="This invitation was already used">
+                    Your account is set up. Sign in to continue.
+                </ClosedInvitation>
+            )
+        case 'Revoked':
+            return (
+                <ClosedInvitation title="This invitation was withdrawn">
+                    Ask ScrapGo to send you a new one if you still need access.
+                </ClosedInvitation>
+            )
+        case 'NotFound':
+            return (
+                <ClosedInvitation title="This invitation link isn't valid">
+                    A newer link may have replaced it. Use the most recent invitation email, or ask ScrapGo for a new one.
+                </ClosedInvitation>
+            )
+        default:
+            return <OpenInvitation token={token} />
+    }
+}
+
+/** An expired invitation: the invitee can have a new link emailed to the invited address. */
+function ExpiredInvitation({ token, emailHint }: { token: string; emailHint: string | null }) {
+    const renew = useMutation({ mutationFn: () => apiClient.renewInvitation(token) })
+
+    if (renew.isSuccess) {
+        return (
+            <Frame>
+                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+                    <MailCheck className="h-6 w-6" />
+                </span>
+                <h1 className="mt-4 text-xl font-bold text-ink-900">Check your inbox</h1>
+                <p className="mt-2 text-sm text-muted-foreground">
+                    We sent a new invitation link to <span className="font-semibold text-ink-900">{emailHint ?? 'your email'}</span>.
+                    It expires in 15 minutes. This link no longer works.
+                </p>
+            </Frame>
+        )
+    }
+
+    return (
+        <Frame>
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-50 text-amber-600">
+                <Clock className="h-6 w-6" />
+            </span>
+            <h1 className="mt-4 text-xl font-bold text-ink-900">This invitation has expired</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+                Invitation links work for 15 minutes. We can email a new one to{' '}
+                <span className="font-semibold text-ink-900">{emailHint ?? 'the invited address'}</span>.
+            </p>
+            {renew.isError && (
+                <div role="alert" className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-left text-sm font-medium text-red-700">
+                    {renewErrorMessage(renew.error instanceof ApiError ? renew.error.reason : undefined)}
+                </div>
+            )}
+            <Button size="lg" className="mt-6 w-full" disabled={renew.isPending} onClick={() => renew.mutate()}>
+                {renew.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MailCheck className="h-4 w-4" />}
+                Email me a new link
+            </Button>
+        </Frame>
+    )
+}
+
+function ClosedInvitation({ title, children }: { title: string; children: React.ReactNode }) {
+    return (
+        <Frame>
+            <h1 className="text-xl font-bold text-ink-900">{title}</h1>
+            <p className="mt-2 text-sm text-muted-foreground">{children}</p>
+            <Button asChild size="lg" variant="outline" className="mt-6 w-full">
+                <a href="/login">Go to sign in</a>
+            </Button>
+        </Frame>
+    )
+}
+
+/** A pending invitation: create an account or sign in, which accepts it. */
+function OpenInvitation({ token }: { token: string }) {
     const { login, loginWithGoogle } = useAuth()
     const navigate = useNavigate()
     const googleButtonRef = useRef<HTMLDivElement>(null)
@@ -36,9 +149,7 @@ function AcceptInvitationComponent() {
     // Keep the token for the sign-in that follows; POST /api/session sends it.
     // Stored again before every attempt, since an attempt consumes it.
     const storeToken = useCallback(() => {
-        if (token) {
-            sessionStorage.setItem(PENDING_INVITATION_KEY, token)
-        }
+        sessionStorage.setItem(PENDING_INVITATION_KEY, token)
     }, [token])
 
     useEffect(storeToken, [storeToken])
@@ -93,7 +204,7 @@ function AcceptInvitationComponent() {
             // On the GCIP account, so the token after verification carries it as `name`.
             await apiClient.setDisplayName(session.idToken, displayName.trim())
             // The link in that email ends on the sign-in page, carrying the invitation.
-            await apiClient.sendEmailVerification(session.idToken, token ? invitationContinueUrl(token) : undefined)
+            await apiClient.sendEmailVerification(session.idToken, invitationContinueUrl(token))
             setStep('verify')
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Could not create the account.')
@@ -105,17 +216,6 @@ function AcceptInvitationComponent() {
     const signIn = (e: FormEvent) => {
         e.preventDefault()
         void accept(() => login(email, password))
-    }
-
-    if (!token) {
-        return (
-            <Frame>
-                <h1 className="text-xl font-bold text-ink-900">This invitation link is incomplete</h1>
-                <p className="mt-2 text-sm text-muted-foreground">
-                    Open the full link from your invitation, or ask ScrapGo to send a new one.
-                </p>
-            </Frame>
-        )
     }
 
     return (

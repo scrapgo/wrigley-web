@@ -65,6 +65,14 @@ export interface Me {
     features: string[]
 }
 
+/** An invitation as the accept page sees it (POST /api/invitations/lookup). */
+export interface InvitationLookup {
+    status: 'Pending' | 'Expired' | 'Accepted' | 'Revoked' | 'NotFound'
+    /** The invited email, masked, e.g. `j***@acme.com`; null when not found. */
+    emailHint: string | null
+    expiresAt: string | null
+}
+
 /** GCIP sign-in response (subset we care about). */
 interface GcipSignInResponse {
     idToken: string
@@ -483,6 +491,36 @@ class ApiClient {
     /** GET /api/me: the caller's user, roles, effective permissions and features. */
     async getMe(): Promise<Me> {
         return this.fetchWithAuth<Me>(ME_ENDPOINT)
+    }
+
+    /** POST /api/invitations/lookup: an invitation's status before anyone signs in (anonymous). */
+    async lookupInvitation(token: string): Promise<InvitationLookup> {
+        return this.fetchAnonymous<InvitationLookup>('/api/invitations/lookup', { token })
+    }
+
+    /** POST /api/invitations/renew: emails a new link for an expired invitation to the invited address (anonymous). */
+    async renewInvitation(token: string): Promise<void> {
+        await this.fetchAnonymous<void>('/api/invitations/renew', { token })
+    }
+
+    /** A JSON POST with no Authorization header, for the routes used before sign-in. */
+    private async fetchAnonymous<T>(endpoint: string, body: unknown): Promise<T> {
+        const response = await fetch(`${this.baseUrl}${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        })
+
+        if (!response.ok) {
+            const problem = (await response.json().catch(() => undefined)) as ProblemDetails | undefined
+            throw new ApiError(
+                problem?.detail || problem?.title || `Request failed (${response.status})`,
+                response.status,
+                problem?.reason
+            )
+        }
+
+        return (response.status === 202 || response.status === 204 ? undefined : await response.json()) as T
     }
 }
 

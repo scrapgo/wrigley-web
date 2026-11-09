@@ -5,6 +5,15 @@ public sealed class InvitationOptions
 {
     public const string SectionName = "Invitations";
 
+    /// <summary>The wait before an invitee may ask for another new link.</summary>
+    public static readonly TimeSpan RenewCooldown = TimeSpan.FromSeconds(60);
+
+    /// <summary>New links an invitee may ask for before an admin has to resend.</summary>
+    public const int MaxRenewals = 5;
+
+    /// <summary>How long an invitation (created, resent or renewed) stays open. Short, so a leaked link is soon useless.</summary>
+    public TimeSpan Lifetime { get; set; } = TimeSpan.FromMinutes(15);
+
     /// <summary>
     /// The portal's origin when the request doesn't come from one of
     /// <see cref="FrontendOrigins"/>, e.g. <c>https://portal.scrapgo.com</c>.

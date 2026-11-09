@@ -20,9 +20,11 @@ import { GOOGLE_CLIENT_ID, renderGoogleSignInButton } from '../lib/google-identi
 
 export const Route = createFileRoute('/login')({
     component: LoginComponent,
-    // The email-verification link of an invitation lands here with the invitation token.
-    validateSearch: (search: Record<string, unknown>): { invitation?: string } => ({
+    // The email-verification link of an invitation lands here with the invitation token;
+    // an idle sign-out (IdleTimeout) lands here with reason=idle.
+    validateSearch: (search: Record<string, unknown>): { invitation?: string; reason?: 'idle' } => ({
         invitation: typeof search.invitation === 'string' && search.invitation ? search.invitation : undefined,
+        reason: search.reason === 'idle' ? 'idle' : undefined,
     }),
 })
 
@@ -55,7 +57,7 @@ function LoginComponent() {
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
     const { login, loginWithGoogle, isAuthenticated, me } = useAuth()
-    const { invitation } = Route.useSearch()
+    const { invitation, reason } = Route.useSearch()
     const navigate = useNavigate()
     const googleButtonRef = useRef<HTMLDivElement>(null)
 
@@ -218,6 +220,15 @@ function LoginComponent() {
                     <p className="mt-1.5 text-sm text-muted-foreground">
                         Sign in to the ScrapGo Downstream portal to continue.
                     </p>
+
+                    {reason === 'idle' && !invitation && (
+                        <div
+                            role="status"
+                            className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800"
+                        >
+                            You were signed out after 5 minutes of inactivity. Sign in again to continue.
+                        </div>
+                    )}
 
                     {invitation && (
                         <div

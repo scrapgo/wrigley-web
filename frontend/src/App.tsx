@@ -4,6 +4,7 @@ import { router } from './app/router'
 import { AuthProvider } from './app/hooks/useAuth'
 import { queryClient } from './app/lib/query-client'
 import { ToastProvider } from './app/components/ui/toast'
+import { IdleTimeout } from './app/components/idle-timeout-dialog'
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
       <ToastProvider>
         <AuthProvider>
           <RouterProvider router={router} />
+          <IdleTimeout />
         </AuthProvider>
       </ToastProvider>
     </QueryClientProvider>

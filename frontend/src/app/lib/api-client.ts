@@ -10,6 +10,8 @@
 // In development VITE_API_BASE_URL is empty and requests go to the Vite dev
 // proxy (see vite.config.ts), which forwards /api to http://localhost:5141.
 
+import { forgetActivity } from './session-timeout'
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 const GCIP_API_KEY = import.meta.env.VITE_GCIP_API_KEY ?? ''
 
@@ -209,6 +211,8 @@ class ApiClient {
         localStorage.removeItem(ID_TOKEN_KEY)
         localStorage.removeItem(REFRESH_TOKEN_KEY)
         localStorage.removeItem(EXPIRES_AT_KEY)
+        // The next sign-in starts its idle clock fresh.
+        forgetActivity()
         this.notify()
     }
 

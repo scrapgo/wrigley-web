@@ -131,7 +131,9 @@ The model is specified in [`../docs/ACCESS-MODEL.md`](../docs/ACCESS-MODEL.md); 
 - **Admin APIs** under `/api/admin`: users, invitations, roles and permissions, features, audit (section 9 of the spec). Each change commits with its audit row and evicts cached access: `EvictUser` for one user, `EvictAll` for role-permission and feature changes.
 - **Guards:** no self-disable; same-type roles only; never remove the last active Site Admin (row lock on `site_admin`); supplier links and invitations for External users only; locked features refuse changes (409 `feature_locked`).
 - **First Site Admin:** the `bootstrap-site-admin --uid <uid>` host command, refused while an active Site Admin exists.
-- **External users' MFA** is reserved behind `Identity:RequireMfaForExternalUsers` (off).
+- **External users' MFA** is behind `Identity:RequireMfaForExternalUsers` (off). When on, an External user's every request needs a GCIP second factor on the token, or an email code verified for this sign-in (`MfaService`, `identity.mfa_challenges`, keyed by user and the token's `auth_time`): `POST /api/session/mfa/send` emails a 6-digit code (10 minutes; one a minute, five per sign-in), `POST /api/session/mfa/verify` checks it (five wrong codes lock it). Those two are exempt from the gate; everything else is 403 `mfa_required`. Internal users are never asked.
+- **Invitations** expire after `Invitations:Lifetime` (15 minutes). The anonymous `POST /api/invitations/lookup` and `POST /api/invitations/renew` (`PublicInvitationsController`) let an invitee see and renew an expired external invitation; admins resend Pending or Expired ones.
+- **Idle sign-out** is frontend only (`IdleTimeout`): 5 minutes without activity, with a 60-second countdown. The API doesn't enforce it.
 - **A FallbackPolicy** requires an authenticated caller wherever an endpoint has no authorization metadata. Only `/healthz` and `/healthz/ready` are anonymous.
 
 ## Rules
@@ -190,4 +192,4 @@ dotnet ef database update --project src/Modules/Identity/ScrapGo.Core.Modules.Id
 dotnet ef database update --project src/Modules/QuickbaseEngine/ScrapGo.Core.Modules.QuickbaseEngine.Infrastructure --context QuickbaseDbContext --connection "<conn>"
 ```
 
-Required configuration: `ConnectionStrings__Default`, `Gcip__ProjectId`. Required on first Quickbase call: `Quickbase__RealmHostname`, `Quickbase__UserToken`. Optional: `Quickbase__QueryCache__Ttl`, `Quickbase__QueryCache__ServeStaleOnError`, `INTERNAL_HD_ALLOWLIST`, `Identity__RequireMfaForExternalUsers` (default `false`), `Cors__AllowedOrigins__0..n`, `Swagger__Enabled`, `PORT`.
+Required configuration: `ConnectionStrings__Default`, `Gcip__ProjectId`. Required on first Quickbase call: `Quickbase__RealmHostname`, `Quickbase__UserToken`. Optional: `Quickbase__QueryCache__Ttl`, `Quickbase__QueryCache__ServeStaleOnError`, `INTERNAL_HD_ALLOWLIST`, `Identity__RequireMfaForExternalUsers` (default `false`), `Invitations__Lifetime` (default `00:15:00`), `Cors__AllowedOrigins__0..n`, `Swagger__Enabled`, `PORT`.

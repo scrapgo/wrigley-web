@@ -240,9 +240,13 @@ Every sign-in ends with `POST /api/session` (optional body `{ "invitationToken":
 
 No other endpoint creates users. `GET /api/me` returns 403 `no\_access` for an unknown UID.
 
+Email MFA (External users, behind `Identity:RequireMfaForExternalUsers`, off by default): every request from an External user needs a GCIP second factor on the token, or an email code verified for this sign-in; otherwise 403 `mfa\_required`. A sign-in is the token's `auth\_time`, which stays the same across token refreshes, so one code covers it. `POST /api/session/mfa/send` emails a 6-digit code, valid 10 minutes, at most once a minute and 5 times per sign-in. `POST /api/session/mfa/verify` checks it; 5 wrong codes lock it until a new one is sent. Only a salted SHA-256 of the code is stored (`identity.mfa\_challenges`). These two routes are exempt from the gate. Internal users are never asked: Google Workspace has its own 2-step verification. The portal sends the code automatically on its `/verify` page and saves the session only after the code is verified.
+
+Idle sign-out (portal only): 5 minutes without activity (taps, keys, scrolling; background refreshes don't count) signs the user out, after a 60-second "Stay signed in / Sign out" countdown. Activity in any tab keeps every tab signed in, and a session left idle while the tab was closed ends on the next load. The API doesn't enforce it: an ID token stays valid until it expires (at most an hour).
 
 
-Invitations: created by `users.invite` (Site Admin and ScrapGo User). The email's domain fixes the invitation's user type: an `INTERNAL\_HD\_ALLOWLIST` domain makes it Internal (one or more internal roles, no supplier Record IDs), any other External (an external role and one or more supplier Record IDs); a role of the other type is 400 `role\_type\_mismatch`. Granting `site\_admin` also needs `users.manage` (403 `site\_admin\_requires\_users\_manage`), so a ScrapGo User can't create an admin. `GET /api/admin/invitations/form` gives the invite form the internal domains and every role with its user type. 32 random bytes base64url token, only its SHA-256 stored, 7-day expiry. An internal invitation is emailed with a link to the sign-in page and applied at the invitee's first Google Workspace sign-in (which already proves the email); staff with no invitation still get `scrapgo\_user`. An external invitation's acceptance requires the token, `email\_verified`, and the token's email matching the invitation email (case-insensitive). Resending issues a new token. The invitation is emailed to the invitee (Gmail API, when configured; the admin can always copy the link). The invitee either continues with Google (any Google account for the invited email, e.g. Gmail: Google has already verified it, so that sign-in accepts at once), or creates a password account with their name, verifies their email through the link GCIP sends, which brings them back to the sign-in page carrying the invitation, and signs in: that `POST /api/session` creates their active External account.
+
+Invitations: created by `users.invite` (Site Admin and ScrapGo User). The email's domain fixes the invitation's user type: an `INTERNAL\_HD\_ALLOWLIST` domain makes it Internal (one or more internal roles, no supplier Record IDs), any other External (an external role and one or more supplier Record IDs); a role of the other type is 400 `role\_type\_mismatch`. Granting `site\_admin` also needs `users.manage` (403 `site\_admin\_requires\_users\_manage`), so a ScrapGo User can't create an admin. `GET /api/admin/invitations/form` gives the invite form the internal domains and every role with its user type. 32 random bytes base64url token, only its SHA-256 stored, 15-minute expiry (`Invitations:Lifetime`). An expired external invitation can be renewed by the invitee: the accept page checks the link first (`POST /api/invitations/lookup`, anonymous, returning the status and a masked email), and "Email me a new link" (`POST /api/invitations/renew`, anonymous) emails a fresh 15-minute link to the invited address only and voids the old one; at most once a minute (429 `renew\_too\_soon`) and 5 times (409 `renew\_limit\_reached`) until an admin resends. Admins resend Pending or Expired invitations, which resets the renewal count; the admin home lists expired invitations with a Resend button. An internal invitation is emailed with a link to the sign-in page and applied at the invitee's first Google Workspace sign-in (which already proves the email); staff with no invitation still get `scrapgo\_user`. An external invitation's acceptance requires the token, `email\_verified`, and the token's email matching the invitation email (case-insensitive). Resending issues a new token. The invitation is emailed to the invitee (Gmail API, when configured; the admin can always copy the link). The invitee either continues with Google (any Google account for the invited email, e.g. Gmail: Google has already verified it, so that sign-in accepts at once), or creates a password account with their name, verifies their email through the link GCIP sends, which brings them back to the sign-in page carrying the invitation, and signs in: that `POST /api/session` creates their active External account.
 
 
 
@@ -288,6 +292,10 @@ public sealed record AccessContext(
 
 | `GET /api/me` | Active user | `{ user, roles, permissions, features }` |
 
+| `POST /api/session/mfa/send`, `/verify` | Valid JWT, External, MFA on | Email MFA (section 7); exempt from `mfa\_required` |
+
+| `POST /api/invitations/lookup`, `/renew` | Anonymous (the token is the credential) | An invitation's status; renew an expired external one (section 7) |
+
 | `GET /api/suppliers` (+ all existing `/api/suppliers/{recordId}/…` reads) | `suppliers.view\_all` or `suppliers.view\_own` | External callers filtered to their Record IDs; out of scope = 404 |
 
 | `GET /api/admin/users`, `GET /api/admin/users/{id}` | `users.view` | |
@@ -332,7 +340,7 @@ Errors are ProblemDetails with a `reason` extension (`ProblemResults`). Every 40
 
 
 
-`session.started`, `user.provisioned`, `invitation.accepted`, `access.denied`, `user.disabled`, `user.enabled`, `user.roles\_changed`, `user.suppliers\_changed`, `invitation.created`, `invitation.resent`, `invitation.revoked`, `role.permissions\_changed`, `feature.state\_changed`, `feature.targets\_changed`. A change and its audit row commit in the same transaction.
+`session.started`, `user.provisioned`, `invitation.accepted`, `access.denied`, `user.disabled`, `user.enabled`, `user.roles\_changed`, `user.suppliers\_changed`, `invitation.created`, `invitation.resent`, `invitation.revoked`, `invitation.renewed`, `mfa.code\_sent`, `mfa.verified`, `mfa.failed`, `role.permissions\_changed`, `feature.state\_changed`, `feature.targets\_changed`. A change and its audit row commit in the same transaction.
 
 
 

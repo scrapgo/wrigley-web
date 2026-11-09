@@ -1,12 +1,12 @@
 namespace ScrapGo.Core.Modules.Identity.Application.Users;
 
 /// <summary>
-/// Reserved MFA requirement for external (customer) users
-/// (an access-model decision): **off** until MFA is enabled in the
-/// Identity Platform project. When on, an external user's token must show a
-/// second factor (<c>firebase.sign_in_second_factor</c>) on every request, or
-/// the request is denied with 403 <c>mfa_required</c>. Internal users are never
-/// affected.
+/// MFA requirement for external (customer) users: **off** by default. When
+/// on, every request from an external user needs either a GCIP second factor
+/// on the token (<c>firebase.sign_in_second_factor</c>) or an email code
+/// verified for this sign-in (<see cref="Mfa.MfaService"/>), or it is denied
+/// with 403 <c>mfa_required</c>. Internal users are never affected: Google
+/// Workspace has its own 2-step verification.
 /// </summary>
 public sealed class ExternalUserMfaOptions
 {

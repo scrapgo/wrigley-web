@@ -147,6 +147,20 @@ export const PENDING_INVITATION_KEY = 'pendingInvitationToken'
 /** Why POST /api/session or GET /api/me refused the caller (403 `reason`). */
 export type AccessDenial = 'no_access' | 'account_disabled'
 
+/** Where a sign-in code went (POST /api/session/mfa/send). */
+export interface MfaCodeSent {
+    /** Masked, e.g. `j***@acme.com`. */
+    emailHint: string
+    expiresAt: string
+    /** When "Resend code" may be used. */
+    resendAvailableAt: string
+}
+
+/** True when the API wants this sign-in's emailed code first (403 `mfa_required`). */
+export function isMfaRequired(error: unknown): boolean {
+    return error instanceof ApiError && error.status === 403 && error.reason === 'mfa_required'
+}
+
 /** The denial behind an error, or null when the error is something else. */
 export function accessDenialOf(error: unknown): AccessDenial | null {
     return error instanceof ApiError && error.status === 403 && (error.reason === 'no_access' || error.reason === 'account_disabled')
@@ -495,6 +509,16 @@ class ApiClient {
     /** GET /api/me: the caller's user, roles, effective permissions and features. */
     async getMe(): Promise<Me> {
         return this.fetchWithAuth<Me>(ME_ENDPOINT)
+    }
+
+    /** POST /api/session/mfa/send: emails a sign-in code for this sign-in (External users, when MFA is on). */
+    async sendMfaCode(): Promise<MfaCodeSent> {
+        return this.fetchWithAuth<MfaCodeSent>('/api/session/mfa/send', { method: 'POST' })
+    }
+
+    /** POST /api/session/mfa/verify: a right code verifies this sign-in. */
+    async verifyMfaCode(code: string): Promise<void> {
+        await this.fetchWithAuth<void>('/api/session/mfa/verify', { method: 'POST', body: JSON.stringify({ code }) })
     }
 
     /** POST /api/invitations/lookup: an invitation's status before anyone signs in (anonymous). */

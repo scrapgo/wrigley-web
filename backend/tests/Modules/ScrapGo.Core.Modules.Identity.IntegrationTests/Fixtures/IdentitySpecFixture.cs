@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
 using ScrapGo.Core.Modules.Identity.Application.Invitations;
+using ScrapGo.Core.Modules.Identity.Application.Mfa;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Authentication;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Invitations;
 using ScrapGo.Core.Modules.Identity.Infrastructure.Persistence;
@@ -105,6 +106,9 @@ public class IdentitySpecFixture : IAsyncLifetime
 
     public HttpClient Client { get; private set; } = null!;
 
+    /// <summary>The sign-in codes the API "emailed", for the email MFA specs.</summary>
+    public CapturingMfaCodeSender MfaCodes { get; } = new();
+
     /// <summary>
     /// A DbContext from the real DI container, for arranging rows and asserting
     /// on them. It is long-lived, so assert with <c>AsNoTracking()</c> to see
@@ -155,6 +159,7 @@ public class IdentitySpecFixture : IAsyncLifetime
                 // email: invitations are only logged unless a fixture replaces
                 // the sender again in ConfigureTestServices.
                 services.Replace(ServiceDescriptor.Scoped<IInvitationSender, LoggingInvitationSender>());
+                services.Replace(ServiceDescriptor.Singleton<IMfaCodeSender>(MfaCodes));
 
                 ConfigureTestServices(services);
             }));

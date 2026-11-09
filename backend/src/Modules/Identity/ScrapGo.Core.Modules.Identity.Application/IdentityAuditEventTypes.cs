@@ -22,6 +22,15 @@ public static class IdentityAuditEventTypes
     /// <summary>The invitee asked for a new link with their expired one (no signed-in actor).</summary>
     public const string InvitationRenewed = "invitation.renewed";
 
+    /// <summary>A sign-in code was emailed to an External user.</summary>
+    public const string MfaCodeSent = "mfa.code_sent";
+
+    /// <summary>A right sign-in code verified the sign-in.</summary>
+    public const string MfaVerified = "mfa.verified";
+
+    /// <summary>A wrong sign-in code was entered.</summary>
+    public const string MfaFailed = "mfa.failed";
+
     /// <summary>A request was refused for a missing permission (ACCESS-MODEL.md section 10).</summary>
     public const string AccessDenied = "access.denied";
 

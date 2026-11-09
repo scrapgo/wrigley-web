@@ -1,4 +1,4 @@
-namespace ScrapGo.Core.Modules.Identity.Api.Middleware;
+﻿namespace ScrapGo.Core.Modules.Identity.Api.Middleware;
 
 /// <summary>
 /// Disabled-user gate. It runs between <c>UseAuthentication()</c> and
@@ -22,8 +22,11 @@ public sealed class DisabledUserGateMiddleware(RequestDelegate next)
     /// <summary>The 403 <c>reason</c> extension member value.</summary>
     public const string DisabledUserReason = EvaluateUserStatusGateHandler.AccountDisabledReason;
 
-    /// <summary>The 403 <c>reason</c> when an external user's token lacks a second factor (MFA requirement on).</summary>
+    /// <summary>The 403 <c>reason</c> when an external user's sign-in has no second factor yet (MFA requirement on).</summary>
     public const string MfaRequiredReason = "mfa_required";
+
+    /// <summary>Sending and verifying the email code: reachable before the sign-in is verified.</summary>
+    public static readonly PathString MfaPaths = "/api/session/mfa";
 
     public async Task InvokeAsync(HttpContext context, EvaluateUserStatusGateHandler gate)
     {
@@ -35,7 +38,12 @@ public sealed class DisabledUserGateMiddleware(RequestDelegate next)
             // No WWW-Authenticate header on these 403s: RFC 6750 §3 governs
             // bearer challenges, and this is an application-level 403 against
             // a caller who already presented a valid token.
-            switch (await gate.HandleAsync(context.User.GetSignInSecondFactor() is not null, context.RequestAborted))
+            var decision = await gate.HandleAsync(
+                context.User.GetSignInSecondFactor() is not null,
+                context.User.GetAuthTime(),
+                checkMfa: !context.Request.Path.StartsWithSegments(MfaPaths),
+                context.RequestAborted);
+            switch (decision)
             {
                 case UserStatusGateDecision.Deny:
                     await ProblemResults.WriteAsync(context.Response, ProblemResults.Create(
@@ -49,7 +57,7 @@ public sealed class DisabledUserGateMiddleware(RequestDelegate next)
                     await ProblemResults.WriteAsync(context.Response, ProblemResults.Create(
                         StatusCodes.Status403Forbidden,
                         "Multi-factor authentication required",
-                        "Sign in again with your second factor.",
+                        "Enter the sign-in code we email you to continue.",
                         MfaRequiredReason));
                     return;
             }

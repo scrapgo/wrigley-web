@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
     accessDenialOf,
     apiClient,
+    isMfaRequired,
     PENDING_INVITATION_KEY,
     REFRESH_MARGIN_MS,
     type AuthSession,
@@ -23,6 +24,15 @@ interface AuthContextType {
     /** Sign in with a Google ID token from Google Identity Services. */
     loginWithGoogle: (googleIdToken: string) => Promise<void>
     logout: () => void
+    /**
+     * True after a sign-in that needs its emailed code (External users, when MFA
+     * is on): the session is held in memory, not saved, until `completeMfa`.
+     */
+    mfaPending: boolean
+    /** After the code is verified: finishes the sign-in and saves the session. */
+    completeMfa: () => Promise<void>
+    /** Abandons a sign-in waiting for its code. */
+    cancelMfa: () => void
     /** Re-reads GET /api/me. */
     refreshMe: () => Promise<void>
     isAuthenticated: boolean
@@ -36,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const queryClient = useQueryClient()
     const [hasSession, setHasSession] = useState(() => apiClient.restoreSession() !== null)
     const [expiresAt, setExpiresAt] = useState<number | null>(() => apiClient.getSession()?.expiresAt ?? null)
+    const [mfaPending, setMfaPending] = useState(false)
     // True between an explicit sign-out and the session-change notification it causes.
     const signingOut = useRef(false)
 
@@ -58,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setExpiresAt(session?.expiresAt ?? null)
                 if (session === null) {
                     setHasSession(false)
+                    setMfaPending(false)
                     queryClient.removeQueries({ queryKey: meQueryKey })
                     if (!signingOut.current && window.location.pathname !== '/login') {
                         window.location.assign('/login')
@@ -82,12 +94,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         const denial = accessDenialOf(meQuery.error)
-        if (denial || !meQuery.data) {
+        // MFA turned on mid-session: sign in again, which asks for the code.
+        const mfaRequired = isMfaRequired(meQuery.error)
+        if (denial || mfaRequired || !meQuery.data) {
             signingOut.current = true
             apiClient.clearSession()
         }
         if (denial && window.location.pathname !== '/no-access') {
             window.location.assign(`/no-access?reason=${denial}`)
+        } else if (mfaRequired && window.location.pathname !== '/login') {
+            window.location.assign('/login')
         }
     }, [hasSession, meQuery.isError, meQuery.error, meQuery.data])
 
@@ -119,6 +135,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 apiClient.persistSession()
                 setHasSession(true)
             } catch (error) {
+                // The emailed code comes next: keep the session in memory for /verify.
+                if (isMfaRequired(error)) {
+                    setMfaPending(true)
+                    throw error
+                }
                 signingOut.current = true
                 apiClient.clearSession()
                 throw error
@@ -146,6 +167,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         [completeSignIn]
     )
 
+    // Run POST /api/session again now that the gate lets it through, so the
+    // sign-in is recorded; any invitation was already accepted by the first call.
+    const completeMfa = useCallback(async () => {
+        try {
+            await apiClient.startSession(null)
+            await queryClient.fetchQuery({ queryKey: meQueryKey, queryFn: () => apiClient.getMe(), staleTime: 0 })
+            apiClient.persistSession()
+            setHasSession(true)
+            setMfaPending(false)
+        } catch (error) {
+            signingOut.current = true
+            apiClient.clearSession()
+            throw error
+        }
+    }, [queryClient])
+
+    const cancelMfa = useCallback(() => {
+        signingOut.current = true
+        apiClient.clearSession()
+    }, [])
+
     const refreshMe = useCallback(() => queryClient.invalidateQueries({ queryKey: meQueryKey }), [queryClient])
 
     const logout = useCallback(() => {
@@ -158,6 +200,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         loginWithGoogle,
         logout,
+        mfaPending,
+        completeMfa,
+        cancelMfa,
         refreshMe,
         isAuthenticated: me !== null,
         isLoading: hasSession && meQuery.isPending,

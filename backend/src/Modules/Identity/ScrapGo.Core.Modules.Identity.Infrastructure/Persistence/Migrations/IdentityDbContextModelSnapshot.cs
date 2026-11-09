@@ -694,6 +694,72 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Users.MfaChallenge", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<DateTimeOffset>("AuthTime")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("auth_time");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("code_hash");
+
+                    b.Property<string>("CodeSalt")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("code_salt");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("expires_at");
+
+                    b.Property<DateTimeOffset>("LastSentAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("last_sent_at");
+
+                    b.Property<int>("SendCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("send_count");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.Property<DateTimeOffset?>("VerifiedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("verified_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_mfa_challenges");
+
+                    b.HasIndex("UserId", "AuthTime")
+                        .IsUnique()
+                        .HasDatabaseName("ux_mfa_challenges_user_id_auth_time");
+
+                    b.ToTable("mfa_challenges", "identity", t =>
+                        {
+                            t.HasCheckConstraint("ck_mfa_challenges_attempts", "attempts >= 0");
+
+                            t.HasCheckConstraint("ck_mfa_challenges_send_count", "send_count >= 1");
+                        });
+                });
+
             modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Users.User", b =>
                 {
                     b.Property<int>("Id")
@@ -979,6 +1045,16 @@ namespace ScrapGo.Core.Modules.Identity.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_invitations_invited_by_user_id");
+                });
+
+            modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Users.MfaChallenge", b =>
+                {
+                    b.HasOne("ScrapGo.Core.Modules.Identity.Domain.Users.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_mfa_challenges_user_id");
                 });
 
             modelBuilder.Entity("ScrapGo.Core.Modules.Identity.Domain.Users.UserSupplier", b =>

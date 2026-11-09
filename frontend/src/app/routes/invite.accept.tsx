@@ -8,7 +8,7 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { useAuth } from '../hooks/useAuth'
-import { accessDenialOf, ApiError, apiClient, PENDING_INVITATION_KEY } from '../lib/api-client'
+import { accessDenialOf, ApiError, apiClient, isMfaRequired, PENDING_INVITATION_KEY } from '../lib/api-client'
 import { GOOGLE_CLIENT_ID, renderGoogleSignInButton } from '../lib/google-identity'
 import { INVITATION_REFUSED, invitationContinueUrl, renewErrorMessage } from '../lib/invitation'
 
@@ -164,6 +164,10 @@ function OpenInvitation({ token }: { token: string }) {
                 await signIn()
                 navigate({ to: '/suppliers' })
             } catch (err) {
+                if (isMfaRequired(err)) {
+                    navigate({ to: '/verify' })
+                    return
+                }
                 const denial = accessDenialOf(err)
                 setError(
                     denial === 'account_disabled'

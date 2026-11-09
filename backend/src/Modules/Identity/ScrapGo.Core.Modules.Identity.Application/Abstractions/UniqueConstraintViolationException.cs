@@ -26,4 +26,7 @@ public static class IdentityUniqueConstraints
 
     /// <summary>At most one pending invitation per email.</summary>
     public const string PendingInvitationEmail = "ux_invitations_email_pending";
+
+    /// <summary>One MFA challenge per user and sign-in (<c>auth_time</c>).</summary>
+    public const string MfaChallengeSignIn = "ux_mfa_challenges_user_id_auth_time";
 }

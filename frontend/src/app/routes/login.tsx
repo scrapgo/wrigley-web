@@ -14,7 +14,7 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { BrandLogo } from '../components/brand-logo'
 import { useAuth } from '../hooks/useAuth'
-import { accessDenialOf, PENDING_INVITATION_KEY } from '../lib/api-client'
+import { accessDenialOf, isMfaRequired, PENDING_INVITATION_KEY } from '../lib/api-client'
 import { INVITATION_REFUSED } from '../lib/invitation'
 import { GOOGLE_CLIENT_ID, renderGoogleSignInButton } from '../lib/google-identity'
 
@@ -75,6 +75,10 @@ function LoginComponent() {
     // no-access page; other errors show here.
     const onSignInError = useCallback(
         (err: unknown) => {
+            if (isMfaRequired(err)) {
+                navigate({ to: '/verify' })
+                return
+            }
             const denial = accessDenialOf(err)
             if (denial === 'no_access' && invitation) {
                 setError(INVITATION_REFUSED)

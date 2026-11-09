@@ -1,3 +1,5 @@
+﻿using ScrapGo.Core.Modules.Identity.Application.Mfa;
+using ScrapGo.Core.Modules.Identity.Infrastructure.Mfa;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -48,10 +50,12 @@ public static class IdentityInfrastructureServiceCollectionExtensions
             services.AddHttpClient(GmailInvitationSender.HttpClientName);
             services.AddSingleton<IGmailAccessTokenSource, ServiceAccountTokenSource>();
             services.AddScoped<IInvitationSender, GmailInvitationSender>();
+            services.AddScoped<IMfaCodeSender, GmailMfaCodeSender>();
         }
         else
         {
             services.AddScoped<IInvitationSender, LoggingInvitationSender>();
+            services.AddScoped<IMfaCodeSender, LoggingMfaCodeSender>();
         }
 
         // Off unless explicitly turned on (Decision 4b: MFA isn't enabled in GCIP yet).
@@ -71,6 +75,7 @@ public static class IdentityInfrastructureServiceCollectionExtensions
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IInvitationRepository, InvitationRepository>();
+        services.AddScoped<IMfaChallengeRepository, MfaChallengeRepository>();
         services.AddScoped<IFeatureRepository, FeatureRepository>();
         services.AddScoped<IUnitOfWork, IdentityUnitOfWork>();
         services.AddScoped<IAuditLog<IdentityModule>, AuditLogRecorder<IdentityModule, IdentityDbContext>>();

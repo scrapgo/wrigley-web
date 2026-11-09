@@ -29,6 +29,15 @@ public static class ClaimsPrincipalExtensions
     public static string? GetSignInSecondFactor(this ClaimsPrincipal principal) =>
         principal.GetFirebaseClaim("sign_in_second_factor");
 
+    /// <summary>
+    /// The token's <c>auth_time</c>: when the user actually signed in. It stays
+    /// the same across token refreshes and changes on every new sign-in. Null when absent.
+    /// </summary>
+    public static DateTimeOffset? GetAuthTime(this ClaimsPrincipal principal) =>
+        long.TryParse(principal.FindFirstValue("auth_time"), out var seconds) && seconds > 0
+            ? DateTimeOffset.FromUnixTimeSeconds(seconds)
+            : null;
+
     /// <summary>One string member of GCIP's <c>firebase</c> JSON claim, or null.</summary>
     private static string? GetFirebaseClaim(this ClaimsPrincipal principal, string member)
     {

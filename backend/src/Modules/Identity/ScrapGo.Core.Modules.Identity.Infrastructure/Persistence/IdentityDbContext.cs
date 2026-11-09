@@ -32,6 +32,8 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
 
     public DbSet<Invitation> Invitations => Set<Invitation>();
 
+    public DbSet<MfaChallenge> MfaChallenges => Set<MfaChallenge>();
+
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

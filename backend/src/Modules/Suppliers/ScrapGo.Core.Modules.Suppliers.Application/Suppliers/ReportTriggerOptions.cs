@@ -27,7 +27,10 @@ public sealed class ReportTriggerOptions
     [Url]
     public string RemittanceWebhookUrl { get; set; } = string.Empty;
 
-    /// <summary>Token appended as <c>?token=…</c> to both webhook URLs.</summary>
+    /// <summary>
+    /// Token put into both webhook URLs where they say <c>{secretToken}</c>, or else
+    /// appended as <c>?token=…</c>. Set it in user-secrets / Secret Manager only.
+    /// </summary>
     [Required]
     public string SharedWebhookToken { get; set; } = string.Empty;
 

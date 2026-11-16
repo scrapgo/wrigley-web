@@ -102,6 +102,10 @@ public sealed class ReportTriggerService(
         }
     }
 
+    /// <summary>
+    /// Puts the token where the URL says <c>{secretToken}</c> (or <c>${secretToken}</c>),
+    /// otherwise appends it as <c>?token=…</c>. The token is URL-escaped.
+    /// </summary>
     private static string AppendToken(string webhookUrl, string token)
     {
         if (string.IsNullOrEmpty(token))
@@ -109,9 +113,19 @@ public sealed class ReportTriggerService(
             return webhookUrl;
         }
 
+        var escaped = Uri.EscapeDataString(token);
+        if (webhookUrl.Contains(SecretTokenPlaceholder, StringComparison.Ordinal))
+        {
+            return webhookUrl
+                .Replace("$" + SecretTokenPlaceholder, escaped, StringComparison.Ordinal)
+                .Replace(SecretTokenPlaceholder, escaped, StringComparison.Ordinal);
+        }
+
         var separator = webhookUrl.Contains('?') ? '&' : '?';
-        return $"{webhookUrl}{separator}token={token}";
+        return $"{webhookUrl}{separator}token={escaped}";
     }
+
+    private const string SecretTokenPlaceholder = "{secretToken}";
 
     private static async Task<string> ReadBodyAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {

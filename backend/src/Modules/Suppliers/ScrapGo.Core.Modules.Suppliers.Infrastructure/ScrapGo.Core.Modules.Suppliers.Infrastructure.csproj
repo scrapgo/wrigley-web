@@ -5,6 +5,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\ScrapGo.Core.Modules.Suppliers.Application\ScrapGo.Core.Modules.Suppliers.Application.csproj" />
   </ItemGroup>
 

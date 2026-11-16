@@ -25,6 +25,11 @@ import {
     type UserDetail,
     type UserListQuery,
 } from '../lib/admin-api'
+import {
+    triggerMissingInvoicesReport,
+    triggerRemittanceReport,
+    type ReportTriggerResult,
+} from '../lib/supplier-api'
 
 /* -------------------------------------------------------------------------- */
 /*  Query keys                                                                 */
@@ -216,3 +221,19 @@ export function useSetFeatureTargets() {
         onSuccess: invalidate,
     })
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Retired reports (POST /api/suppliers/reports/…)                           */
+/* -------------------------------------------------------------------------- */
+
+/** Trigger the Missing Invoice report for a date (defaults to today). */
+export function useTriggerMissingInvoicesReport() {
+    return useMutation({ mutationFn: (date?: string) => triggerMissingInvoicesReport(date) })
+}
+
+/** Trigger the Remittance report for a date (required). */
+export function useTriggerRemittanceReport() {
+    return useMutation({ mutationFn: (date: string) => triggerRemittanceReport(date) })
+}
+
+export type { ReportTriggerResult }

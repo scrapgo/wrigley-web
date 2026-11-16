@@ -1,8 +1,8 @@
 import type { ComponentType } from 'react'
-import { LayoutDashboard, ScrollText, ShieldCheck, UserCog, Users } from 'lucide-react'
+import { LayoutDashboard, ScrollText, ShieldCheck, UserCog, Users, FileText } from 'lucide-react'
 
 /** The admin page's tabs, each a `?tab=` value on `/admin`. */
-export const ADMIN_TABS = ['home', 'users', 'access', 'audit'] as const
+export const ADMIN_TABS = ['home', 'users', 'access', 'audit', 'reports'] as const
 
 export type AdminTab = (typeof ADMIN_TABS)[number]
 
@@ -62,6 +62,16 @@ export const NAV: NavItem[] = [
         anyOf: ['roles.view', 'roles.manage', 'features.view', 'features.manage'],
     },
     { key: 'audit', label: 'Audit log', icon: ScrollText, section: 'Administration', to: '/admin', tab: 'audit', anyOf: ['audit.view'] },
+    {
+        key: 'reports',
+        label: 'Reports',
+        icon: FileText,
+        section: 'Administration',
+        to: '/admin',
+        tab: 'reports',
+        // Triggering the retired Qhuckbase-style reports needs the same power as managing users.
+        anyOf: ['users.manage'],
+    },
 ]
 
 /** Every permission that opens some admin tab. */

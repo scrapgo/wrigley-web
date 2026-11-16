@@ -456,3 +456,33 @@ export function listDispatchStatuses(): Promise<DropdownOption[]> {
         '/api/suppliers/linked-its-dispatch-records/statuses'
     )
 }
+
+/* -------------------------------------------------------------------------- */
+/*  Reports (retired Qhuckbase-style n8n webhooks)                            */
+/* -------------------------------------------------------------------------- */
+
+/** The result of triggering a report. */
+export interface ReportTriggerResult {
+    reportName: string
+    reportDate: string
+    queued: boolean
+    error: string | null
+    detail: string | null
+}
+
+/** Trigger the Missing Invoice report for a date (defaults to today). */
+export function triggerMissingInvoicesReport(date?: string): Promise<ReportTriggerResult> {
+    const params = new URLSearchParams()
+    if (date) params.set('date', date)
+    const suffix = params.toString() ? `?${params.toString()}` : ''
+    return apiClient.fetchWithAuth<ReportTriggerResult>(
+        `/api/suppliers/reports/missing-invoices${suffix}`, { method: 'POST' }
+    )
+}
+
+/** Trigger the Remittance report for a date (required). */
+export function triggerRemittanceReport(date: string): Promise<ReportTriggerResult> {
+    return apiClient.fetchWithAuth<ReportTriggerResult>(
+        `/api/suppliers/reports/remittance?date=${encodeURIComponent(date)}`, { method: 'POST' }
+    )
+}

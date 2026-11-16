@@ -5,6 +5,7 @@ import { RequirePermission } from '../components/access'
 import { AccessPanel } from '../components/admin/access-panel'
 import { AuditPanel } from '../components/admin/audit-panel'
 import { HomePanel } from '../components/admin/home-panel'
+import { ReportsPanel } from '../components/admin/reports-panel'
 import { UsersPanel } from '../components/admin/users-panel'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { useAccess } from '../hooks/useAccess'
@@ -33,6 +34,7 @@ const PANELS: Record<AdminTab, () => React.ReactNode> = {
     users: () => <UsersPanel />,
     access: () => <AccessPanel />,
     audit: () => <AuditPanel />,
+    reports: () => <ReportsPanel />,
 }
 
 function AdminComponent() {

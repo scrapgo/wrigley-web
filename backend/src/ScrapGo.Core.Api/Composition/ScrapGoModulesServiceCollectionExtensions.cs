@@ -37,7 +37,7 @@ public static class ScrapGoModulesServiceCollectionExtensions
 
         services.AddIdentityModule(config);
         services.AddQuickbaseEngineModule(config);
-        services.AddSuppliersModule();
+        services.AddSuppliersModule(config);
 
         // Deny-by-default: an endpoint that declares no authorization at all
         // still requires an authenticated caller. Every controller also carries
@@ -82,9 +82,9 @@ public static class ScrapGoModulesServiceCollectionExtensions
     /// the shared <c>IQuickbaseQueryService</c> and checked against
     /// <c>IUserContext</c>. No database of its own.
     /// </summary>
-    private static IServiceCollection AddSuppliersModule(this IServiceCollection services) =>
+    private static IServiceCollection AddSuppliersModule(this IServiceCollection services, IConfiguration config) =>
         services
             .AddSuppliersApplication()
-            .AddSuppliersInfrastructure()
+            .AddSuppliersInfrastructure(config)
             .AddSuppliersApi();
 }

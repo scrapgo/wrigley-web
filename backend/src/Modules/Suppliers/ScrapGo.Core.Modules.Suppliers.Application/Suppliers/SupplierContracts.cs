@@ -240,6 +240,36 @@ public sealed record SupplierDispatchRecordsResponse(
     int SupplierRecordId, IReadOnlyList<SupplierDispatchRecordDto> DispatchRecords, DataFreshness Freshness);
 
 /// <summary>
+/// The supplier Dashboard's stats, worked out from its delivered ITS Dispatch loads.
+/// Sums are 0 when no load qualifies; the nullable values are null when there's no data.
+/// </summary>
+/// <param name="RelatedSupplierId">The supplier (ITS Dispatch field 366).</param>
+/// <param name="AsOf">Today in the business time zone, which the stats are relative to.</param>
+/// <param name="TotalPaidYtd">Payment Amount (386) of loads whose Payment Date (572) is from Jan 1 to today.</param>
+/// <param name="PendingPaymentAmount">Payment Amount (386) of loads whose Payment Date (572) is after today or empty.</param>
+/// <param name="PendingPaymentCount">How many loads <paramref name="PendingPaymentAmount"/> covers.</param>
+/// <param name="LoadsLast90Days">Loads with a Del Date (15) in the last 90 days.</param>
+/// <param name="DeliveredBefore90Days">Loads with an older Del Date (15).</param>
+/// <param name="CurrentOffer">The supplier's target consumer price, else the latest load's Buy Price (512).</param>
+/// <param name="CurrentOfferSource"><c>supplierTarget</c> or <c>lastLoadBuyPrice</c>; null with no offer.</param>
+/// <param name="LastDeliveredDate">The latest load's Del Date.</param>
+/// <param name="LastLoadNumber">The latest load's Load # (6).</param>
+/// <param name="Freshness">The least fresh of the reads (supplier and every page of loads).</param>
+public sealed record SupplierDashboardStatsDto(
+    int RelatedSupplierId,
+    DateOnly AsOf,
+    decimal TotalPaidYtd,
+    decimal PendingPaymentAmount,
+    int PendingPaymentCount,
+    int LoadsLast90Days,
+    int DeliveredBefore90Days,
+    decimal? CurrentOffer,
+    string? CurrentOfferSource,
+    DateOnly? LastDeliveredDate,
+    string? LastLoadNumber,
+    DataFreshness Freshness);
+
+/// <summary>
 /// A supplier's most recent activity (Quickbase Call Notes table <c>br8tgw3tp</c>,
 /// newest Date Created first). Null means empty in Quickbase.
 /// </summary>

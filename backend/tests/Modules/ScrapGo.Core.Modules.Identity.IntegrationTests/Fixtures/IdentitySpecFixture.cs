@@ -93,8 +93,11 @@ public class IdentitySpecFixture : IAsyncLifetime
     /// </summary>
     public void EvictAccess() => Services.GetRequiredService<ScrapGo.Core.Modules.Identity.Application.Access.IAccessCache>().EvictAll();
 
-    /// <summary><c>Identity:RequireMfaForExternalUsers</c> for this fixture. Null (the default) leaves it unset, i.e. off.</summary>
-    protected virtual string? RequireMfaForExternalUsers => null;
+    /// <summary>
+    /// <c>Identity:RequireMfaForExternalUsers</c> for this fixture: off by default. Set
+    /// explicitly, not left unset, so a developer's user-secret can't turn it on.
+    /// </summary>
+    protected virtual string? RequireMfaForExternalUsers => "false";
 
     /// <summary>
     /// Last-registered test services, e.g. another module's spec fixture

@@ -209,6 +209,43 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
         return new(records, Freshness(result));
     }
 
+    public async Task<Sourced<IReadOnlyList<DeliveredLoad>>> ListDeliveredLoadsAsync(
+        int supplierRecordId, IReadOnlyList<string> statuses, CancellationToken cancellationToken)
+    {
+        var where = DispatchRecordsTable.BySupplierWithStatus(supplierRecordId, statuses);
+        var loads = new List<DeliveredLoad>();
+        QuickbaseQueryResult? leastFresh = null;
+        var skip = 0;
+
+        // Quickbase may return fewer rows than asked for, so advance by what came back.
+        while (true)
+        {
+            var result = await QueryAsync(
+                new QuickbaseQuery(
+                    DispatchRecordsTable.TableId,
+                    DispatchRecordsTable.DashboardFields,
+                    where,
+                    [new QuickbaseSort(DispatchRecordsTable.DeliveryDate, QuickbaseSortOrder.Descending)],
+                    Skip: skip,
+                    Top: DispatchRecordsTable.PageSize),
+                cancellationToken);
+            leastFresh = leastFresh is null ? result : LeastFreshResult(leastFresh, result);
+
+            using var document = JsonDocument.Parse(result.ResponseJson);
+            var rows = Rows(document).ToList();
+            loads.AddRange(rows.Select(row => ToDeliveredLoad(new QuickbaseRecord(row))).OfType<DeliveredLoad>());
+
+            var returned = Metadata(document, "numRecords") ?? rows.Count;
+            skip += returned;
+            if (returned == 0 || skip >= (Metadata(document, "totalRecords") ?? skip))
+            {
+                break;
+            }
+        }
+
+        return new(loads, Freshness(leastFresh));
+    }
+
     public async Task<Sourced<SupplierPage>> ListAsync(
         string? search, int skip, int top, IReadOnlyCollection<int>? recordIds, CancellationToken cancellationToken)
     {
@@ -419,7 +456,10 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
     /// Freshness of a response built from two queries: the earlier fetch, and the
     /// worse source (StaleCache, then Cache, then Quickbase).
     /// </summary>
-    private static DataFreshness LeastFresh(QuickbaseQueryResult first, QuickbaseQueryResult second)
+    private static DataFreshness LeastFresh(QuickbaseQueryResult first, QuickbaseQueryResult second) =>
+        Freshness(LeastFreshResult(first, second));
+
+    private static QuickbaseQueryResult LeastFreshResult(QuickbaseQueryResult first, QuickbaseQueryResult second)
     {
         static int Staleness(QuickbaseResultSource source) => source switch
         {
@@ -430,6 +470,26 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
 
         var source = Staleness(first.Source) >= Staleness(second.Source) ? first.Source : second.Source;
         var fetchedAt = first.FetchedAt <= second.FetchedAt ? first.FetchedAt : second.FetchedAt;
-        return new(source.ToString(), fetchedAt);
+        return first with { Source = source, FetchedAt = fetchedAt };
     }
+
+    /// <summary>An integer from the response's <c>metadata</c> (e.g. <c>numRecords</c>, <c>totalRecords</c>).</summary>
+    private static int? Metadata(JsonDocument document, string name) =>
+        document.RootElement.TryGetProperty("metadata", out var metadata)
+        && metadata.TryGetProperty(name, out var value)
+        && value.TryGetInt32(out var number)
+            ? number
+            : null;
+
+    private static DeliveredLoad? ToDeliveredLoad(QuickbaseRecord record) =>
+        record.Int(DispatchRecordsTable.RecordId) is { } recordId
+            ? new DeliveredLoad(
+                recordId,
+                record.Text(DispatchRecordsTable.LoadNumber),
+                record.Text(DispatchRecordsTable.ShipperPoNumbers),
+                record.Date(DispatchRecordsTable.DeliveryDate),
+                record.Decimal(DispatchRecordsTable.PaymentAmount),
+                record.Date(DispatchRecordsTable.PaymentDate),
+                record.Decimal(DispatchRecordsTable.BuyPrice))
+            : null;
 }

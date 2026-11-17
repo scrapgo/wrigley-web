@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace ScrapGo.Core.Modules.Suppliers.Application.Suppliers;
 
@@ -33,6 +34,8 @@ public sealed record SupplierCallNotesHistoryResult(
 public sealed record SupplierDispatchRecordsResult(
     SupplierOutcome Outcome, SupplierDispatchRecordsResponse? DispatchRecords = null);
 
+public sealed record SupplierDashboardStatsResult(SupplierOutcome Outcome, SupplierDashboardStatsDto? Stats = null);
+
 public sealed record SupplierTargetPricingProgressRailResult(
     SupplierOutcome Outcome, SupplierTargetPricingProgressRailResponse? TargetPricingProgressRail = null);
 
@@ -60,7 +63,11 @@ public sealed record ListSuppliersQuery(string? Search, int? Skip, int? Top);
 /// suppliers. The list is filtered in the Quickbase query itself.
 /// </remarks>
 public sealed class SupplierService(
-    IUserContext userContext, ISupplierSource source, TimeProvider timeProvider, ILogger<SupplierService> logger)
+    IUserContext userContext,
+    ISupplierSource source,
+    TimeProvider timeProvider,
+    IOptions<SupplierDashboardOptions> dashboardOptions,
+    ILogger<SupplierService> logger)
 {
     public const int DefaultTop = 100;
 
@@ -168,6 +175,57 @@ public sealed class SupplierService(
         return found is { Value: { } records }
             ? new(outcome, new SupplierDispatchRecordsResponse(recordId, records, found.Freshness))
             : new(outcome);
+    }
+
+    /// <summary>
+    /// The Dashboard's stats (paid YTD, pending payment, 90-day load counts, current
+    /// offer), worked out from the supplier's delivered ITS Dispatch loads. A supplier
+    /// without loads gets zeros and nulls, not 404.
+    /// </summary>
+    public async Task<SupplierDashboardStatsResult> GetDashboardStatsAsync(int recordId, CancellationToken cancellationToken)
+    {
+        // The supplier read does the access and scope checks, and gives the target price.
+        var (outcome, found) = await ReadRecordAsync(recordId, source.FindByRecordIdAsync, cancellationToken);
+        if (found is not { Value: { } supplier })
+        {
+            return new(outcome);
+        }
+
+        var options = dashboardOptions.Value;
+        try
+        {
+            var loads = await source.ListDeliveredLoadsAsync(recordId, options.EffectiveStatuses, cancellationToken);
+
+            foreach (var po in SupplierDashboardStats.SharedShipperPos(loads.Value))
+            {
+                logger.LogWarning("Supplier {RecordId} has several delivered loads with Shipper PO {ShipperPo}.", recordId, po);
+            }
+
+            var freshness = found.Freshness.FetchedAt <= loads.Freshness.FetchedAt ? found.Freshness : loads.Freshness;
+            return new(SupplierOutcome.Success, SupplierDashboardStats.Compute(
+                recordId, loads.Value, Today(options.BusinessTimeZone), supplier.TargetConsumerPrice, freshness));
+        }
+        catch (SupplierSourceUnavailableException ex)
+        {
+            logger.LogWarning(ex, "Supplier {RecordId}'s loads could not be read from the supplier source.", recordId);
+            return new(SupplierOutcome.SourceUnavailable);
+        }
+    }
+
+    /// <summary>Today's date in <paramref name="timeZoneId"/>; UTC's when the zone is unknown.</summary>
+    private DateOnly Today(string timeZoneId)
+    {
+        var now = timeProvider.GetUtcNow();
+        if (TimeZoneInfo.TryFindSystemTimeZoneById(timeZoneId, out var zone))
+        {
+            now = TimeZoneInfo.ConvertTime(now, zone);
+        }
+        else
+        {
+            logger.LogWarning("Time zone {TimeZone} is unknown; using UTC for the dashboard date.", timeZoneId);
+        }
+
+        return DateOnly.FromDateTime(now.DateTime);
     }
 
     /// <summary>

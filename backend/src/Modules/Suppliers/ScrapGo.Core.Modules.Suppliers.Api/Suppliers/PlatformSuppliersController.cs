@@ -129,6 +129,25 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
             : SupplierProblems.For(result.Outcome);
     }
 
+    /// <summary>
+    /// The supplier Dashboard's stats, from its delivered ITS Dispatch loads: total
+    /// paid this year, pending payment, loads in the last 90 days and before, and
+    /// the current offer. Zeros and nulls when the supplier has no loads.
+    /// </summary>
+    [HttpGet("{recordId:int}/dashboard-stats")]
+    [ProducesResponseType<SupplierDashboardStatsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
+    public async Task<IActionResult> GetDashboardStats(int recordId, CancellationToken cancellationToken)
+    {
+        var result = await suppliers.GetDashboardStatsAsync(recordId, cancellationToken);
+
+        return result is { Outcome: SupplierOutcome.Success, Stats: { } stats }
+            ? Ok(stats)
+            : SupplierProblems.For(result.Outcome);
+    }
+
     /// <summary>One supplier's yard capabilities: crusher, baler, scale, loading options and so on (all yes/no).</summary>
     [HttpGet("{recordId:int}/yard-capabilities")]
     [ProducesResponseType<SupplierYardCapabilitiesResponse>(StatusCodes.Status200OK)]

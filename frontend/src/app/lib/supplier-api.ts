@@ -314,6 +314,32 @@ export interface SupplierDispatchRecordsResponse {
     freshness: DataFreshness
 }
 
+/**
+ * The supplier Dashboard's stats, worked out from its delivered ITS Dispatch loads.
+ * Sums are 0 when no load qualifies; the nullable values are null when there's no
+ * data (show "—", never $0.00).
+ */
+export interface SupplierDashboardStats {
+    relatedSupplierId: number
+    /** Today in the business time zone, `yyyy-MM-dd`. */
+    asOf: string
+    /** Payment Amount (386) of loads paid (572) from Jan 1 to today. */
+    totalPaidYtd: number
+    /** Payment Amount (386) of loads with a Payment Date after today or none. */
+    pendingPaymentAmount: number
+    pendingPaymentCount: number
+    /** Delivered loads with a Del Date (15) in the last 90 days. */
+    loadsLast90Days: number
+    deliveredBefore90Days: number
+    /** The supplier's target consumer price, else the latest load's Buy Price (512). */
+    currentOffer: number | null
+    currentOfferSource: 'supplierTarget' | 'lastLoadBuyPrice' | null
+    /** `yyyy-MM-dd`. */
+    lastDeliveredDate: string | null
+    lastLoadNumber: string | null
+    freshness: DataFreshness
+}
+
 /** One static dropdown option: the `value` a supplier response carries, and the `label` to show. */
 export interface DropdownOption {
     value: string
@@ -402,6 +428,11 @@ export function getSupplierLinkedDispatchRecords(
     return apiClient.fetchWithAuth<SupplierDispatchRecordsResponse>(
         `/api/suppliers/${recordId}/linked-its-dispatch-records`
     )
+}
+
+/** The supplier Dashboard's stats: paid YTD, pending payment, 90-day load counts, current offer. */
+export function getSupplierDashboardStats(recordId: number): Promise<SupplierDashboardStats> {
+    return apiClient.fetchWithAuth<SupplierDashboardStats>(`/api/suppliers/${recordId}/dashboard-stats`)
 }
 
 /* -------------------------------------------------------------------------- */

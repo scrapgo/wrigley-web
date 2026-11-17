@@ -1,14 +1,14 @@
-## Missing Dashboard Tab Data
+## Dashboard Tab Data
 
-The main Dashboard tab (`activeTab === 'dashboard'`) shows blanks and zeros for fields that either don't exist or have zero values in Quickbase:
+The main Dashboard tab (`activeTab === 'dashboard'`) and the Payments tab's stat cards now read `GET /api/suppliers/{recordId}/dashboard-stats`, worked out from the supplier's delivered ITS Dispatch loads (`bspsb9kpm`):
 
 | Field | Needed For | Backend Endpoint | Status |
 |-------|-----------|-----------------|--------|
-| Total Paid YTD (currency) | Dashboard "Total Paid (YTD)" stat card | `GET /api/suppliers/{recordId}` | ❌ Missing — only `deliveredLast90Days` (count) is available, not currency |
-| Pending Payment amount | Dashboard "Pending Payment" stat card | None | ❌ Missing — no endpoint or field exists |
-| Loads (Last 90 Days) | Dashboard "Loads (Last 90 Days)" stat card | `GET /api/suppliers/{recordId}` | ⚠️ Available as count (`deliveredLast90Days`) but shows 0 when null |
-| Current Offer | Dashboard header "Current Offer" | `GET /api/suppliers/{recordId}` | ⚠️ Available (`targetConsumerPrice`) but shows `$0.00` when value is 0 in Quickbase |
-| Delivered Before 90 Days | Not currently displayed | `GET /api/suppliers/{recordId}` | ⚠️ Available (`deliveredBefore90Days`) but not used in dashboard |
+| Total Paid YTD (currency) | "Total Paid (YTD)" stat card | `GET /api/suppliers/{recordId}/dashboard-stats` | ✅ `totalPaidYtd` (Payment Amount 386, Payment Date 572 this year) |
+| Pending Payment amount | "Pending Payment" stat card | `GET /api/suppliers/{recordId}/dashboard-stats` | ✅ `pendingPaymentAmount` / `pendingPaymentCount` (Payment Date after today or empty) |
+| Loads (Last 90 Days) | "Loads (Last 90 Days)" stat card | `GET /api/suppliers/{recordId}/dashboard-stats` | ✅ `loadsLast90Days` (Del Date 15) |
+| Current Offer | Dashboard header and stat card | `GET /api/suppliers/{recordId}/dashboard-stats` | ✅ `currentOffer`: target consumer price if > 0, else the last load's Buy Price (512); "—" when neither |
+| Delivered Before 90 Days | Not currently displayed | `GET /api/suppliers/{recordId}/dashboard-stats` | ✅ `deliveredBefore90Days`, returned but not shown yet |
 
 ## Missing Payment Data
 

@@ -5,6 +5,7 @@ import {
     getSupplierCallNotesHistory,
     getSupplierCallProspectStatus,
     getSupplierContacts,
+    getSupplierDashboardStats,
     getSupplierInStockItems,
     getSupplierLinkedDispatchRecords,
     getSupplierTargetPricingProgressRail,
@@ -43,6 +44,8 @@ export const supplierKeys = {
         ['suppliers', 'detail', recordId, 'call-notes-history'] as const,
     dispatchRecords: (recordId: number) =>
         ['suppliers', 'detail', recordId, 'linked-its-dispatch-records'] as const,
+    dashboardStats: (recordId: number) =>
+        ['suppliers', 'detail', recordId, 'dashboard-stats'] as const,
     catalogs: ['suppliers', 'catalogs'] as const,
 }
 
@@ -128,6 +131,15 @@ export function useSupplierLinkedDispatchRecords(recordId: number) {
     return useQuery({
         queryKey: supplierKeys.dispatchRecords(recordId),
         queryFn: () => getSupplierLinkedDispatchRecords(recordId),
+        enabled: recordId > 0,
+    })
+}
+
+/** One supplier's Dashboard stats, from its delivered ITS dispatch loads. */
+export function useSupplierDashboardStats(recordId: number) {
+    return useQuery({
+        queryKey: supplierKeys.dashboardStats(recordId),
+        queryFn: () => getSupplierDashboardStats(recordId),
         enabled: recordId > 0,
     })
 }

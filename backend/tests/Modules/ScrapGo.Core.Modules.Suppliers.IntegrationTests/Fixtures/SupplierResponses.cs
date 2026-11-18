@@ -245,5 +245,33 @@ public static class SupplierResponses
         }
         """;
 
-    public const string Empty = """{ "data": [], "fields": [], "metadata": { "numRecords": 0, "skip": 0, "totalRecords": 0 } }""";
+    /// <summary>
+    /// ITS Dispatch record 51585 (load 54727) as Quickbase returned it on 2026-11-17,
+    /// every load-form field (empty text is <c>""</c>, an empty currency <c>null</c>).
+    /// </summary>
+    public const string Load54727 = """
+        {
+          "data": [
+            {
+              "3": { "value": 51585 }, "6": { "value": "54727" }, "8": { "value": "Delivered" },
+              "14": { "value": "2026-10-06" }, "15": { "value": "2026-10-07" }, "21": { "value": "94004" },
+              "28": { "value": "AMERICAN LOGISTICS, INC." }, "32": { "value": 1350.0 }, "41": { "value": "Flatbed" },
+              "378": { "value": 19.02 }, "379": { "value": 16.98214285714286 }, "386": { "value": 3804.0 },
+              "398": { "value": 114.54 }, "424": { "value": "1st Class Auto Salvage" }, "430": { "value": "Apopka" },
+              "431": { "value": "FL" }, "445": { "value": null },
+              "465": { "value": "https://scrapgo-9114.quickbase.com/db/bqrcgnatz?a=dr&rid=17511" },
+              "466": { "value": 38040.0 }, "496": { "value": 68120.0 }, "497": { "value": 30080.0 },
+              "502": { "value": "1100131937" }, "512": { "value": 200.0 }, "517": { "value": 277.0 },
+              "555": { "value": 145.04 }, "556": { "value": -182.97 }, "559": { "value": "True" },
+              "563": { "value": 44000.0 }, "570": { "value": -182.97 }, "572": { "value": "2026-10-16" },
+              "579": { "value": "" }, "580": { "value": false }, "593": { "value": "" },
+              "607": { "value": 7.44 }, "622": { "value": "1300" }
+            }
+          ],
+          "fields": [],
+          "metadata": { "numRecords": 1, "skip": 0, "totalRecords": 1 }
+        }
+        """;
+
+    public const string Empty ="""{ "data": [], "fields": [], "metadata": { "numRecords": 0, "skip": 0, "totalRecords": 0 } }""";
 }

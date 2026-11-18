@@ -47,4 +47,13 @@ public sealed class SupplierDropdownsController : ControllerBase
     [HttpGet("linked-its-dispatch-records/statuses")]
     [ProducesResponseType<IReadOnlyList<DropdownOption<DispatchStatus>>>(StatusCodes.Status200OK)]
     public IActionResult DispatchStatusOptions() => Ok(DispatchStatuses.Catalog.Options);
+
+    /// <summary>
+    /// The statuses offered in the portal's status filter, in order: every status
+    /// but Test and Test2. Each value can be passed as <c>status</c> to the dispatch
+    /// records and dashboard stats endpoints.
+    /// </summary>
+    [HttpGet("linked-its-dispatch-records/status-filters")]
+    [ProducesResponseType<IReadOnlyList<DropdownOption<DispatchStatus>>>(StatusCodes.Status200OK)]
+    public IActionResult DispatchStatusFilterOptions() => Ok(DispatchStatuses.FilterOptions);
 }

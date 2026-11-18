@@ -16,6 +16,10 @@ public static class SuppliersInfrastructureServiceCollectionExtensions
             .Bind(configuration.GetSection(ReportTriggerOptions.SectionName))
             .ValidateDataAnnotations();
 
+        services
+            .AddOptions<SupplierDashboardOptions>()
+            .Bind(configuration.GetSection(SupplierDashboardOptions.SectionName));
+
         return services;
     }
 }

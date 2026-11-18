@@ -14,7 +14,11 @@ import {
 import { Button } from '../ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Badge } from '../ui/badge'
-import { useSupplier, useSupplierLinkedDispatchRecords } from '../../hooks/useSupplierQueries'
+import {
+    useSupplier,
+    useSupplierDashboardStats,
+    useSupplierLinkedDispatchRecords,
+} from '../../hooks/useSupplierQueries'
 import { formatCurrency, formatDate } from '../../lib/supplier-format'
 
 /** The supplier portal's top navigation tabs. */
@@ -32,6 +36,18 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
 
     const { data: supplierData, isLoading: supplierLoading } = useSupplier(recordId)
     const { data: dispatchData, isLoading: dispatchLoading } = useSupplierLinkedDispatchRecords(recordId)
+    const { data: stats, isLoading: statsLoading, isError: statsError } = useSupplierDashboardStats(recordId)
+
+    /** A stat card's value: "…" while loading, "—" when the stats couldn't load. */
+    const statValue = (format: (loaded: NonNullable<typeof stats>) => string) =>
+        statsLoading ? '…' : stats ? format(stats) : '—'
+    const currentOffer = statValue((s) => formatCurrency(s.currentOffer))
+    const offerHint = stats?.currentOfferSource === 'lastLoadBuyPrice' ? 'Based on last load' : null
+    const pendingSubtitle = statsError
+        ? "Couldn't load"
+        : stats
+            ? `${stats.pendingPaymentCount} ${stats.pendingPaymentCount === 1 ? 'load' : 'loads'}`
+            : 'Loading…'
 
     const supplier = supplierData?.supplier
     const recentLoads = dispatchData?.dispatchRecords ?? []
@@ -159,12 +175,12 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                         <div className="flex flex-col items-end gap-2 sm:items-start">
                             <div className="flex items-end gap-1">
                                 <span className="text-2xl font-bold text-white">
-                                    {formatCurrency(supplier.targetConsumerPrice ?? 0)}
+                                    {currentOffer}
                                 </span>
                                 <span className="text-sm font-medium text-brand-100">/ NT</span>
                             </div>
                             <p className="text-xs text-brand-100/80 leading-none">
-                                {supplier.paymentTerms ?? 'Standard terms'}
+                                {[supplier.paymentTerms ?? 'Standard terms', offerHint].filter(Boolean).join(' · ')}
                             </p>
                         </div>
                     </div>
@@ -202,30 +218,30 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                     {/* Stat cards */}
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                         <StatCard
-                            title="Total Loads (YTD)"
-                            value={String(supplier.totalActivities ?? 0)}
-                            subtitle="All delivered loads"
-                            icon={Truck}
+                            title="Total Paid (YTD)"
+                            value={statValue((s) => formatCurrency(s.totalPaidYtd))}
+                            subtitle={statsError ? "Couldn't load" : 'Paid this year'}
+                            icon={DollarSign}
                             tone="bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                         />
                         <StatCard
                             title="Pending Payment"
-                            value="—"
-                            subtitle="Not yet available"
+                            value={statValue((s) => formatCurrency(s.pendingPaymentAmount))}
+                            subtitle={pendingSubtitle}
                             icon={Calendar}
-                            tone="bg-muted/50 text-muted-foreground border-muted/20"
+                            tone="bg-amber-500/10 text-amber-500 border-amber-500/20"
                         />
                         <StatCard
                             title="Loads (Last 90 Days)"
-                            value={String(supplier.deliveredLast90Days ?? 0)}
-                            subtitle="Recent deliveries"
-                            icon={DollarSign}
+                            value={statValue((s) => String(s.loadsLast90Days))}
+                            subtitle={statsError ? "Couldn't load" : 'Recent deliveries'}
+                            icon={Truck}
                             tone="bg-muted/50 text-muted-foreground border-muted/20"
                         />
                         <StatCard
                             title="Current Offer"
-                            value={formatCurrency(supplier.targetConsumerPrice ?? 0)}
-                            subtitle={supplier.paymentTerms ?? 'Standard terms'}
+                            value={currentOffer}
+                            subtitle={offerHint ?? supplier.paymentTerms ?? 'Standard terms'}
                             icon={Building2}
                             tone="bg-brand-500/10 text-brand-500 border-brand-500/20"
                         />
@@ -336,17 +352,17 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <StatCard
                         title="Total Paid (YTD)"
-                        value={formatCurrency(supplier.deliveredLast90Days ?? 0)}
-                        subtitle={`${supplier.totalActivities ?? 0} loads · YTD`}
+                        value={statValue((s) => formatCurrency(s.totalPaidYtd))}
+                        subtitle={statsError ? "Couldn't load" : 'Paid this year'}
                         icon={DollarSign}
                         tone="bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                     />
                     <StatCard
                         title="Pending Payment"
-                        value="—"
-                        subtitle="Not yet available"
+                        value={statValue((s) => formatCurrency(s.pendingPaymentAmount))}
+                        subtitle={pendingSubtitle}
                         icon={Calendar}
-                        tone="bg-muted/50 text-muted-foreground border-muted/20"
+                        tone="bg-amber-500/10 text-amber-500 border-amber-500/20"
                     />
                     <StatCard
                         title="Payment Terms"

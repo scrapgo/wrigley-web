@@ -43,8 +43,18 @@ public interface ISupplierSource
     Task<Sourced<IReadOnlyList<SupplierCallNoteDto>?>> ListCallNotesAsync(int supplierRecordId, CancellationToken cancellationToken);
 
     /// <summary>Every ITS dispatch record linked to a supplier (by field 366), newest ship date first; empty when there are none.</summary>
+    /// <param name="statuses">Only records with one of these statuses (Quickbase text); empty for every status.</param>
     /// <exception cref="SupplierSourceUnavailableException">The source failed and nothing cached could be served.</exception>
-    Task<Sourced<IReadOnlyList<SupplierDispatchRecordDto>?>> ListDispatchRecordsAsync(int supplierRecordId, CancellationToken cancellationToken);
+    Task<Sourced<IReadOnlyList<SupplierDispatchRecordDto>?>> ListDispatchRecordsAsync(
+        int supplierRecordId, IReadOnlyList<string> statuses, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every ITS dispatch load of a supplier (by field 366) whose status is one of
+    /// <paramref name="statuses"/>, newest Del Date first, all pages; empty when there are none.
+    /// </summary>
+    /// <exception cref="SupplierSourceUnavailableException">The source failed and nothing cached could be served.</exception>
+    Task<Sourced<IReadOnlyList<DeliveredLoad>>> ListDeliveredLoadsAsync(
+        int supplierRecordId, IReadOnlyList<string> statuses, CancellationToken cancellationToken);
 
     /// <summary>
     /// Suppliers with a name, sorted by name, optionally filtered by a name
@@ -58,6 +68,27 @@ public interface ISupplierSource
 
 /// <summary>A value plus how fresh it is (Quickbase data is served through a cache).</summary>
 public sealed record Sourced<T>(T Value, DataFreshness Freshness);
+
+/// <summary>One delivered ITS dispatch load, as the Dashboard stats need it. Null means empty in Quickbase.</summary>
+/// <param name="RecordId">Field 3.</param>
+/// <param name="LoadNumber">Field 6, "Load #".</param>
+/// <param name="ShipperPo">Field 21, "Shipper PO Numbers".</param>
+/// <param name="DeliveryDate">Field 15, "Del Date".</param>
+/// <param name="PaymentAmount">Field 386, Buy Price × Purchase Weight in NT ("Payment Amount").</param>
+/// <param name="PaymentDate">Field 572 (already honors Pay Date Override, 593).</param>
+/// <param name="BuyPrice">Field 512, "Buy Price".</param>
+/// <param name="Status">Field 8, e.g. "Delivered".</param>
+/// <param name="PaymentAmountQuote">Field 514, "Quote Buy Price Total".</param>
+public sealed record DeliveredLoad(
+    int RecordId,
+    string? LoadNumber,
+    string? ShipperPo,
+    DateOnly? DeliveryDate,
+    decimal? PaymentAmount,
+    DateOnly? PaymentDate,
+    decimal? BuyPrice,
+    string? Status,
+    decimal? PaymentAmountQuote);
 
 /// <param name="TotalRecords">Every matching record, not just this page.</param>
 public sealed record SupplierPage(IReadOnlyList<SupplierDto> Items, int TotalRecords);

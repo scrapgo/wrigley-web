@@ -188,10 +188,13 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
     }
 
     public async Task<Sourced<IReadOnlyList<SupplierDispatchRecordDto>?>> ListDispatchRecordsAsync(
-        int supplierRecordId, CancellationToken cancellationToken)
+        int supplierRecordId, IReadOnlyList<string> statuses, CancellationToken cancellationToken)
     {
+        var where = statuses.Count == 0
+            ? DispatchRecordsTable.BySupplier(supplierRecordId)
+            : DispatchRecordsTable.BySupplierWithStatus(supplierRecordId, statuses);
         var result = await QueryAsync(
-            new QuickbaseQuery(DispatchRecordsTable.TableId, DispatchRecordsTable.Fields, DispatchRecordsTable.BySupplier(supplierRecordId)),
+            new QuickbaseQuery(DispatchRecordsTable.TableId, DispatchRecordsTable.Fields, where),
             cancellationToken);
 
         using var document = JsonDocument.Parse(result.ResponseJson);
@@ -410,7 +413,35 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
             record.Decimal(DispatchRecordsTable.Weight),
             record.Date(DispatchRecordsTable.ShipDate),
             record.Date(DispatchRecordsTable.DeliveryDate),
-            ChoiceOf(recordId, "dispatch status", DispatchStatuses.Catalog, record.Choice(DispatchRecordsTable.Status)));
+            ChoiceOf(recordId, "dispatch status", DispatchStatuses.Catalog, record.Choice(DispatchRecordsTable.Status)),
+            record.Text(DispatchRecordsTable.Supplier),
+            record.Text(DispatchRecordsTable.GoToSupplier),
+            record.Text(DispatchRecordsTable.ScaleTicketNumber),
+            record.Text(DispatchRecordsTable.ShipperPoNumbers),
+            record.Text(DispatchRecordsTable.PickUpTime),
+            record.Text(DispatchRecordsTable.OriginationCity),
+            record.Text(DispatchRecordsTable.OriginationState),
+            record.Choice(DispatchRecordsTable.EquipmentType),
+            record.Decimal(DispatchRecordsTable.CarrierFee),
+            record.Decimal(DispatchRecordsTable.TotalGrossWt),
+            record.Decimal(DispatchRecordsTable.TotalTareWt),
+            record.Decimal(DispatchRecordsTable.TotalNetWt),
+            record.Decimal(DispatchRecordsTable.SalePrice),
+            record.Decimal(DispatchRecordsTable.BuyPrice),
+            record.Decimal(DispatchRecordsTable.PaymentAmount),
+            record.Date(DispatchRecordsTable.PaymentDate),
+            record.Decimal(DispatchRecordsTable.GrossProfit),
+            record.Decimal(DispatchRecordsTable.TotalCommissions),
+            record.Decimal(DispatchRecordsTable.TotalFreightCommissionExpense),
+            record.Decimal(DispatchRecordsTable.DeadFreight),
+            record.Date(DispatchRecordsTable.PayDateOverride),
+            record.Decimal(DispatchRecordsTable.WeightInGt),
+            record.Bool(DispatchRecordsTable.DeadFreightRequirements),
+            record.Decimal(DispatchRecordsTable.TotalDeadFreightViaCietrade),
+            record.Choice(DispatchRecordsTable.DeadFreightChargeExceptions),
+            record.Bool(DispatchRecordsTable.SupplierIsDeadFreightExempt),
+            record.Decimal(DispatchRecordsTable.MinimumWeight),
+            record.Decimal(DispatchRecordsTable.TotalGrossSalesRevenue));
     }
 
     /// <summary>A dropdown field as its enum; unknown text is returned as null and logged.</summary>
@@ -490,6 +521,8 @@ public sealed class QuickbaseSupplierSource(IQuickbaseQueryService quickbase, IL
                 record.Date(DispatchRecordsTable.DeliveryDate),
                 record.Decimal(DispatchRecordsTable.PaymentAmount),
                 record.Date(DispatchRecordsTable.PaymentDate),
-                record.Decimal(DispatchRecordsTable.BuyPrice))
+                record.Decimal(DispatchRecordsTable.BuyPrice),
+                record.Choice(DispatchRecordsTable.Status),
+                record.Decimal(DispatchRecordsTable.PaymentAmountQuote))
             : null;
 }

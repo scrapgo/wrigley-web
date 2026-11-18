@@ -22,6 +22,11 @@ internal static class SupplierProblems
             "Invalid supplier list request",
             $"skip must be 0 or more and top 1 to {SupplierService.MaxTop}.",
             "invalid_request").ToActionResult(),
+        SupplierOutcome.InvalidStatus => ProblemResults.Create(
+            StatusCodes.Status400BadRequest,
+            "Invalid status filter",
+            "status must be an ITS dispatch status's exact text, e.g. Delivered or On Route (see /api/suppliers/linked-its-dispatch-records/statuses).",
+            "invalid_status").ToActionResult(),
         SupplierOutcome.SourceUnavailable => ProblemResults.Create(
             StatusCodes.Status502BadGateway,
             "Quickbase unavailable",

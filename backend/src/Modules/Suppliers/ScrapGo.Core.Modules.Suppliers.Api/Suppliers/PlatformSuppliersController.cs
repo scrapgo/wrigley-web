@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ScrapGo.Core.Modules.Suppliers.Api.Suppliers;
@@ -115,14 +116,32 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
     /// <summary>
     /// The ITS dispatch records linked to the supplier (Quickbase ITS Dispatch
     /// Records table), newest ship date first. An empty list when there are none.
+    /// <c>status</c> (repeatable, exact text such as <c>Delivered</c>) keeps only those
+    /// statuses; without it every status is returned.
     /// </summary>
     [HttpGet("{recordId:int}/linked-its-dispatch-records")]
+    [EndpointSummary("The supplier's ITS dispatch loads, optionally filtered by status")]
+    [EndpointDescription(
+        "Every load linked to the supplier (ITS Dispatch field 366), newest ship date first, with every field on the load form. " +
+        "An empty list when there are none.\n\n" +
+        "Filter by status with the `status` query parameter, a status's exact text. Repeat it for several (OR-ed):\n\n" +
+        "- `GET /api/suppliers/17511/linked-its-dispatch-records`: every status\n" +
+        "- `GET /api/suppliers/17511/linked-its-dispatch-records?status=Delivered`: Delivered loads only\n" +
+        "- `GET /api/suppliers/17511/linked-its-dispatch-records?status=On%20Route&status=Loading`: On Route or Loading\n\n" +
+        "Valid values come from `GET /api/suppliers/linked-its-dispatch-records/status-filters`. " +
+        "An unknown value is 400 `invalid_status`.")]
     [ProducesResponseType<SupplierDispatchRecordsResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
-    public async Task<IActionResult> GetLinkedDispatchRecords(int recordId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetLinkedDispatchRecords(
+        int recordId,
+        [FromQuery(Name = "status")]
+        [Description("Optional, repeatable. A load status's exact text, e.g. Delivered or On Route. Omit it for every status.")]
+        string[]? status,
+        CancellationToken cancellationToken)
     {
-        var result = await suppliers.GetDispatchRecordsAsync(recordId, cancellationToken);
+        var result = await suppliers.GetDispatchRecordsAsync(recordId, status, cancellationToken);
 
         return result is { Outcome: SupplierOutcome.Success, DispatchRecords: { } records }
             ? Ok(records)
@@ -132,16 +151,33 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
     /// <summary>
     /// The supplier Dashboard's stats, from its delivered ITS Dispatch loads: total
     /// paid this year, pending payment, loads in the last 90 days and before, and
-    /// the current offer. Zeros and nulls when the supplier has no loads.
+    /// the current offer. Zeros and nulls when the supplier has no loads. <c>status</c>
+    /// (repeatable, exact text) picks the load statuses counted; Delivered without it.
     /// </summary>
     [HttpGet("{recordId:int}/dashboard-stats")]
+    [EndpointSummary("The supplier Dashboard's stats, for loads of the given status (Delivered by default)")]
+    [EndpointDescription(
+        "Total paid this year, pending payment, load counts and dollar totals for the last 90 days and before, and the current offer, " +
+        "worked out from the supplier's ITS Dispatch loads. Zeros and nulls when the supplier has no loads.\n\n" +
+        "Pick the load statuses counted with the `status` query parameter, a status's exact text. Repeat it for several (OR-ed):\n\n" +
+        "- `GET /api/suppliers/17511/dashboard-stats`: Delivered loads (the default)\n" +
+        "- `GET /api/suppliers/17511/dashboard-stats?status=Completed`: Completed loads\n" +
+        "- `GET /api/suppliers/17511/dashboard-stats?status=Delivered&status=Invoiced`: Delivered or Invoiced\n\n" +
+        "Valid values come from `GET /api/suppliers/linked-its-dispatch-records/status-filters`. " +
+        "An unknown value is 400 `invalid_status`.")]
     [ProducesResponseType<SupplierDashboardStatsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status403Forbidden)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
-    public async Task<IActionResult> GetDashboardStats(int recordId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetDashboardStats(
+        int recordId,
+        [FromQuery(Name = "status")]
+        [Description("Optional, repeatable. A load status's exact text, e.g. Delivered or Completed. Omit it to count Delivered loads.")]
+        string[]? status,
+        CancellationToken cancellationToken)
     {
-        var result = await suppliers.GetDashboardStatsAsync(recordId, cancellationToken);
+        var result = await suppliers.GetDashboardStatsAsync(recordId, status, cancellationToken);
 
         return result is { Outcome: SupplierOutcome.Success, Stats: { } stats }
             ? Ok(stats)

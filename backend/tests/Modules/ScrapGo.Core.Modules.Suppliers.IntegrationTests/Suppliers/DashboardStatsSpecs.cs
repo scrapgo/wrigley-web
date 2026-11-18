@@ -19,13 +19,69 @@ public class DashboardStatsSpecs
         private static readonly DateOnly Today = new(2026, 11, 17);
 
         private static DeliveredLoad Load(
-            string? delivered = null, decimal? amount = null, string? paid = null, decimal? buyPrice = null, string? loadNumber = null) =>
-            new(1, loadNumber, null, Parse(delivered), amount, Parse(paid), buyPrice);
+            string? delivered = null,
+            decimal? amount = null,
+            string? paid = null,
+            decimal? buyPrice = null,
+            string? loadNumber = null,
+            decimal? quote = null,
+            string status = "Delivered") =>
+            new(1, loadNumber, null, Parse(delivered), amount, Parse(paid), buyPrice, status, quote);
 
         private static DateOnly? Parse(string? date) => date is null ? null : DateOnly.Parse(date);
 
-        private static SupplierDashboardStatsDto Compute(IReadOnlyList<DeliveredLoad> loads, decimal? target = null) =>
-            SupplierDashboardStats.Compute(17511, loads, Today, target, Fresh);
+        private static SupplierDashboardStatsDto Compute(
+            IReadOnlyList<DeliveredLoad> loads, decimal? target = null, Action<DeliveredLoad>? onBlankQuote = null) =>
+            SupplierDashboardStats.Compute(17511, loads, ["Delivered"], Today, target, Fresh, onBlankQuote);
+
+        [Fact]
+        public void A_delivered_load_in_the_last_ninety_days_adds_its_quote_buy_price_total()
+        {
+            var stats = Compute([Load(delivered: "2026-10-07", quote: 3804.00m)]);
+
+            Assert.Equal(1, stats.LoadsLast90Days);
+            Assert.Equal(3804.00m, stats.DeliveredLast90DaysAmount);
+        }
+
+        [Fact]
+        public void The_ninety_day_amount_includes_exactly_ninety_days_ago_and_excludes_one_day_earlier()
+        {
+            var stats = Compute([Load(delivered: "2026-08-19", quote: 100m), Load(delivered: "2026-08-18", quote: 40m)]);
+
+            Assert.Equal(100m, stats.DeliveredLast90DaysAmount);
+            Assert.Equal(40m, stats.DeliveredBefore90DaysAmount);
+        }
+
+        [Fact]
+        public void A_pending_load_counts_in_no_stat()
+        {
+            var stats = Compute([Load(delivered: "2026-10-01", quote: 500m, amount: 500m, status: "Pending")]);
+
+            Assert.Equal(0, stats.LoadsLast90Days);
+            Assert.Equal(0m, stats.DeliveredLast90DaysAmount);
+            Assert.Equal(0, stats.PendingPaymentCount);
+        }
+
+        [Fact]
+        public void A_delivered_load_without_a_quote_buy_price_total_adds_zero_and_is_reported()
+        {
+            var reported = new List<DeliveredLoad>();
+            var stats = Compute(
+                [Load(delivered: "2026-10-07", quote: 3919.70m), Load(delivered: "2026-10-01", loadNumber: "54999")],
+                onBlankQuote: reported.Add);
+
+            Assert.Equal(2, stats.LoadsLast90Days);
+            Assert.Equal(3919.70m, stats.DeliveredLast90DaysAmount);
+            Assert.Equal(["54999"], reported.Select(load => load.LoadNumber));
+        }
+
+        [Fact]
+        public void The_ninety_day_amounts_are_rounded_to_cents_and_zero_without_loads()
+        {
+            Assert.Equal(3.12m, Compute([Load(delivered: "2026-11-01", quote: 1.005m), Load(delivered: "2026-11-02", quote: 2.111m)]).DeliveredLast90DaysAmount);
+            Assert.Equal(0m, Compute([]).DeliveredLast90DaysAmount);
+            Assert.Equal(0m, Compute([]).DeliveredBefore90DaysAmount);
+        }
 
         [Fact]
         public void A_load_paid_this_year_counts_in_total_paid_ytd()
@@ -131,9 +187,9 @@ public class DashboardStatsSpecs
         {
             IReadOnlyList<DeliveredLoad> loads =
             [
-                new(1, "A", "PO-1", null, 1m, null, null),
-                new(2, "B", "po-1", null, 1m, null, null),
-                new(3, "C", "PO-2", null, 1m, null, null),
+                new(1, "A", "PO-1", null, 1m, null, null, "Delivered", null),
+                new(2, "B", "po-1", null, 1m, null, null, "Delivered", null),
+                new(3, "C", "PO-2", null, 1m, null, null, "Delivered", null),
             ];
 
             Assert.Equal(["PO-1"], SupplierDashboardStats.SharedShipperPos(loads));
@@ -189,7 +245,7 @@ public class DashboardStatsSpecs
             var loadQueries = fixture.Quickbase.Queries.Skip(before).Where(q => q.TableId == "bspsb9kpm").ToList();
             Assert.Equal([0, 2], loadQueries.Select(q => q.Skip));
             var query = loadQueries[0];
-            Assert.Equal([3, 366, 8, 6, 21, 15, 386, 572, 512], query.Select);
+            Assert.Equal([3, 366, 8, 6, 21, 15, 386, 572, 512, 514], query.Select);
             Assert.Equal("{366.EX.'17511'}AND{8.EX.'Delivered'}", query.Where);
             Assert.Equal([new QuickbaseSort(15, QuickbaseSortOrder.Descending)], query.SortBy);
             Assert.Equal(1000, query.Top);
@@ -202,6 +258,8 @@ public class DashboardStatsSpecs
             Assert.Equal(2, body.GetProperty("pendingPaymentCount").GetInt32());
             Assert.Equal(1, body.GetProperty("loadsLast90Days").GetInt32());
             Assert.Equal(2, body.GetProperty("deliveredBefore90Days").GetInt32());
+            Assert.Equal(3804.00m, body.GetProperty("deliveredLast90DaysAmount").GetDecimal());
+            Assert.Equal(225.25m, body.GetProperty("deliveredBefore90DaysAmount").GetDecimal());
             Assert.Equal(200m, body.GetProperty("currentOffer").GetDecimal());
             Assert.Equal("lastLoadBuyPrice", body.GetProperty("currentOfferSource").GetString());
             Assert.Equal(today.AddDays(-10).ToString("yyyy-MM-dd"), body.GetProperty("lastDeliveredDate").GetString());
@@ -238,6 +296,34 @@ public class DashboardStatsSpecs
             var body = await response.Content.ReadFromJsonAsync<JsonElement>();
             Assert.Equal(257m, body.GetProperty("currentOffer").GetDecimal());
             Assert.Equal("supplierTarget", body.GetProperty("currentOfferSource").GetString());
+        }
+
+        [Theory]
+        [InlineData("?status=Completed", "{366.EX.'17511'}AND{8.EX.'Completed'}")]
+        [InlineData("?status=Delivered&status=Invoiced", "{366.EX.'17511'}AND({8.EX.'Delivered'}OR{8.EX.'Invoiced'})")]
+        [InlineData("", "{366.EX.'17511'}AND{8.EX.'Delivered'}")]
+        public async Task The_status_parameter_picks_the_loads_counted(string query, string where)
+        {
+            var token = await fixture.SeedSupplierReaderAsync();
+            fixture.Quickbase.RespondWith(q => q.TableId == SuppliersTableId ? SupplierWithTarget(0) : SupplierResponses.Empty);
+
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(Path + query), token);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(where, fixture.Quickbase.Queries.Last(q => q.TableId == "bspsb9kpm").Where);
+        }
+
+        [Fact]
+        public async Task An_unknown_status_is_four_hundred_and_no_query_runs()
+        {
+            var token = await fixture.SeedSupplierReaderAsync();
+            var before = fixture.Quickbase.Queries.Count;
+
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(Path + "?status=Test3"), token);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal("invalid_status", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+            Assert.Equal(before, fixture.Quickbase.Queries.Count);
         }
 
         [Fact]
@@ -320,7 +406,8 @@ public class DashboardStatsSpecs
               "15": { "value": "{{delivered:yyyy-MM-dd}}" },
               "386": { "value": {{amount}} },
               "572": { "value": {{paidJson}} },
-              "512": { "value": {{buyPrice}} }
+              "512": { "value": {{buyPrice}} },
+              "514": { "value": {{amount}} }
             }
             """;
     }

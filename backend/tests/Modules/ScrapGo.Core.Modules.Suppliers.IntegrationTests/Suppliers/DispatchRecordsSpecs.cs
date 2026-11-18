@@ -22,7 +22,12 @@ public class DispatchRecordsSpecs
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             var query = fixture.Quickbase.Queries.Last();
             Assert.Equal("bspsb9kpm", query.TableId);
-            Assert.Equal([3, 6, 241, 432, 433, 28, 508, 378, 14, 15, 8], query.Select);
+            Assert.Equal(
+                [3, 6, 241, 432, 433, 28, 508, 378, 14, 15, 8,
+                 424, 465, 502, 21, 622, 430, 431, 41, 32, 496, 497, 466, 517, 512, 386, 572, 398, 555, 607, 570, 593,
+                 379, 559, 556, 579, 580, 563, 445],
+                query.Select);
+            Assert.DoesNotContain(22, query.Select!);
             Assert.Equal("{366.EX.'17511'}", query.Where);
 
             var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -52,6 +57,109 @@ public class DispatchRecordsSpecs
             var middle = records[1];
             Assert.Equal("Tampa, FL", middle.GetProperty("consumer").GetString());
             Assert.Equal(JsonValueKind.Null, middle.GetProperty("status").ValueKind);
+        }
+
+        [Theory]
+        [InlineData("?status=Delivered", "{366.EX.'17511'}AND{8.EX.'Delivered'}")]
+        [InlineData("?status=On%20Route&status=delivered", "{366.EX.'17511'}AND({8.EX.'On Route'}OR{8.EX.'Delivered'})")]
+        [InlineData("", "{366.EX.'17511'}")]
+        public async Task A_status_filter_is_added_to_the_where_clause(string query, string where)
+        {
+            var token = await fixture.SeedSupplierReaderAsync();
+            fixture.Quickbase.RespondWith(SupplierResponses.DispatchRecords);
+
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(Path + query), token);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(where, fixture.Quickbase.Queries.Last().Where);
+        }
+
+        [Fact]
+        public async Task An_unknown_status_is_four_hundred_and_no_query_runs()
+        {
+            var token = await fixture.SeedSupplierReaderAsync();
+            var before = fixture.Quickbase.Queries.Count;
+
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(Path + "?status=Lost"), token);
+
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+            Assert.Equal("invalid_status", await IdentitySpecFixture.ReadProblemReasonAsync(response));
+            Assert.Equal(before, fixture.Quickbase.Queries.Count);
+        }
+
+        [Fact]
+        public async Task The_status_filter_options_are_every_status_but_the_test_ones()
+        {
+            var token = await fixture.SeedExternalSupplierUserAsync();
+
+            var response = await fixture.SendAsync(
+                HttpMethod.Get, "/api/suppliers/linked-its-dispatch-records/status-filters", token);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var values = (await response.Content.ReadFromJsonAsync<JsonElement>()).EnumerateArray()
+                .Select(o => o.GetProperty("value").GetString())
+                .ToList();
+            Assert.Equal(
+                ["Pending", "Delivered", "Open", "On Route", "Completed", "Dispatched", "Refused", "Invoiced",
+                 "Loading", "Covered", "In Yard", "Unloading", "Roll Over"],
+                values);
+        }
+
+        [Fact]
+        public async Task Returns_every_load_form_field_of_load_54727()
+        {
+            var token = await fixture.SeedSupplierReaderAsync();
+            fixture.Quickbase.RespondWith(SupplierResponses.Load54727);
+
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(Path), token);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var load = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("dispatchRecords")[0];
+            Assert.Equal(51585, load.GetProperty("recordId").GetInt32());
+            Assert.Equal("AMERICAN LOGISTICS, INC.", load.GetProperty("carrierDriver").GetString());
+            Assert.Equal("1st Class Auto Salvage", load.GetProperty("supplier").GetString());
+            Assert.Equal("https://scrapgo-9114.quickbase.com/db/bqrcgnatz?a=dr&rid=17511", load.GetProperty("goToSupplierUrl").GetString());
+            Assert.Equal("1100131937", load.GetProperty("scaleTicketNumber").GetString());
+            Assert.Equal("94004", load.GetProperty("shipperPoNumbers").GetString());
+            Assert.Equal("1300", load.GetProperty("pickUpTime").GetString());
+            Assert.Equal("Apopka", load.GetProperty("originationCity").GetString());
+            Assert.Equal("FL", load.GetProperty("originationState").GetString());
+            Assert.Equal("Flatbed", load.GetProperty("equipmentType").GetString());
+            Assert.Equal(1350.00m, load.GetProperty("carrierFee").GetDecimal());
+            Assert.Equal(68120m, load.GetProperty("totalGrossWt").GetDecimal());
+            Assert.Equal(30080m, load.GetProperty("totalTareWt").GetDecimal());
+            Assert.Equal(38040m, load.GetProperty("totalNetWt").GetDecimal());
+            Assert.Equal(277.00m, load.GetProperty("salePrice").GetDecimal());
+            Assert.Equal(200.00m, load.GetProperty("buyPrice").GetDecimal());
+            Assert.Equal(3804.00m, load.GetProperty("paymentAmount").GetDecimal());
+            Assert.Equal("2026-10-16", load.GetProperty("paymentDate").GetString());
+            Assert.Equal(114.54m, load.GetProperty("grossProfit").GetDecimal());
+            Assert.Equal(145.04m, load.GetProperty("totalCommissions").GetDecimal());
+            Assert.Equal(7.44m, load.GetProperty("totalFreightCommissionExpense").GetDecimal());
+            Assert.Equal(-182.97m, load.GetProperty("deadFreight").GetDecimal());
+            Assert.Equal(JsonValueKind.Null, load.GetProperty("payDateOverride").ValueKind);
+            Assert.Equal(16.98214285714286m, load.GetProperty("weightInGt").GetDecimal());
+            Assert.True(load.GetProperty("deadFreightRequirements").GetBoolean());
+            Assert.Equal(-182.97m, load.GetProperty("totalDeadFreightViaCietrade").GetDecimal());
+            Assert.Equal(JsonValueKind.Null, load.GetProperty("deadFreightChargeExceptions").ValueKind);
+            Assert.False(load.GetProperty("supplierIsDeadFreightExempt").GetBoolean());
+            Assert.Equal(44000m, load.GetProperty("minimumWeight").GetDecimal());
+            Assert.Equal(JsonValueKind.Null, load.GetProperty("totalGrossSalesRevenue").ValueKind);
+        }
+
+        [Fact]
+        public async Task Load_form_fields_missing_from_the_response_are_null()
+        {
+            var token = await fixture.SeedSupplierReaderAsync();
+            fixture.Quickbase.RespondWith(SupplierResponses.DispatchRecords);
+
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(Path), token);
+
+            var load = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("dispatchRecords")[0];
+            foreach (var name in new[] { "supplier", "scaleTicketNumber", "carrierFee", "paymentDate", "deadFreightRequirements", "supplierIsDeadFreightExempt" })
+            {
+                Assert.Equal(JsonValueKind.Null, load.GetProperty(name).ValueKind);
+            }
         }
 
         [Fact]

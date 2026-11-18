@@ -87,15 +87,23 @@ Migrated modules: **Identity**: GCIP auth, user provisioning, the disabled-user 
 - `GET …/suppliers/{recordId}/in-stock-items` returns the supplier's items from the **In-Stock Items** table `bscpxjrw3` (`{15.EX.'<recordId>'}`), for Materials Pricing: a list with four dropdowns (`InStockItemDropdowns`; field 10 is returned as both `packaging` and `prep`). An empty list, never 404.
 - `GET …/suppliers/{recordId}/contacts` returns the supplier's contacts from the **Contacts** table `br8imsxs2` (`{29.EX.'<recordId>'}`), main contact first (sorted in the API). An empty list, never 404.
 - `GET …/suppliers/{recordId}/call-notes-history` returns the supplier's notes from the **Call Notes** table `br8tgw3tp` (`{19.EX.'<recordId>'}`), newest first (sorted in the API). An empty list, never 404.
-- `GET …/suppliers/{recordId}/linked-its-dispatch-records` returns the ITS dispatch records linked to the supplier from table `bspsb9kpm` (`{366.EX.'<recordId>'}`), newest ship date first; `consumer` is "Consumer - City, State". An empty list, never 404.
+- `GET …/suppliers/{recordId}/linked-its-dispatch-records` returns the ITS dispatch records linked to the supplier from table `bspsb9kpm` (`{366.EX.'<recordId>'}`), newest ship date first; `consumer` is "Consumer - City, State". An empty list, never 404. `status` (repeatable, a status's exact text) adds `AND{8.EX.'…'}` (OR-ed in parentheses for several); without it every status is returned. Unknown text is 400 `invalid_status`. Each record also carries every field on the ITS Dispatch load form (`DispatchRecordsTable.FormFields`), with these caveats:
+  - Scale Ticket # is field 502 ("Receiving ID"); 501 is BOL #.
+  - Dead Freight is 570 ("Dead Freight Lump Sum Distributed").
+  - 559 is a "True"/"False" text formula, read as a bool.
+  - Field 22 ("Carrier") links to Consumers, so 28 stays the carrier.
+  - Blank values are null.
 - `GET …/suppliers/{recordId}/other-prospect-information` returns Other Prospect Information (Documents & Other): Suppliers fields 77, 152, 175, 157 (text) and 215 (checkbox), plus `latestActivity` from the **Call Notes** table `br8tgw3tp` (`{19.EX.'<recordId>'}`, field 1 descending, top 1; fields 3, 19, 57, 1), or `null` when there is none. This is two queries, because Quickbase can't join: an unknown supplier gives 404 without the second query, and `freshness` is the less fresh of the two.
 - `GET …/suppliers/{recordId}/dashboard-stats` returns the supplier Dashboard's stats. They are worked out in the API from the supplier's delivered loads in ITS Dispatch `bspsb9kpm`:
-  - **Query:** `{366.EX.'<recordId>'}AND{8.EX.'Delivered'}`, fields 3, 366, 8, 6, 21, 15, 386, 572, 512, newest Del Date (15) first. Every page is read (`top` 1000, advancing by `metadata.numRecords`).
+  - **Query:** `{366.EX.'<recordId>'}AND{8.EX.'Delivered'}`, fields 3, 366, 8, 6, 21, 15, 386, 572, 512, 514, newest Del Date (15) first. Every page is read (`top` 1000, advancing by `metadata.numRecords`).
   - **`totalPaidYtd`:** Payment Amount (386) of loads whose Payment Date (572) falls between Jan 1 and today.
   - **`pendingPayment*`:** loads whose Payment Date is after today or empty. A load paid in an earlier year counts in neither.
   - **`loadsLast90Days` / `deliveredBefore90Days`:** split by Del Date (15).
+  - **`deliveredLast90DaysAmount` / `deliveredBefore90DaysAmount`:** the same two sets of loads, summed by Quote Buy Price Total (514). A blank 514 adds 0 and logs a warning.
+  - **Query fields:** the query also selects 514. Only loads with a counted status are used, by every stat.
   - **`currentOffer`:** Suppliers field 346 if it is above 0, otherwise the latest load's Buy Price (512), otherwise `null`. `currentOfferSource` says which.
   - **"Today"** is in `Suppliers:Dashboard:BusinessTimeZone` (default `America/Chicago`). The statuses counted come from `Suppliers:Dashboard:Statuses` (default `Delivered`): Pending rows repeat delivered rows' PO numbers.
+  - **`status`** (repeatable, exact text) replaces the configured statuses for one request; unknown text is 400 `invalid_status`. The portal's dropdown takes its options from `GET /api/suppliers/linked-its-dispatch-records/status-filters`: every status but Test and Test2.
   - **Without loads** the supplier gets zeros and nulls, not 404. An unknown supplier is 404 before ITS Dispatch is queried.
 - All of them share `SupplierService.ReadRecordAsync`: the access check, then 404 `supplier_not_found` for a record outside the caller's scope (before Quickbase is called, and indistinguishable from a missing one), then 404 / 502.
 - `ISupplierSource` (Application) is implemented by `QuickbaseSupplierSource` (Infrastructure), which holds the field ids (`SuppliersTable`) and the JSON mapping.

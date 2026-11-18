@@ -221,6 +221,34 @@ public sealed record SupplierCallNotesHistoryResponse(
 /// <param name="ShipDate">Field 14 (date).</param>
 /// <param name="DeliveryDate">Field 15, "Del Date" (date).</param>
 /// <param name="Status">Field 8 (dropdown); null when empty or not a known value.</param>
+/// <param name="Supplier">Field 424: Supplier (Shipper - Supplier - Account).</param>
+/// <param name="GoToSupplierUrl">Field 465: Go To Supplier (URL).</param>
+/// <param name="ScaleTicketNumber">Field 502: Scale Ticket # on the form ("Receiving ID"; 501 is BOL #).</param>
+/// <param name="ShipperPoNumbers">Field 21: Shipper PO Numbers.</param>
+/// <param name="PickUpTime">Field 622: Pick Up Time, as stored (e.g. "1300").</param>
+/// <param name="OriginationCity">Field 430: Origination City (Shipper - Supplier - City).</param>
+/// <param name="OriginationState">Field 431: Origination State (Shipper - Supplier - State).</param>
+/// <param name="EquipmentType">Field 41: Equipment Type (multiple choice).</param>
+/// <param name="CarrierFee">Field 32: Carrier Fee (currency).</param>
+/// <param name="TotalGrossWt">Field 496: Total GrossWt.</param>
+/// <param name="TotalTareWt">Field 497: Total TareWt.</param>
+/// <param name="TotalNetWt">Field 466: Total NetWt.</param>
+/// <param name="SalePrice">Field 517: Sale Price ("Query Fetch Sale Price from Quotes").</param>
+/// <param name="BuyPrice">Field 512: Buy Price ("Query Fetch Buy Price from Quotes").</param>
+/// <param name="PaymentAmount">Field 386: Payment Amount (Buy Price x Purchase Weight in NT).</param>
+/// <param name="PaymentDate">Field 572: Payment Date (honors Pay Date Override, 593).</param>
+/// <param name="GrossProfit">Field 398: Gross Profit (currency).</param>
+/// <param name="TotalCommissions">Field 555: Total Commissions (currency).</param>
+/// <param name="TotalFreightCommissionExpense">Field 607: Total Freight Commission Expense (currency).</param>
+/// <param name="DeadFreight">Field 570: Dead Freight ("Dead Freight Lump Sum Distributed").</param>
+/// <param name="PayDateOverride">Field 593: Pay Date Override.</param>
+/// <param name="WeightInGt">Field 379: Weight in GT (unrounded).</param>
+/// <param name="DeadFreightRequirements">Field 559: Dead Freight Requirements (text formula "True"/"False").</param>
+/// <param name="TotalDeadFreightViaCietrade">Field 556: Total Dead Freight via Cietrade (currency).</param>
+/// <param name="DeadFreightChargeExceptions">Field 579: Dead Freight Charge Exceptions (multiple choice).</param>
+/// <param name="SupplierIsDeadFreightExempt">Field 580: Supplier is Dead Freight Exempt (checkbox).</param>
+/// <param name="MinimumWeight">Field 563: Minimum Weight ("Query Fetch Min Weight from Quotes").</param>
+/// <param name="TotalGrossSalesRevenue">Field 445: Total Gross Sales Revenue (currency).</param>
 public sealed record SupplierDispatchRecordDto(
     int RecordId,
     string? LoadNumber,
@@ -232,7 +260,35 @@ public sealed record SupplierDispatchRecordDto(
     decimal? Weight,
     DateOnly? ShipDate,
     DateOnly? DeliveryDate,
-    DispatchStatus? Status);
+    DispatchStatus? Status,
+    string? Supplier,
+    string? GoToSupplierUrl,
+    string? ScaleTicketNumber,
+    string? ShipperPoNumbers,
+    string? PickUpTime,
+    string? OriginationCity,
+    string? OriginationState,
+    string? EquipmentType,
+    decimal? CarrierFee,
+    decimal? TotalGrossWt,
+    decimal? TotalTareWt,
+    decimal? TotalNetWt,
+    decimal? SalePrice,
+    decimal? BuyPrice,
+    decimal? PaymentAmount,
+    DateOnly? PaymentDate,
+    decimal? GrossProfit,
+    decimal? TotalCommissions,
+    decimal? TotalFreightCommissionExpense,
+    decimal? DeadFreight,
+    DateOnly? PayDateOverride,
+    decimal? WeightInGt,
+    bool? DeadFreightRequirements,
+    decimal? TotalDeadFreightViaCietrade,
+    string? DeadFreightChargeExceptions,
+    bool? SupplierIsDeadFreightExempt,
+    decimal? MinimumWeight,
+    decimal? TotalGrossSalesRevenue);
 
 /// <param name="SupplierRecordId">The supplier the dispatch records are linked to.</param>
 /// <param name="DispatchRecords">Every linked dispatch record, newest ship date first; empty when there are none.</param>
@@ -250,6 +306,8 @@ public sealed record SupplierDispatchRecordsResponse(
 /// <param name="PendingPaymentCount">How many loads <paramref name="PendingPaymentAmount"/> covers.</param>
 /// <param name="LoadsLast90Days">Loads with a Del Date (15) in the last 90 days.</param>
 /// <param name="DeliveredBefore90Days">Loads with an older Del Date (15).</param>
+/// <param name="DeliveredLast90DaysAmount">Quote Buy Price Total (514) of the <paramref name="LoadsLast90Days"/> loads.</param>
+/// <param name="DeliveredBefore90DaysAmount">Quote Buy Price Total (514) of the <paramref name="DeliveredBefore90Days"/> loads.</param>
 /// <param name="CurrentOffer">The supplier's target consumer price, else the latest load's Buy Price (512).</param>
 /// <param name="CurrentOfferSource"><c>supplierTarget</c> or <c>lastLoadBuyPrice</c>; null with no offer.</param>
 /// <param name="LastDeliveredDate">The latest load's Del Date.</param>
@@ -263,6 +321,8 @@ public sealed record SupplierDashboardStatsDto(
     int PendingPaymentCount,
     int LoadsLast90Days,
     int DeliveredBefore90Days,
+    decimal DeliveredLast90DaysAmount,
+    decimal DeliveredBefore90DaysAmount,
     decimal? CurrentOffer,
     string? CurrentOfferSource,
     DateOnly? LastDeliveredDate,

@@ -16,7 +16,7 @@ public static class SupplierDashboardStats
     /// <param name="statuses">The statuses that count (e.g. Delivered); other loads are ignored by every stat.</param>
     /// <param name="today">Today in the business time zone.</param>
     /// <param name="targetConsumerPrice">Suppliers field 346; used as the current offer when above 0.</param>
-    /// <param name="onBlankQuoteAmount">Called for each counted load with a Del Date but no Quote Buy Price Total (added as 0).</param>
+    /// <param name="onBlankAmount">Called once for each counted load without a Payment Amount (386; added as 0).</param>
     public static SupplierDashboardStatsDto Compute(
         int supplierRecordId,
         IReadOnlyList<DeliveredLoad> loads,
@@ -24,48 +24,35 @@ public static class SupplierDashboardStats
         DateOnly today,
         decimal? targetConsumerPrice,
         DataFreshness freshness,
-        Action<DeliveredLoad>? onBlankQuoteAmount = null)
+        Action<DeliveredLoad>? onBlankAmount = null)
     {
-        var yearStart = new DateOnly(today.Year, 1, 1);
         var cutoff = today.AddDays(-RecentDays);
         var counted = loads.Where(load => load.Status is { } status && statuses.Contains(status, StringComparer.OrdinalIgnoreCase)).ToList();
 
-        decimal paidYtd = 0, pendingAmount = 0, recentAmount = 0, olderAmount = 0;
-        int pendingCount = 0, recent = 0, older = 0;
+        // Paid YTD and pending: the same rule as every other payment total.
+        var payments = SupplierPaymentService.Summarize(counted, statuses, today, onBlankAmount);
+
+        decimal recentAmount = 0, olderAmount = 0;
+        int recent = 0, older = 0;
 
         foreach (var load in counted)
         {
+            // Each bucket's count and amount describe the same loads.
+            if (load.DeliveryDate is not { } delivered)
+            {
+                continue;
+            }
+
             var amount = load.PaymentAmount ?? 0;
-            if (load.PaymentDate is { } paid && paid >= yearStart && paid <= today)
+            if (delivered >= cutoff)
             {
-                paidYtd += amount;
+                recent++;
+                recentAmount += amount;
             }
-            else if (load.PaymentDate is null || load.PaymentDate > today)
+            else
             {
-                pendingAmount += amount;
-                pendingCount++;
-            }
-
-            // Paid before this year: in neither.
-            if (load.DeliveryDate is { } delivered)
-            {
-                // Each bucket's count and amount describe the same loads.
-                if (load.PaymentAmountQuote is null)
-                {
-                    onBlankQuoteAmount?.Invoke(load);
-                }
-
-                var quote = load.PaymentAmountQuote ?? 0;
-                if (delivered >= cutoff)
-                {
-                    recent++;
-                    recentAmount += quote;
-                }
-                else
-                {
-                    older++;
-                    olderAmount += quote;
-                }
+                older++;
+                olderAmount += amount;
             }
         }
 
@@ -79,13 +66,13 @@ public static class SupplierDashboardStats
         return new SupplierDashboardStatsDto(
             supplierRecordId,
             today,
-            Round(paidYtd),
-            Round(pendingAmount),
-            pendingCount,
+            payments.TotalPaidYtd,
+            payments.PendingPaymentAmount,
+            payments.PendingPaymentCount,
             recent,
             older,
-            Round(recentAmount),
-            Round(olderAmount),
+            SupplierPaymentService.Round(recentAmount),
+            SupplierPaymentService.Round(olderAmount),
             offer,
             source,
             latest?.DeliveryDate,
@@ -102,6 +89,4 @@ public static class SupplierDashboardStats
             .Where(group => group.Count() > 1)
             .Select(group => group.Key),
     ];
-
-    private static decimal Round(decimal amount) => Math.Round(amount, 2, MidpointRounding.AwayFromZero);
 }

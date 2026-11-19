@@ -1,5 +1,6 @@
 // The ITS dispatch records linked to a supplier (Documents & Other): a list from
 // the ITS Dispatch Records table, newest ship date first.
+using Microsoft.Extensions.DependencyInjection;
 using ScrapGo.Core.Modules.Suppliers.Application.Suppliers;
 using ScrapGo.Core.Modules.Suppliers.Infrastructure.Quickbase;
 
@@ -138,6 +139,7 @@ public class DispatchRecordsSpecs
             Assert.Equal(7.44m, load.GetProperty("totalFreightCommissionExpense").GetDecimal());
             Assert.Equal(-182.97m, load.GetProperty("deadFreight").GetDecimal());
             Assert.Equal(JsonValueKind.Null, load.GetProperty("payDateOverride").ValueKind);
+            Assert.Equal("Paid", load.GetProperty("paymentStatus").GetString());
             Assert.Equal(16.98214285714286m, load.GetProperty("weightInGt").GetDecimal());
             Assert.True(load.GetProperty("deadFreightRequirements").GetBoolean());
             Assert.Equal(-182.97m, load.GetProperty("totalDeadFreightViaCietrade").GetDecimal());
@@ -160,6 +162,35 @@ public class DispatchRecordsSpecs
             {
                 Assert.Equal(JsonValueKind.Null, load.GetProperty(name).ValueKind);
             }
+        }
+
+        [Fact]
+        public async Task Each_record_has_a_payment_status_from_its_status_and_payment_date()
+        {
+            var token = await fixture.SeedSupplierReaderAsync();
+            var later = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(3).ToString("yyyy-MM-dd");
+            fixture.Quickbase.RespondWith($$"""
+                {
+                  "data": [
+                    { "3": { "value": 1 }, "8": { "value": "Delivered" }, "386": { "value": 3804.0 }, "572": { "value": "2026-01-02" } },
+                    { "3": { "value": 2 }, "8": { "value": "Delivered" }, "386": { "value": 100.0 }, "572": { "value": "{{later}}" } },
+                    { "3": { "value": 3 }, "8": { "value": "Delivered" }, "386": { "value": "" }, "572": { "value": "" } },
+                    { "3": { "value": 4 }, "8": { "value": "Pending" }, "386": { "value": 3804.0 }, "572": { "value": "2026-01-02" } },
+                    { "3": { "value": 5 }, "8": { "value": "Lost in transit" } }
+                  ],
+                  "fields": [],
+                  "metadata": { "numRecords": 5, "skip": 0, "totalRecords": 5 }
+                }
+                """);
+
+            var response = await fixture.SendAsync(HttpMethod.Get, SuppliersSpecFixture.SuppliersPath(Path), token);
+
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var statuses = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("dispatchRecords")
+                .EnumerateArray()
+                .OrderBy(r => r.GetProperty("recordId").GetInt32())
+                .Select(r => r.GetProperty("paymentStatus").GetString());
+            Assert.Equal(["Paid", "Scheduled", "Unscheduled", "NotApplicable", "NotApplicable"], statuses);
         }
 
         [Fact]
@@ -190,6 +221,21 @@ public class DispatchRecordsSpecs
                 ["Pending", "Delivered", "Open", "On Route", "Completed", "Dispatched", "Refused", "Invoiced", "Test",
                  "Test2", "Loading", "Covered", "In Yard", "Unloading", "Roll Over"],
                 values);
+        }
+
+        [Theory]
+        [InlineData("/api/suppliers/{recordId}/linked-its-dispatch-records")]
+        [InlineData("/api/suppliers/{recordId}/dashboard-stats")]
+        public void Swagger_offers_the_status_filter_options_as_a_pick_list(string path)
+        {
+            var document = fixture.Services.GetRequiredService<Swashbuckle.AspNetCore.Swagger.ISwaggerProvider>().GetSwagger("v1");
+
+            var status = document.Paths[path].Operations![HttpMethod.Get].Parameters!.Single(p => p.Name == "status");
+            Assert.Equal("array", status.Schema!.Type.ToString()!.ToLowerInvariant());
+            Assert.Equal(
+                DispatchStatuses.FilterOptions.Select(option => option.Label),
+                status.Schema.Items!.Enum!.Select(value => value!.GetValue<string>()));
+            Assert.Equal(13, status.Schema.Items.Enum!.Count);
         }
     }
 

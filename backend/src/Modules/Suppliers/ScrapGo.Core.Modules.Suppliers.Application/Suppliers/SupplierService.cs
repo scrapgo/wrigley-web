@@ -182,9 +182,25 @@ public sealed class SupplierService(
 
         var (outcome, found) = await ReadRecordAsync(
             recordId, (id, ct) => source.ListDispatchRecordsAsync(id, filter, ct), cancellationToken);
-        return found is { Value: { } records }
-            ? new(outcome, new SupplierDispatchRecordsResponse(recordId, records, found.Freshness))
-            : new(outcome);
+        if (found is not { Value: { } records })
+        {
+            return new(outcome);
+        }
+
+        var options = dashboardOptions.Value;
+        var today = Today(options.BusinessTimeZone);
+        IReadOnlyList<SupplierDispatchRecordDto> classified =
+        [
+            .. records.Select(record => record with
+            {
+                PaymentStatus = SupplierPaymentService.ClassifyPayment(
+                    record.Status is { } status ? DispatchStatuses.Catalog.Label(status) : null,
+                    record.PaymentDate,
+                    today,
+                    options.EffectiveStatuses),
+            }),
+        ];
+        return new(outcome, new SupplierDispatchRecordsResponse(recordId, classified, found.Freshness));
     }
 
     /// <summary>
@@ -228,7 +244,7 @@ public sealed class SupplierService(
                 supplier.TargetConsumerPrice,
                 freshness,
                 load => logger.LogWarning(
-                    "Delivered load {LoadNumber} (record {DispatchRecordId}) of supplier {RecordId} has no Quote Buy Price Total; counted as 0.",
+                    "Delivered load {LoadNumber} (record {DispatchRecordId}) of supplier {RecordId} has no Payment Amount (386); counted as 0.",
                     load.LoadNumber, load.RecordId, recordId)));
         }
         catch (SupplierSourceUnavailableException ex)

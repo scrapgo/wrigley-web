@@ -124,6 +124,9 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
     [EndpointDescription(
         "Every load linked to the supplier (ITS Dispatch field 366), newest ship date first, with every field on the load form. " +
         "An empty list when there are none.\n\n" +
+        "`paymentStatus` is derived, because ITS Dispatch records no actual payments: `Paid` when the load is Delivered and its " +
+        "Payment Date (572) is today or earlier (America/Chicago), `Scheduled` when it is later, `Unscheduled` when it is empty, " +
+        "and `NotApplicable` for any other status (e.g. Pending). `paymentAmount` is field 386.\n\n" +
         "Filter by status with the `status` query parameter, a status's exact text. Repeat it for several (OR-ed):\n\n" +
         "- `GET /api/suppliers/17511/linked-its-dispatch-records`: every status\n" +
         "- `GET /api/suppliers/17511/linked-its-dispatch-records?status=Delivered`: Delivered loads only\n" +
@@ -137,7 +140,8 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
     public async Task<IActionResult> GetLinkedDispatchRecords(
         int recordId,
         [FromQuery(Name = "status")]
-        [Description("Optional, repeatable. A load status's exact text, e.g. Delivered or On Route. Omit it for every status.")]
+        [Description("Optional. Pick one or more load statuses (Ctrl/Cmd-click for several). None selected returns every status.")]
+        [OpenApiAllowedValues(typeof(DispatchStatusFilterValues))]
         string[]? status,
         CancellationToken cancellationToken)
     {
@@ -158,7 +162,9 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
     [EndpointSummary("The supplier Dashboard's stats, for loads of the given status (Delivered by default)")]
     [EndpointDescription(
         "Total paid this year, pending payment, load counts and dollar totals for the last 90 days and before, and the current offer, " +
-        "worked out from the supplier's ITS Dispatch loads. Zeros and nulls when the supplier has no loads.\n\n" +
+        "worked out from the supplier's ITS Dispatch loads. Zeros and nulls when the supplier has no loads. " +
+        "Every dollar total sums Payment Amount (386); paid means a Payment Date (572) from Jan 1 to today, " +
+        "pending one after today or empty.\n\n" +
         "Pick the load statuses counted with the `status` query parameter, a status's exact text. Repeat it for several (OR-ed):\n\n" +
         "- `GET /api/suppliers/17511/dashboard-stats`: Delivered loads (the default)\n" +
         "- `GET /api/suppliers/17511/dashboard-stats?status=Completed`: Completed loads\n" +
@@ -173,7 +179,8 @@ public sealed class PlatformSuppliersController(SupplierService suppliers) : Con
     public async Task<IActionResult> GetDashboardStats(
         int recordId,
         [FromQuery(Name = "status")]
-        [Description("Optional, repeatable. A load status's exact text, e.g. Delivered or Completed. Omit it to count Delivered loads.")]
+        [Description("Optional. Pick one or more load statuses to count (Ctrl/Cmd-click for several). None selected counts Delivered loads.")]
+        [OpenApiAllowedValues(typeof(DispatchStatusFilterValues))]
         string[]? status,
         CancellationToken cancellationToken)
     {

@@ -36,6 +36,7 @@ public static class ScrapGoHostingExtensions
         services.AddSwaggerGen(c =>
         {
             c.SwaggerDoc("v1", new OpenApiInfo { Title = "ScrapGo Core API", Version = "v1" });
+            c.ParameterFilter<AllowedValuesParameterFilter>();
             c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
                 Name = "Authorization",

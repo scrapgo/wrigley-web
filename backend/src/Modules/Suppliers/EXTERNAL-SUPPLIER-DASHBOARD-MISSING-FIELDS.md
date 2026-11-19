@@ -10,16 +10,16 @@ The main Dashboard tab (`activeTab === 'dashboard'`) and the Payments tab's stat
 | Current Offer | Dashboard header and stat card | `GET /api/suppliers/{recordId}/dashboard-stats` | ✅ `currentOffer`: target consumer price if > 0, else the last load's Buy Price (512); "—" when neither |
 | Delivered Before 90 Days | Not currently displayed | `GET /api/suppliers/{recordId}/dashboard-stats` | ✅ `deliveredBefore90Days`, returned but not shown yet |
 
-## Missing Payment Data
+## Payment Data
 
-The Payments tab (`activeTab === 'payments'`) requires the following fields that do not exist in the backend:
+The Payments tab (`activeTab === 'payments'`). ITS Dispatch records only *scheduled* payments (no paid flag, check number or paid amount), so a load is Paid when its Payment Date (572) is on or before today (`SupplierPaymentService.ClassifyPayment`).
 
 | Field | Needed For | Backend Endpoint | Status |
 |-------|-----------|-----------------|--------|
-| Amount Paid per load | Payment History table "Amount Paid" column | `GET /api/suppliers/{recordId}/linked-its-dispatch-records` | ❌ Missing — dispatch record DTO has no amount field |
-| Payment Date per load | Payment History table "Payment Date" column | `GET /api/suppliers/{recordId}/linked-its-dispatch-records` | ❌ Missing — dispatch record DTO has no payment date field |
-| Total Paid YTD (currency) | Payments tab "Total Paid (YTD)" stat card | `GET /api/suppliers/{recordId}` | ❌ Missing — only `deliveredLast90Days` (count) is available, not currency |
-| Pending Payment amount | Payments tab "Pending Payment" stat card | None | ❌ Missing — no endpoint or field exists |
+| Amount Paid per load | Payment History table "Amount Paid" column | `GET /api/suppliers/{recordId}/linked-its-dispatch-records` | ✅ Backend `paymentAmount` (386). ❌ **Frontend wiring needed:** the column renders `load.weight` |
+| Payment Date per load | Payment History table "Payment Date" column | `GET /api/suppliers/{recordId}/linked-its-dispatch-records` | ✅ Backend `paymentDate` (572), `payDateOverride` (593), `paymentStatus` (Paid / Scheduled / Unscheduled / NotApplicable). ❌ **Frontend wiring needed:** the column is a hard-coded "—" |
+| Total Paid YTD (currency) | Payments tab "Total Paid (YTD)" stat card | `GET /api/suppliers/{recordId}/dashboard-stats` | ✅ `totalPaidYtd`, already wired |
+| Pending Payment amount | Payments tab "Pending Payment" stat card | `GET /api/suppliers/{recordId}/dashboard-stats` | ✅ `pendingPaymentAmount` / `pendingPaymentCount`, already wired |
 
 ## Missing Deal Submission
 
@@ -73,13 +73,11 @@ The following fields ARE available from the backend and are used by the dashboar
 
 ## Recommended Backend Changes
 
-1. **Add payment amount and payment date fields to the dispatch record DTO** (`SupplierDispatchRecordDto`) so the Payment History table can display real values.
+1. ✅ Payment amount, payment date and payment status are on `SupplierDispatchRecordDto`; the Payment History columns still need frontend wiring.
 
-2. **Add a `totalPaidYtd` (currency) field to the supplier DTO** (`SupplierDto`) for the "Total Paid (YTD)" stat card.
+2. ✅ Total Paid (YTD) and Pending Payment come from `dashboard-stats` (one rule, `SupplierPaymentService.Summarize`), not the supplier DTO.
 
-3. **Add a `pendingPayment` (currency) field to the supplier DTO** for the "Pending Payment" stat card.
-
-4. **Consider a dedicated payments endpoint** (`GET /api/suppliers/{recordId}/payments`) if payment data lives in a separate Quickbase table.
+3. **A dedicated payments endpoint** (`GET /api/suppliers/{recordId}/payments`) can be added on the same service when needed.
 
 ## Frontend Files Affected
 

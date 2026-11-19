@@ -31,22 +31,31 @@ public class DashboardStatsSpecs
         private static DateOnly? Parse(string? date) => date is null ? null : DateOnly.Parse(date);
 
         private static SupplierDashboardStatsDto Compute(
-            IReadOnlyList<DeliveredLoad> loads, decimal? target = null, Action<DeliveredLoad>? onBlankQuote = null) =>
-            SupplierDashboardStats.Compute(17511, loads, ["Delivered"], Today, target, Fresh, onBlankQuote);
+            IReadOnlyList<DeliveredLoad> loads, decimal? target = null, Action<DeliveredLoad>? onBlankAmount = null) =>
+            SupplierDashboardStats.Compute(17511, loads, ["Delivered"], Today, target, Fresh, onBlankAmount);
 
         [Fact]
-        public void A_delivered_load_in_the_last_ninety_days_adds_its_quote_buy_price_total()
+        public void A_delivered_load_in_the_last_ninety_days_adds_its_payment_amount()
         {
-            var stats = Compute([Load(delivered: "2026-10-07", quote: 3804.00m)]);
+            var stats = Compute([Load(delivered: "2026-10-07", amount: 3804.00m)]);
 
             Assert.Equal(1, stats.LoadsLast90Days);
             Assert.Equal(3804.00m, stats.DeliveredLast90DaysAmount);
         }
 
         [Fact]
+        public void The_ninety_day_amounts_sum_payment_amount_not_quote_buy_price_total()
+        {
+            // A gross-ton or per-load quote: 514 differs from 386, and 386 is what's summed.
+            var stats = Compute([Load(delivered: "2026-10-07", amount: 3804.00m, quote: 4100.00m)]);
+
+            Assert.Equal(3804.00m, stats.DeliveredLast90DaysAmount);
+        }
+
+        [Fact]
         public void The_ninety_day_amount_includes_exactly_ninety_days_ago_and_excludes_one_day_earlier()
         {
-            var stats = Compute([Load(delivered: "2026-08-19", quote: 100m), Load(delivered: "2026-08-18", quote: 40m)]);
+            var stats = Compute([Load(delivered: "2026-08-19", amount: 100m), Load(delivered: "2026-08-18", amount: 40m)]);
 
             Assert.Equal(100m, stats.DeliveredLast90DaysAmount);
             Assert.Equal(40m, stats.DeliveredBefore90DaysAmount);
@@ -63,12 +72,12 @@ public class DashboardStatsSpecs
         }
 
         [Fact]
-        public void A_delivered_load_without_a_quote_buy_price_total_adds_zero_and_is_reported()
+        public void A_delivered_load_without_a_payment_amount_adds_zero_and_is_reported_once()
         {
             var reported = new List<DeliveredLoad>();
             var stats = Compute(
-                [Load(delivered: "2026-10-07", quote: 3919.70m), Load(delivered: "2026-10-01", loadNumber: "54999")],
-                onBlankQuote: reported.Add);
+                [Load(delivered: "2026-10-07", amount: 3919.70m), Load(delivered: "2026-10-01", loadNumber: "54999")],
+                onBlankAmount: reported.Add);
 
             Assert.Equal(2, stats.LoadsLast90Days);
             Assert.Equal(3919.70m, stats.DeliveredLast90DaysAmount);
@@ -78,9 +87,31 @@ public class DashboardStatsSpecs
         [Fact]
         public void The_ninety_day_amounts_are_rounded_to_cents_and_zero_without_loads()
         {
-            Assert.Equal(3.12m, Compute([Load(delivered: "2026-11-01", quote: 1.005m), Load(delivered: "2026-11-02", quote: 2.111m)]).DeliveredLast90DaysAmount);
+            Assert.Equal(3.12m, Compute([Load(delivered: "2026-11-01", amount: 1.005m), Load(delivered: "2026-11-02", amount: 2.111m)]).DeliveredLast90DaysAmount);
             Assert.Equal(0m, Compute([]).DeliveredLast90DaysAmount);
             Assert.Equal(0m, Compute([]).DeliveredBefore90DaysAmount);
+        }
+
+        [Fact]
+        public void Paid_and_pending_totals_are_the_payment_summary()
+        {
+            DeliveredLoad[] loads =
+            [
+                Load(amount: 3804.00m, paid: "2026-10-16"),
+                Load(amount: 3919.70m, paid: "2026-12-01"),
+                Load(amount: 50m),
+                Load(amount: 999m, paid: "2025-12-30"),
+                Load(amount: 700m, paid: "2026-10-01", status: "Pending"),
+            ];
+
+            var stats = Compute(loads);
+            var summary = SupplierPaymentService.Summarize(loads, ["Delivered"], Today);
+
+            Assert.Equal(summary.TotalPaidYtd, stats.TotalPaidYtd);
+            Assert.Equal(summary.PendingPaymentAmount, stats.PendingPaymentAmount);
+            Assert.Equal(summary.PendingPaymentCount, stats.PendingPaymentCount);
+            Assert.Equal(3804.00m, stats.TotalPaidYtd);
+            Assert.Equal(3969.70m, stats.PendingPaymentAmount);
         }
 
         [Fact]

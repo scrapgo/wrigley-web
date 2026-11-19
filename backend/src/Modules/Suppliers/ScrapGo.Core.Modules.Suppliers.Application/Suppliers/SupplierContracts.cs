@@ -249,6 +249,11 @@ public sealed record SupplierCallNotesHistoryResponse(
 /// <param name="SupplierIsDeadFreightExempt">Field 580: Supplier is Dead Freight Exempt (checkbox).</param>
 /// <param name="MinimumWeight">Field 563: Minimum Weight ("Query Fetch Min Weight from Quotes").</param>
 /// <param name="TotalGrossSalesRevenue">Field 445: Total Gross Sales Revenue (currency).</param>
+/// <param name="PaymentStatus">
+/// Derived from <paramref name="Status"/> and <paramref name="PaymentDate"/> by
+/// <see cref="SupplierPaymentService.ClassifyPayment"/>: Paid when the Payment Date is today or
+/// earlier (ITS Dispatch has no paid flag); NotApplicable when the status isn't counted (e.g. Pending).
+/// </param>
 public sealed record SupplierDispatchRecordDto(
     int RecordId,
     string? LoadNumber,
@@ -288,7 +293,8 @@ public sealed record SupplierDispatchRecordDto(
     string? DeadFreightChargeExceptions,
     bool? SupplierIsDeadFreightExempt,
     decimal? MinimumWeight,
-    decimal? TotalGrossSalesRevenue);
+    decimal? TotalGrossSalesRevenue,
+    PaymentStatus? PaymentStatus = null);
 
 /// <param name="SupplierRecordId">The supplier the dispatch records are linked to.</param>
 /// <param name="DispatchRecords">Every linked dispatch record, newest ship date first; empty when there are none.</param>
@@ -306,8 +312,8 @@ public sealed record SupplierDispatchRecordsResponse(
 /// <param name="PendingPaymentCount">How many loads <paramref name="PendingPaymentAmount"/> covers.</param>
 /// <param name="LoadsLast90Days">Loads with a Del Date (15) in the last 90 days.</param>
 /// <param name="DeliveredBefore90Days">Loads with an older Del Date (15).</param>
-/// <param name="DeliveredLast90DaysAmount">Quote Buy Price Total (514) of the <paramref name="LoadsLast90Days"/> loads.</param>
-/// <param name="DeliveredBefore90DaysAmount">Quote Buy Price Total (514) of the <paramref name="DeliveredBefore90Days"/> loads.</param>
+/// <param name="DeliveredLast90DaysAmount">Payment Amount (386) of the <paramref name="LoadsLast90Days"/> loads.</param>
+/// <param name="DeliveredBefore90DaysAmount">Payment Amount (386) of the <paramref name="DeliveredBefore90Days"/> loads.</param>
 /// <param name="CurrentOffer">The supplier's target consumer price, else the latest load's Buy Price (512).</param>
 /// <param name="CurrentOfferSource"><c>supplierTarget</c> or <c>lastLoadBuyPrice</c>; null with no offer.</param>
 /// <param name="LastDeliveredDate">The latest load's Del Date.</param>

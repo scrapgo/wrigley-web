@@ -67,6 +67,7 @@ public static class SupplierDashboardStats
             supplierRecordId,
             today,
             payments.TotalPaidYtd,
+            payments.PaidYtdCount,
             payments.PendingPaymentAmount,
             payments.PendingPaymentCount,
             recent,

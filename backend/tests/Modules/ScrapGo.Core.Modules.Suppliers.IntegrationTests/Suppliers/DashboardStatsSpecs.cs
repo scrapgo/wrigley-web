@@ -160,6 +160,33 @@ public class DashboardStatsSpecs
         }
 
         [Fact]
+        public void Paid_ytd_count_covers_exactly_the_loads_in_paid_ytd()
+        {
+            // Two loads paid this year, one scheduled after today, one paid before Jan 1.
+            var stats = Compute(
+            [
+                Load(amount: 100m, paid: "2026-02-01"),
+                Load(amount: 200m, paid: "2026-11-01"),
+                Load(amount: 300m, paid: "2026-12-01"),
+                Load(amount: 400m, paid: "2025-06-01"),
+            ]);
+
+            Assert.Equal(300m, stats.TotalPaidYtd);
+            Assert.Equal(2, stats.PaidYtdCount);
+
+            // The 2025 load counts in neither total: paid, but before Jan 1.
+            Assert.Equal(300m, stats.PendingPaymentAmount);
+            Assert.Equal(1, stats.PendingPaymentCount);
+        }
+
+        [Fact]
+        public void No_loads_paid_this_year_gives_a_zero_paid_ytd_count()
+        {
+            Assert.Equal(0, Compute([Load(amount: 100m, paid: "2025-06-01")]).PaidYtdCount);
+            Assert.Equal(0, Compute([]).PaidYtdCount);
+        }
+
+        [Fact]
         public void A_load_delivered_exactly_ninety_days_ago_is_recent_and_one_day_earlier_is_not()
         {
             var stats = Compute([Load(delivered: "2026-08-19"), Load(delivered: "2026-08-18")]);

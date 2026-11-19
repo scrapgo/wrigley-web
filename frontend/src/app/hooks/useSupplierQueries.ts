@@ -12,6 +12,7 @@ import {
     getSupplierYardCapabilities,
     listDeadFreight,
     listDispatchStatuses,
+    listDispatchStatusFilters,
     listLastCallResults,
     listMaterialTypes,
     listPaymentTerms,
@@ -42,11 +43,12 @@ export const supplierKeys = {
         ['suppliers', 'detail', recordId, 'in-stock-items'] as const,
     callNotesHistory: (recordId: number) =>
         ['suppliers', 'detail', recordId, 'call-notes-history'] as const,
-    dispatchRecords: (recordId: number) =>
-        ['suppliers', 'detail', recordId, 'linked-its-dispatch-records'] as const,
-    dashboardStats: (recordId: number) =>
-        ['suppliers', 'detail', recordId, 'dashboard-stats'] as const,
+    dispatchRecords: (recordId: number, statuses?: readonly string[]) =>
+        ['suppliers', 'detail', recordId, 'linked-its-dispatch-records', statuses ?? null] as const,
+    dashboardStats: (recordId: number, statuses?: readonly string[]) =>
+        ['suppliers', 'detail', recordId, 'dashboard-stats', statuses ?? null] as const,
     catalogs: ['suppliers', 'catalogs'] as const,
+    statusFilters: ['suppliers', 'status-filters'] as const,
 }
 
 /* -------------------------------------------------------------------------- */
@@ -127,20 +129,35 @@ export function useSupplierCallNotesHistory(recordId: number) {
 }
 
 /** One supplier's linked ITS dispatch records, newest ship date first. */
-export function useSupplierLinkedDispatchRecords(recordId: number) {
+export function useSupplierLinkedDispatchRecords(recordId: number, statuses?: readonly string[]) {
     return useQuery({
-        queryKey: supplierKeys.dispatchRecords(recordId),
-        queryFn: () => getSupplierLinkedDispatchRecords(recordId),
+        queryKey: supplierKeys.dispatchRecords(recordId, statuses),
+        queryFn: () => getSupplierLinkedDispatchRecords(recordId, statuses),
         enabled: recordId > 0,
     })
 }
 
-/** One supplier's Dashboard stats, from its delivered ITS dispatch loads. */
-export function useSupplierDashboardStats(recordId: number) {
+/**
+ * One supplier's Dashboard stats, from its ITS dispatch loads. `statuses` picks which
+ * load statuses are counted; omit it for the backend default (Delivered).
+ */
+export function useSupplierDashboardStats(recordId: number, statuses?: readonly string[]) {
     return useQuery({
-        queryKey: supplierKeys.dashboardStats(recordId),
-        queryFn: () => getSupplierDashboardStats(recordId),
+        queryKey: supplierKeys.dashboardStats(recordId, statuses),
+        queryFn: () => getSupplierDashboardStats(recordId, statuses),
         enabled: recordId > 0,
+    })
+}
+
+/**
+ * The statuses offered in the portal's status filter (every one but the Test values).
+ * Static, so cached for the session.
+ */
+export function useDispatchStatusFilters() {
+    return useQuery({
+        queryKey: supplierKeys.statusFilters,
+        staleTime: Infinity,
+        queryFn: listDispatchStatusFilters,
     })
 }
 

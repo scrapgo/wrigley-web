@@ -18,7 +18,9 @@ import {
     useSupplier,
     useSupplierDashboardStats,
     useSupplierLinkedDispatchRecords,
+    useDispatchStatusFilters,
 } from '../../hooks/useSupplierQueries'
+import type { PaymentStatus } from '../../lib/supplier-api'
 import { formatCurrency, formatDate } from '../../lib/supplier-format'
 
 /** The supplier portal's top navigation tabs. */
@@ -35,8 +37,10 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
     const [activeTab, setActiveTab] = useState<'dashboard' | 'payments' | 'load-history' | 'submit-deal' | 'request-pickup' | 'messages'>('dashboard')
 
     const { data: supplierData, isLoading: supplierLoading } = useSupplier(recordId)
-    const { data: dispatchData, isLoading: dispatchLoading } = useSupplierLinkedDispatchRecords(recordId)
-    const { data: stats, isLoading: statsLoading, isError: statsError } = useSupplierDashboardStats(recordId)
+    const [statuses, setStatuses] = useState<string[]>([])
+    const { data: dispatchData, isLoading: dispatchLoading } = useSupplierLinkedDispatchRecords(recordId, statuses)
+    const { data: stats, isLoading: statsLoading, isError: statsError } = useSupplierDashboardStats(recordId, statuses)
+    const { data: statusFilters } = useDispatchStatusFilters()
 
     /** A stat card's value: "…" while loading, "—" when the stats couldn't load. */
     const statValue = (format: (loaded: NonNullable<typeof stats>) => string) =>
@@ -212,6 +216,36 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                 })}
             </div>
 
+            {/* Status filter */}
+            {['dashboard', 'payments', 'load-history'].includes(activeTab) && (
+                <div className="flex items-center gap-2 pb-2">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        Filter by status
+                    </span>
+                    <div className="flex flex-wrap gap-2">
+                        {statusFilters?.map((option) => {
+                            const isSelected = statuses.includes(option.value)
+                            return (
+                                <Button
+                                    key={option.value}
+                                    variant={isSelected ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => {
+                                        if (isSelected) {
+                                            setStatuses(statuses.filter((s) => s !== option.value))
+                                        } else {
+                                            setStatuses([...statuses, option.value])
+                                        }
+                                    }}
+                                >
+                                    {option.label}
+                                </Button>
+                            )
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/* Dashboard tab content */}
             {activeTab === 'dashboard' && (
                 <>
@@ -220,7 +254,13 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                         <StatCard
                             title="Total Paid (YTD)"
                             value={statValue((s) => formatCurrency(s.totalPaidYtd))}
-                            subtitle={statsError ? "Couldn't load" : 'Paid this year'}
+                            subtitle={
+                                statsError
+                                    ? "Couldn't load"
+                                    : stats
+                                        ? `${stats.paidYtdCount} ${stats.paidYtdCount === 1 ? 'load' : 'loads'} settled`
+                                        : 'Loading…'
+                            }
                             icon={DollarSign}
                             tone="bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                         />
@@ -234,7 +274,26 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                         <StatCard
                             title="Loads (Last 90 Days)"
                             value={statValue((s) => String(s.loadsLast90Days))}
-                            subtitle={statsError ? "Couldn't load" : 'Recent deliveries'}
+                            subtitle={
+                                statsError
+                                    ? "Couldn't load"
+                                    : stats
+                                        ? formatCurrency(stats.deliveredLast90DaysAmount)
+                                        : 'Loading…'
+                            }
+                            icon={Truck}
+                            tone="bg-muted/50 text-muted-foreground border-muted/20"
+                        />
+                        <StatCard
+                            title="Loads (Before 90 Days)"
+                            value={statValue((s) => String(s.deliveredBefore90Days))}
+                            subtitle={
+                                statsError
+                                    ? "Couldn't load"
+                                    : stats
+                                        ? formatCurrency(stats.deliveredBefore90DaysAmount)
+                                        : 'Loading…'
+                            }
                             icon={Truck}
                             tone="bg-muted/50 text-muted-foreground border-muted/20"
                         />
@@ -349,11 +408,17 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
 
             {/* Payments tab content */}
             {activeTab === 'payments' && (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <StatCard
                         title="Total Paid (YTD)"
                         value={statValue((s) => formatCurrency(s.totalPaidYtd))}
-                        subtitle={statsError ? "Couldn't load" : 'Paid this year'}
+                        subtitle={
+                            statsError
+                                ? "Couldn't load"
+                                : stats
+                                    ? `${stats.paidYtdCount} ${stats.paidYtdCount === 1 ? 'load' : 'loads'} settled`
+                                    : 'Loading…'
+                        }
                         icon={DollarSign}
                         tone="bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                     />
@@ -365,9 +430,28 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                         tone="bg-amber-500/10 text-amber-500 border-amber-500/20"
                     />
                     <StatCard
+                        title="Last Payment"
+                        value={statValue((s) => formatDate(s.lastDeliveredDate) ?? '—')}
+                        subtitle={
+                            statsError
+                                ? "Couldn't load"
+                                : stats?.lastLoadNumber
+                                    ? `Load #${stats.lastLoadNumber}`
+                                    : 'No delivered loads'
+                        }
+                        icon={Truck}
+                        tone="bg-brand-500/10 text-brand-500 border-brand-500/20"
+                    />
+                    <StatCard
                         title="Payment Terms"
                         value={supplier.paymentTerms ?? '—'}
-                        subtitle="Paid Fridays"
+                        subtitle={
+                            statsError
+                                ? "Couldn't load"
+                                : stats
+                                    ? `As of ${formatDate(stats.asOf) ?? stats.asOf}`
+                                    : 'Loading…'
+                        }
                         icon={Building2}
                         tone="bg-brand-500/10 text-brand-500 border-brand-500/20"
                     />
@@ -393,6 +477,7 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                                         <th className="px-6 py-3">Ship Date</th>
                                         <th className="px-6 py-3">Delivery Date</th>
                                         <th className="px-6 py-3">Status</th>
+                                        <th className="px-6 py-3">Payment Status</th>
                                         <th className="px-6 py-3 text-right">Amount Paid</th>
                                         <th className="px-6 py-3 text-right">Payment Date</th>
                                     </tr>
@@ -400,7 +485,7 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                                 <tbody className="divide-y divide-border">
                                     {recentLoads.length === 0 ? (
                                         <tr>
-                                            <td colSpan={8} className="px-6 py-8 text-center text-muted-foreground">
+                                            <td colSpan={9} className="px-6 py-8 text-center text-muted-foreground">
                                                 No payment history found.
                                             </td>
                                         </tr>
@@ -425,11 +510,14 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                                                         {load.status ?? '—'}
                                                     </Badge>
                                                 </td>
+                                                <td className="px-6 py-3.5">
+                                                    <PaymentStatusBadge status={load.paymentStatus} />
+                                                </td>
                                                 <td className="px-6 py-3.5 text-right font-semibold text-ink-900">
-                                                    {formatCurrency(load.weight ?? 0)}
+                                                    {formatCurrency(load.paymentAmount)}
                                                 </td>
                                                 <td className="px-6 py-3.5 text-right text-xs text-muted-foreground">
-                                                    —
+                                                    {formatDate(load.paymentDate) ?? '—'}
                                                 </td>
                                             </tr>
                                         ))
@@ -801,6 +889,24 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
             )}
         </div>
     )
+}
+
+/** The badge color for each derived payment status. */
+const PAYMENT_STATUS_VARIANT: Record<PaymentStatus, 'success' | 'warning' | 'neutral' | 'outline'> = {
+    Paid: 'success',
+    Scheduled: 'warning',
+    Unscheduled: 'neutral',
+    NotApplicable: 'outline',
+}
+
+/**
+ * A load's derived payment status. The backend computes it from the load's status and
+ * Payment Date, so an absent value means the load couldn't be classified — shown as "—".
+ */
+function PaymentStatusBadge({ status }: { status: PaymentStatus | null }) {
+    if (!status) return <span className="text-xs text-muted-foreground">—</span>
+
+    return <Badge variant={PAYMENT_STATUS_VARIANT[status]}>{status}</Badge>
 }
 
 function StatCard({

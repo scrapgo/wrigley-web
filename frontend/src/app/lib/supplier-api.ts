@@ -279,8 +279,15 @@ export interface SupplierCallNotesHistoryResponse {
 }
 
 /**
+ * Where a load's supplier payment stands. Derived by the backend from the load's
+ * status and Payment Date (ITS Dispatch records no actual payments), so `Paid`
+ * means the Payment Date is today or earlier in the business time zone.
+ */
+export type PaymentStatus = 'Paid' | 'Scheduled' | 'Unscheduled' | 'NotApplicable'
+
+/**
  * One ITS dispatch record linked to a supplier (Quickbase ITS Dispatch Records
- * table). Null means empty in Quickbase. Dates are `yyyy-MM-dd`.
+ * table `bspsb9kpm`). Null means empty in Quickbase. Dates are `yyyy-MM-dd`.
  */
 export interface SupplierDispatchRecord {
     /** Quickbase Record ID# (field 3), the dispatch record's id. */
@@ -305,6 +312,64 @@ export interface SupplierDispatchRecord {
     deliveryDate: string | null
     /** Field 8. Use the dispatch-statuses catalog for a label; null when empty or unknown. */
     status: string | null
+    /** Field 424, Supplier (Shipper - Supplier - Account). */
+    supplier: string | null
+    /** Field 465, Go To Supplier (URL). */
+    goToSupplierUrl: string | null
+    /** Field 502, Scale Ticket # on the form. */
+    scaleTicketNumber: string | null
+    /** Field 21, Shipper PO Numbers. */
+    shipperPoNumbers: string | null
+    /** Field 622, Pick Up Time, as stored (e.g. "1300"). */
+    pickUpTime: string | null
+    /** Field 430, Origination City. */
+    originationCity: string | null
+    /** Field 431, Origination State. */
+    originationState: string | null
+    /** Field 41, Equipment Type (multiple choice). */
+    equipmentType: string | null
+    /** Field 32, Carrier Fee. */
+    carrierFee: number | null
+    /** Field 496, Total Gross Weight. */
+    totalGrossWt: number | null
+    /** Field 497, Total Tare Weight. */
+    totalTareWt: number | null
+    /** Field 466, Total Net Weight. */
+    totalNetWt: number | null
+    /** Field 517, Sale Price. */
+    salePrice: number | null
+    /** Field 512, Buy Price. */
+    buyPrice: number | null
+    /** Field 386, Payment Amount (Buy Price x Purchase Weight in NT). */
+    paymentAmount: number | null
+    /** Field 572, Payment Date (honors Pay Date Override, 593). `yyyy-MM-dd`. */
+    paymentDate: string | null
+    /** Field 398, Gross Profit. */
+    grossProfit: number | null
+    /** Field 555, Total Commissions. */
+    totalCommissions: number | null
+    /** Field 607, Total Freight Commission Expense. */
+    totalFreightCommissionExpense: number | null
+    /** Field 570, Dead Freight (lump sum distributed). */
+    deadFreight: number | null
+    /** Field 593, Pay Date Override. `yyyy-MM-dd`. */
+    payDateOverride: string | null
+    /** Field 379, Weight in GT (unrounded). */
+    weightInGt: number | null
+    /** Field 559, Dead Freight Requirements (text formula "True"/"False"). */
+    deadFreightRequirements: boolean | null
+    /** Field 556, Total Dead Freight via Cietrade. */
+    totalDeadFreightViaCietrade: number | null
+    /** Field 579, Dead Freight Charge Exceptions (multiple choice). */
+    deadFreightChargeExceptions: string | null
+    /** Field 580, Supplier is Dead Freight Exempt (checkbox). */
+    supplierIsDeadFreightExempt: boolean | null
+    /** Field 563, Minimum Weight. */
+    minimumWeight: number | null
+    /** Field 445, Total Gross Sales Revenue. */
+    totalGrossSalesRevenue: number | null
+    /** Derived from `status` and `paymentDate`; null when the backend couldn't classify the load. */
+    paymentStatus: PaymentStatus | null
 }
 
 /** A supplier's linked ITS dispatch records, newest ship date first. Empty when there are none. */
@@ -325,12 +390,18 @@ export interface SupplierDashboardStats {
     asOf: string
     /** Payment Amount (386) of loads paid (572) from Jan 1 to today. */
     totalPaidYtd: number
+    /** How many loads `totalPaidYtd` covers. */
+    paidYtdCount: number
     /** Payment Amount (386) of loads with a Payment Date after today or none. */
     pendingPaymentAmount: number
     pendingPaymentCount: number
     /** Delivered loads with a Del Date (15) in the last 90 days. */
     loadsLast90Days: number
     deliveredBefore90Days: number
+    /** Payment Amount (386) of the `loadsLast90Days` loads. */
+    deliveredLast90DaysAmount: number
+    /** Payment Amount (386) of the `deliveredBefore90Days` loads. */
+    deliveredBefore90DaysAmount: number
     /** The supplier's target consumer price, else the latest load's Buy Price (512). */
     currentOffer: number | null
     currentOfferSource: 'supplierTarget' | 'lastLoadBuyPrice' | null
@@ -421,18 +492,43 @@ export function getSupplierCallNotesHistory(
     )
 }
 
-/** A supplier's linked ITS dispatch records, newest ship date first. Empty when there are none. */
+/**
+ * A supplier's linked ITS dispatch records, newest ship date first. Empty when there are none.
+ *
+ * `statuses` filters by a load status's exact text (e.g. `Delivered`); several are OR-ed.
+ * Omit it for every status. Valid values come from `listDispatchStatusFilters()`.
+ */
 export function getSupplierLinkedDispatchRecords(
-    recordId: number
+    recordId: number,
+    statuses?: readonly string[]
 ): Promise<SupplierDispatchRecordsResponse> {
+    const params = new URLSearchParams()
+    for (const status of statuses ?? []) params.append('status', status)
+    const query = params.toString()
+
     return apiClient.fetchWithAuth<SupplierDispatchRecordsResponse>(
-        `/api/suppliers/${recordId}/linked-its-dispatch-records`
+        `/api/suppliers/${recordId}/linked-its-dispatch-records${query ? `?${query}` : ''}`
     )
 }
 
-/** The supplier Dashboard's stats: paid YTD, pending payment, 90-day load counts, current offer. */
-export function getSupplierDashboardStats(recordId: number): Promise<SupplierDashboardStats> {
-    return apiClient.fetchWithAuth<SupplierDashboardStats>(`/api/suppliers/${recordId}/dashboard-stats`)
+/**
+ * The supplier Dashboard's stats: paid YTD, pending payment, 90-day load counts and
+ * dollar totals, current offer.
+ *
+ * `statuses` picks which load statuses are counted; several are OR-ed. Omit it to count
+ * Delivered loads (the backend default). Valid values come from `listDispatchStatusFilters()`.
+ */
+export function getSupplierDashboardStats(
+    recordId: number,
+    statuses?: readonly string[]
+): Promise<SupplierDashboardStats> {
+    const params = new URLSearchParams()
+    for (const status of statuses ?? []) params.append('status', status)
+    const query = params.toString()
+
+    return apiClient.fetchWithAuth<SupplierDashboardStats>(
+        `/api/suppliers/${recordId}/dashboard-stats${query ? `?${query}` : ''}`
+    )
 }
 
 /* -------------------------------------------------------------------------- */
@@ -485,6 +581,17 @@ export function listTruckTypes(): Promise<DropdownOption[]> {
 export function listDispatchStatuses(): Promise<DropdownOption[]> {
     return apiClient.fetchWithAuth<DropdownOption[]>(
         '/api/suppliers/linked-its-dispatch-records/statuses'
+    )
+}
+
+/**
+ * The statuses offered in the portal's status filter, in order: every status except
+ * the Test ones. Each `value` can be passed as `statuses` to the dispatch-records and
+ * dashboard-stats endpoints — prefer this over `listDispatchStatuses()` for a picker.
+ */
+export function listDispatchStatusFilters(): Promise<DropdownOption[]> {
+    return apiClient.fetchWithAuth<DropdownOption[]>(
+        '/api/suppliers/linked-its-dispatch-records/status-filters'
     )
 }
 

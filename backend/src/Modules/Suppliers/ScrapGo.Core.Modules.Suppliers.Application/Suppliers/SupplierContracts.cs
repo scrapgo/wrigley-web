@@ -308,6 +308,7 @@ public sealed record SupplierDispatchRecordsResponse(
 /// <param name="RelatedSupplierId">The supplier (ITS Dispatch field 366).</param>
 /// <param name="AsOf">Today in the business time zone, which the stats are relative to.</param>
 /// <param name="TotalPaidYtd">Payment Amount (386) of loads whose Payment Date (572) is from Jan 1 to today.</param>
+/// <param name="PaidYtdCount">How many loads <paramref name="TotalPaidYtd"/> covers.</param>
 /// <param name="PendingPaymentAmount">Payment Amount (386) of loads whose Payment Date (572) is after today or empty.</param>
 /// <param name="PendingPaymentCount">How many loads <paramref name="PendingPaymentAmount"/> covers.</param>
 /// <param name="LoadsLast90Days">Loads with a Del Date (15) in the last 90 days.</param>
@@ -323,6 +324,7 @@ public sealed record SupplierDashboardStatsDto(
     int RelatedSupplierId,
     DateOnly AsOf,
     decimal TotalPaidYtd,
+    int PaidYtdCount,
     decimal PendingPaymentAmount,
     int PendingPaymentCount,
     int LoadsLast90Days,

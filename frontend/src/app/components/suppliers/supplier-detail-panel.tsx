@@ -20,8 +20,10 @@ import { Skeleton } from '../ui/skeleton'
 import { EmptyState } from '../ui/empty-state'
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
-import { catalogLabel, useSupplier, useSupplierCatalogs } from '../../hooks/useSupplierQueries'
+import { catalogLabel, useSupplier, useSupplierCatalogs, useSupplierDashboardStats, useSupplierLinkedDispatchRecords } from '../../hooks/useSupplierQueries'
 import { adminErrorMessage } from '../../lib/admin-errors'
+import type { SupplierTooltipKey } from '../../lib/supplier-tooltips'
+import { InfoTip } from '../ui/info-tip'
 import { FreshnessBadge } from './freshness-badge'
 import {
     DetailField,
@@ -30,6 +32,7 @@ import {
     SupplierContactsCard,
     SupplierDispatchRecordsCard,
     SupplierInStockItemsCard,
+    SupplierOtherProspectInformationCard,
     SupplierPrimaryContactCard,
     SupplierTargetPricingCard,
     SupplierYardCapabilitiesCard,
@@ -40,9 +43,28 @@ import { formatCurrency, formatNumber, htmlToText } from '../../lib/supplier-for
 export function SupplierDetailPanel({ recordId }: { recordId: number }) {
     const { data, isLoading, isError, error } = useSupplier(recordId)
     const { data: catalogs } = useSupplierCatalogs()
+    const { data: dashboardData } = useSupplierDashboardStats(recordId)
+    const { data: dispatchData } = useSupplierLinkedDispatchRecords(recordId)
 
     const [ntTimeframe, setNtTimeframe] = useState<'all' | 'year' | 'month' | 'week'>('all')
     const [ntUom, setNtUom] = useState<'quantity' | 'tons' | 'lbs'>('quantity')
+
+    // Aggregates for the stat tiles. Totals come from the shared dashboard-stats
+    // summary where one exists (current offer); the rest are summed over the
+    // supplier's full load list, never a filtered selection.
+    const stats = dashboardData
+    const allLoads = dispatchData?.dispatchRecords ?? []
+    const deliveredLoads = allLoads.filter(
+        (load) => load.status?.toLowerCase() === 'delivered'
+    )
+    const scopedLoads = deliveredLoads.filter((load) =>
+        isWithinTimeframe(load.shipDate, ntTimeframe)
+    )
+    const loadsDelivered = scopedLoads.length
+    const ntDelivered = scopedLoads.reduce((sum, load) => sum + (load.weight ?? 0), 0)
+    const grossProfit = deliveredLoads.reduce((sum, load) => sum + (load.grossProfit ?? 0), 0)
+    const currentOfferHint =
+        stats?.currentOfferSource === 'lastLoadBuyPrice' ? 'Based on last load' : undefined
 
     if (isLoading) {
         return (
@@ -176,32 +198,40 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
                 <StatTile
                     icon={Truck}
                     label="Loads Delivered"
-                    value="—"
+                    tooltip="loadsLast90Days"
+                    value={formatNumber(loadsDelivered)}
+                    hint={ntTimeframe === 'all' ? 'All time' : ntTimeframe}
                 />
                 <StatTile
                     icon={Package}
                     label="NT Delivered"
-                    value="—"
+                    tooltip="weight"
+                    value={formatWeight(ntDelivered, ntUom)}
                     hint={`${ntTimeframe} · ${ntUom}`}
                 />
                 <StatTile
                     icon={ClipboardList}
                     label="Loads Scheduled for Pickup *"
+                    tooltip="totalActivities"
                     value={formatNumber(supplier.totalActivities)}
                 />
                 <StatTile
                     icon={DollarSign}
                     label="Current Buy Price"
-                    value="—"
+                    tooltip="currentOffer"
+                    value={formatCurrency(stats?.currentOffer)}
+                    hint={currentOfferHint}
                 />
                 <StatTile
                     icon={Ruler}
                     label="Gross Profit Earned '529'"
-                    value="—"
+                    tooltip="grossProfit"
+                    value={formatCurrency(grossProfit)}
+                    hint="All delivered loads"
                 />
             </div>
 
@@ -229,10 +259,12 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
                                     <DetailField
                                         label="Payment Terms"
                                         value={catalogLabel(catalogs, 'paymentTerms', supplier.paymentTerms)}
+                                        tooltip="paymentTerms"
                                     />
                                     <DetailField
                                         label="Dead Freight"
                                         value={catalogLabel(catalogs, 'deadFreight', supplier.deadFreight)}
+                                        tooltip="deadFreight"
                                     />
                                     <DetailField label="Street Address" value={supplier.streetAddress} />
                                     <DetailField label="City" value={supplier.city} />
@@ -265,14 +297,17 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
                                     <DetailField
                                         label="Target Consumer Price"
                                         value={formatCurrency(supplier.targetConsumerPrice)}
+                                        tooltip="targetConsumerPrice"
                                     />
                                     <DetailField
                                         label="Payment Terms"
                                         value={catalogLabel(catalogs, 'paymentTerms', supplier.paymentTerms)}
+                                        tooltip="paymentTerms"
                                     />
                                     <DetailField
                                         label="Dead Freight"
                                         value={catalogLabel(catalogs, 'deadFreight', supplier.deadFreight)}
+                                        tooltip="deadFreight"
                                     />
                                 </dl>
                             </CardContent>
@@ -363,7 +398,10 @@ export function SupplierDetailPanel({ recordId }: { recordId: number }) {
                 </TabsContent>
 
                 <TabsContent value="documents">
-                    <SupplierDispatchRecordsCard recordId={supplier.recordId} />
+                    <div className="space-y-6">
+                        <SupplierOtherProspectInformationCard recordId={supplier.recordId} />
+                        <SupplierDispatchRecordsCard recordId={supplier.recordId} />
+                    </div>
                 </TabsContent>
             </Tabs>
         </div>
@@ -379,11 +417,13 @@ function StatTile({
     label,
     value,
     hint,
+    tooltip,
 }: {
     icon: LucideIcon
     label: string
     value: string
     hint?: string
+    tooltip?: SupplierTooltipKey
 }) {
     return (
         <Card>
@@ -392,9 +432,12 @@ function StatTile({
                     <Icon className="h-4 w-4" />
                 </span>
                 <div className="min-w-0">
-                    <p className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
-                        {label}
-                    </p>
+                    <div className="flex items-center gap-1">
+                        <p className="text-[0.65rem] font-medium uppercase tracking-wide text-muted-foreground">
+                            {label}
+                        </p>
+                        {tooltip && <InfoTip field={tooltip} align="start" />}
+                    </div>
                     <p className="mt-0.5 truncate text-sm font-bold text-ink-900">{value}</p>
                     {hint && <p className="truncate text-[0.65rem] text-muted-foreground">{hint}</p>}
                 </div>
@@ -419,6 +462,34 @@ function PlaceholderTab({
             description={description}
         />
     )
+}
+
+/** Whether a ship date falls within the selected timeframe (relative to today). */
+function isWithinTimeframe(
+    date: string | null,
+    timeframe: 'all' | 'year' | 'month' | 'week'
+): boolean {
+    if (timeframe === 'all') return true
+    if (!date) return false
+    const then = new Date(date)
+    if (isNaN(then.getTime())) return false
+
+    const now = new Date()
+    if (timeframe === 'year') return then.getFullYear() === now.getFullYear()
+    if (timeframe === 'month') {
+        return then.getFullYear() === now.getFullYear() && then.getMonth() === now.getMonth()
+    }
+    // week: within the last 7 days
+    const days = (now.getTime() - then.getTime()) / (1000 * 60 * 60 * 24)
+    return days >= 0 && days < 7
+}
+
+/** Format a net-tons value in the selected unit of measure. */
+function formatWeight(netTons: number, uom: 'quantity' | 'tons' | 'lbs'): string {
+    if (uom === 'lbs') return `${Math.round(netTons * 2000).toLocaleString()} lbs`
+    return `${netTons.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${
+        uom === 'tons' ? 'tons' : 'NT'
+    }`
 }
 
 

@@ -20,7 +20,9 @@ import {
     useSupplierLinkedDispatchRecords,
     useDispatchStatusFilters,
 } from '../../hooks/useSupplierQueries'
-import type { PaymentStatus } from '../../lib/supplier-api'
+import type { DropdownOption, PaymentStatus } from '../../lib/supplier-api'
+import type { SupplierTooltipKey } from '../../lib/supplier-tooltips'
+import { InfoTip } from '../ui/info-tip'
 import { formatCurrency, formatDate } from '../../lib/supplier-format'
 
 /** The supplier portal's top navigation tabs. */
@@ -38,8 +40,13 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
 
     const { data: supplierData, isLoading: supplierLoading } = useSupplier(recordId)
     const [statuses, setStatuses] = useState<string[]>([])
-    const { data: dispatchData, isLoading: dispatchLoading } = useSupplierLinkedDispatchRecords(recordId, statuses)
-    const { data: stats, isLoading: statsLoading, isError: statsError } = useSupplierDashboardStats(recordId, statuses)
+    // One unfiltered fetch; the status chips filter it client-side so we can
+    // show only the statuses this supplier actually has loads in.
+    const { data: dispatchData, isLoading: dispatchLoading } = useSupplierLinkedDispatchRecords(recordId)
+    // Totals always come from the shared payment summary (all Delivered loads).
+    // The status filter only narrows the load tables below, so the total pay
+    // amount can't change with the current selection.
+    const { data: stats, isLoading: statsLoading, isError: statsError } = useSupplierDashboardStats(recordId)
     const { data: statusFilters } = useDispatchStatusFilters()
 
     /** A stat card's value: "…" while loading, "—" when the stats couldn't load. */
@@ -54,7 +61,21 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
             : 'Loading…'
 
     const supplier = supplierData?.supplier
-    const recentLoads = dispatchData?.dispatchRecords ?? []
+    const allLoads = dispatchData?.dispatchRecords ?? []
+    const recentLoads =
+        statuses.length === 0
+            ? allLoads
+            : allLoads.filter((load) => load.status != null && statuses.includes(load.status))
+    // Only offer chips for statuses this supplier has loads in, so every chip
+    // changes the tables below.
+    const presentStatuses = new Set(
+        allLoads.map((load) => load.status).filter((status): status is string => Boolean(status))
+    )
+    const statusOptions = (statusFilters ?? []).filter((option) => presentStatuses.has(option.value))
+    const toggleStatus = (value: string) =>
+        setStatuses((prev) =>
+            prev.includes(value) ? prev.filter((status) => status !== value) : [...prev, value]
+        )
 
     const [dealForm, setDealForm] = useState({
         materialType: '',
@@ -216,43 +237,14 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                 })}
             </div>
 
-            {/* Status filter */}
-            {['dashboard', 'payments', 'load-history'].includes(activeTab) && (
-                <div className="flex items-center gap-2 pb-2">
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                        Filter by status
-                    </span>
-                    <div className="flex flex-wrap gap-2">
-                        {statusFilters?.map((option) => {
-                            const isSelected = statuses.includes(option.value)
-                            return (
-                                <Button
-                                    key={option.value}
-                                    variant={isSelected ? 'default' : 'outline'}
-                                    size="sm"
-                                    onClick={() => {
-                                        if (isSelected) {
-                                            setStatuses(statuses.filter((s) => s !== option.value))
-                                        } else {
-                                            setStatuses([...statuses, option.value])
-                                        }
-                                    }}
-                                >
-                                    {option.label}
-                                </Button>
-                            )
-                        })}
-                    </div>
-                </div>
-            )}
-
             {/* Dashboard tab content */}
             {activeTab === 'dashboard' && (
                 <>
                     {/* Stat cards */}
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                         <StatCard
                             title="Total Paid (YTD)"
+                            tooltip="totalPaidYtd"
                             value={statValue((s) => formatCurrency(s.totalPaidYtd))}
                             subtitle={
                                 statsError
@@ -266,6 +258,7 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                         />
                         <StatCard
                             title="Pending Payment"
+                        tooltip="pendingPayment"
                             value={statValue((s) => formatCurrency(s.pendingPaymentAmount))}
                             subtitle={pendingSubtitle}
                             icon={Calendar}
@@ -273,6 +266,7 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                         />
                         <StatCard
                             title="Loads (Last 90 Days)"
+                            tooltip="loadsLast90Days"
                             value={statValue((s) => String(s.loadsLast90Days))}
                             subtitle={
                                 statsError
@@ -286,6 +280,7 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                         />
                         <StatCard
                             title="Loads (Before 90 Days)"
+                            tooltip="deliveredBefore90Days"
                             value={statValue((s) => String(s.deliveredBefore90Days))}
                             subtitle={
                                 statsError
@@ -299,6 +294,7 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                         />
                         <StatCard
                             title="Current Offer"
+                            tooltip="currentOffer"
                             value={currentOffer}
                             subtitle={offerHint ?? supplier.paymentTerms ?? 'Standard terms'}
                             icon={Building2}
@@ -315,16 +311,17 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                                 </div>
                             </CardHeader>
                             <CardContent>
+                                <StatusFilterRow options={statusOptions} selected={statuses} onToggle={toggleStatus} />
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm">
                                         <thead>
                                             <tr className="border-b border-border text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                                <th className="px-6 py-3">Load #</th>
-                                                <th className="px-6 py-3">Material</th>
-                                                <th className="px-6 py-3">Weight</th>
-                                                <th className="px-6 py-3">Ship Date</th>
-                                                <th className="px-6 py-3">Status</th>
-                                                <th className="px-6 py-3 text-right">Consumer</th>
+                                                <th className="px-6 py-3"><Hint field="loadNumber">Load #</Hint></th>
+                                                <th className="px-6 py-3"><Hint field="material">Material</Hint></th>
+                                                <th className="px-6 py-3"><Hint field="weight">Weight</Hint></th>
+                                                <th className="px-6 py-3"><Hint field="shipDate">Ship Date</Hint></th>
+                                                <th className="px-6 py-3"><Hint field="status">Status</Hint></th>
+                                                <th className="px-6 py-3 text-right"><Hint field="consumer" align="end">Consumer</Hint></th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-border">
@@ -411,6 +408,7 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <StatCard
                         title="Total Paid (YTD)"
+                        tooltip="totalPaidYtd"
                         value={statValue((s) => formatCurrency(s.totalPaidYtd))}
                         subtitle={
                             statsError
@@ -424,6 +422,7 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                     />
                     <StatCard
                         title="Pending Payment"
+                        tooltip="pendingPayment"
                         value={statValue((s) => formatCurrency(s.pendingPaymentAmount))}
                         subtitle={pendingSubtitle}
                         icon={Calendar}
@@ -431,6 +430,7 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                     />
                     <StatCard
                         title="Last Payment"
+                        tooltip="lastDeliveredDate"
                         value={statValue((s) => formatDate(s.lastDeliveredDate) ?? '—')}
                         subtitle={
                             statsError
@@ -444,6 +444,7 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                     />
                     <StatCard
                         title="Payment Terms"
+                        tooltip="paymentTerms"
                         value={supplier.paymentTerms ?? '—'}
                         subtitle={
                             statsError
@@ -463,23 +464,24 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0">
                         <div>
-                            <CardTitle className="text-base font-semibold">Payment History</CardTitle>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="overflow-x-auto">
+                                <CardTitle className="text-base font-semibold">Payment History</CardTitle>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <StatusFilterRow options={statusOptions} selected={statuses} onToggle={toggleStatus} />
+                            <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="border-b border-border text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                        <th className="px-6 py-3">Load #</th>
-                                        <th className="px-6 py-3">Material</th>
-                                        <th className="px-6 py-3">Weight</th>
-                                        <th className="px-6 py-3">Ship Date</th>
-                                        <th className="px-6 py-3">Delivery Date</th>
-                                        <th className="px-6 py-3">Status</th>
-                                        <th className="px-6 py-3">Payment Status</th>
-                                        <th className="px-6 py-3 text-right">Amount Paid</th>
-                                        <th className="px-6 py-3 text-right">Payment Date</th>
+                                        <th className="px-6 py-3"><Hint field="loadNumber">Load #</Hint></th>
+                                        <th className="px-6 py-3"><Hint field="material">Material</Hint></th>
+                                        <th className="px-6 py-3"><Hint field="weight">Weight</Hint></th>
+                                        <th className="px-6 py-3"><Hint field="shipDate">Ship Date</Hint></th>
+                                        <th className="px-6 py-3"><Hint field="deliveryDate">Delivery Date</Hint></th>
+                                        <th className="px-6 py-3"><Hint field="status">Status</Hint></th>
+                                        <th className="px-6 py-3"><Hint field="paymentStatus">Payment Status</Hint></th>
+                                        <th className="px-6 py-3 text-right"><Hint field="paymentAmount" align="end">Amount Paid</Hint></th>
+                                        <th className="px-6 py-3 text-right"><Hint field="paymentDate" align="end">Payment Date</Hint></th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border">
@@ -536,28 +538,32 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                         <div>
                             <CardTitle className="text-base font-semibold">Load History</CardTitle>
                             <p className="mt-1 text-xs text-muted-foreground">
-                                All loads delivered by {supplier.account || 'this supplier'}.
-                            </p>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="overflow-x-auto">
+                                    All loads delivered by {supplier.account || 'this supplier'}.
+                                </p>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <StatusFilterRow options={statusOptions} selected={statuses} onToggle={toggleStatus} />
+                            <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className="border-b border-border text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                        <th className="px-6 py-3">Load #</th>
-                                        <th className="px-6 py-3">Material</th>
-                                        <th className="px-6 py-3">Weight</th>
-                                        <th className="px-6 py-3">Ship Date</th>
-                                        <th className="px-6 py-3">Delivery Date</th>
-                                        <th className="px-6 py-3">Status</th>
-                                        <th className="px-6 py-3 text-right">Consumer</th>
+                                        <th className="px-6 py-3"><Hint field="loadNumber">Load #</Hint></th>
+                                        <th className="px-6 py-3"><Hint field="material">Material</Hint></th>
+                                        <th className="px-6 py-3"><Hint field="weight">Weight</Hint></th>
+                                        <th className="px-6 py-3"><Hint field="shipDate">Ship Date</Hint></th>
+                                        <th className="px-6 py-3"><Hint field="deliveryDate">Delivery Date</Hint></th>
+                                        <th className="px-6 py-3"><Hint field="status">Status</Hint></th>
+                                        <th className="px-6 py-3"><Hint field="scaleTicketNumber">Scale Ticket #</Hint></th>
+                                        <th className="px-6 py-3"><Hint field="equipmentType">Equipment Type</Hint></th>
+                                        <th className="px-6 py-3"><Hint field="shipperPoNumbers">Shipper PO #s</Hint></th>
+                                        <th className="px-6 py-3 text-right"><Hint field="consumer" align="end">Consumer</Hint></th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border">
                                     {recentLoads.length === 0 ? (
                                         <tr>
-                                            <td colSpan={7} className="px-6 py-8 text-center text-muted-foreground">
+                                            <td colSpan={10} className="px-6 py-8 text-center text-muted-foreground">
                                                 No load history found.
                                             </td>
                                         </tr>
@@ -581,6 +587,15 @@ export function SupplierDashboardPanel({ recordId }: { recordId: number }) {
                                                     <Badge variant="success">
                                                         {load.status ?? '—'}
                                                     </Badge>
+                                                </td>
+                                                <td className="px-6 py-3.5 text-ink-700">
+                                                    {load.scaleTicketNumber ?? '—'}
+                                                </td>
+                                                <td className="px-6 py-3.5 text-ink-700">
+                                                    {load.equipmentType ?? '—'}
+                                                </td>
+                                                <td className="px-6 py-3.5 text-ink-700">
+                                                    {load.shipperPoNumbers ?? '—'}
                                                 </td>
                                                 <td className="px-6 py-3.5 text-ink-700">
                                                     {load.consumer ?? '—'}
@@ -909,25 +924,66 @@ function PaymentStatusBadge({ status }: { status: PaymentStatus | null }) {
     return <Badge variant={PAYMENT_STATUS_VARIANT[status]}>{status}</Badge>
 }
 
+/** Status filter pills, shown only above a table they actually filter. */
+function StatusFilterRow({
+    options,
+    selected,
+    onToggle,
+}: {
+    options: DropdownOption[]
+    selected: string[]
+    onToggle: (value: string) => void
+}) {
+    if (options.length === 0) return null
+    return (
+        <div className="flex flex-wrap items-center gap-2 pb-3">
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Filter by status
+                <InfoTip text="Filters the loads below. Summary totals always use all Delivered loads, so the total pay amount does not change with this filter." align="start" />
+            </span>
+            <div className="flex flex-wrap gap-2">
+                {options.map((option) => {
+                    const isSelected = selected.includes(option.value)
+                    return (
+                        <Button
+                            key={option.value}
+                            variant={isSelected ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => onToggle(option.value)}
+                        >
+                            {option.label}
+                        </Button>
+                    )
+                })}
+            </div>
+        </div>
+    )
+}
+
 function StatCard({
     title,
     value,
     subtitle,
     icon: Icon,
     tone,
+    tooltip,
 }: {
     title: string
     value: string
     subtitle: string
     icon: React.ComponentType<{ className?: string }>
     tone: string
+    tooltip?: SupplierTooltipKey
 }) {
     return (
         <Card className={tone}>
             <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="text-xs font-medium text-muted-foreground">{title}</p>
+                        <div className="flex items-center gap-1">
+                            <p className="text-xs font-medium text-muted-foreground">{title}</p>
+                            {tooltip && <InfoTip field={tooltip} align="start" />}
+                        </div>
                         <p className="mt-1 text-2xl font-bold text-ink-900">{value}</p>
                         <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
                     </div>
@@ -937,6 +993,24 @@ function StatCard({
                 </div>
             </CardContent>
         </Card>
+    )
+}
+
+/** A table header label with an info bubble explaining the field. */
+function Hint({
+    field,
+    children,
+    align = 'start',
+}: {
+    field: SupplierTooltipKey
+    children: React.ReactNode
+    align?: 'start' | 'center' | 'end'
+}) {
+    return (
+        <span className="inline-flex items-center gap-1">
+            {children}
+            <InfoTip field={field} align={align} />
+        </span>
     )
 }
 

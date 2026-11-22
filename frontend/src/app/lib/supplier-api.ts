@@ -411,6 +411,46 @@ export interface SupplierDashboardStats {
     freshness: DataFreshness
 }
 
+/**
+ * A supplier's most recent activity (Quickbase Call Notes table, newest Date
+ * Created first). Null when the supplier has none.
+ */
+export interface SupplierLatestActivity {
+    /** Quickbase Record ID# (field 3). */
+    recordId: number
+    /** Field 19, the supplier's record id this activity belongs to. */
+    supplierId: number | null
+    /** Field 57. */
+    supplierAssignedTo: string | null
+    /** Field 1, Quickbase's built-in Date Created (UTC). */
+    lastReassigned: string | null
+}
+
+/**
+ * A supplier's Other Prospect Information (Documents & Other): Suppliers-table
+ * fields plus its most recent activity. Null means empty in Quickbase.
+ */
+export interface SupplierOtherProspectInformation {
+    recordId: number
+    /** Field 77. */
+    leadSource: string | null
+    /** Field 152, "Last Reassigned Supplier". */
+    lastReassignedSupplier: string | null
+    /** Field 175. */
+    lastModifiedBy: string | null
+    /** Field 157, "Related Supplier (Office)". */
+    relatedSupplierOffice: string | null
+    /** Field 215, "Out of Business?"; null only if Quickbase sent no value. */
+    outOfBusiness: boolean | null
+    /** The supplier's most recent activity; null when it has none. */
+    latestActivity: SupplierLatestActivity | null
+}
+
+export interface SupplierOtherProspectInformationResponse {
+    otherProspectInformation: SupplierOtherProspectInformation
+    freshness: DataFreshness
+}
+
 /** One static dropdown option: the `value` a supplier response carries, and the `label` to show. */
 export interface DropdownOption {
     value: string
@@ -528,6 +568,18 @@ export function getSupplierDashboardStats(
 
     return apiClient.fetchWithAuth<SupplierDashboardStats>(
         `/api/suppliers/${recordId}/dashboard-stats${query ? `?${query}` : ''}`
+    )
+}
+
+/**
+ * A supplier's Other Prospect Information (Documents & Other): lead source,
+ * reassignment, office, out-of-business flag and most recent activity.
+ */
+export function getSupplierOtherProspectInformation(
+    recordId: number
+): Promise<SupplierOtherProspectInformationResponse> {
+    return apiClient.fetchWithAuth<SupplierOtherProspectInformationResponse>(
+        `/api/suppliers/${recordId}/other-prospect-information`
     )
 }
 

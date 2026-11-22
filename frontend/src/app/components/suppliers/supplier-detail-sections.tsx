@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { AlertCircle, Phone, RefreshCw } from 'lucide-react'
 
 import { Button } from '../ui/button'
@@ -13,11 +14,14 @@ import {
     TableHeader,
     TableRow,
 } from '../ui/table'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog'
+import { InfoTip } from '../ui/info-tip'
 import { FreshnessBadge } from './freshness-badge'
 import { RichText } from './rich-text'
 import { adminErrorMessage } from '../../lib/admin-errors'
 import { cn } from '../../lib/utils'
 import { htmlToText, formatCurrency, formatDate, formatNumber } from '../../lib/supplier-format'
+import type { SupplierTooltipKey } from '../../lib/supplier-tooltips'
 import {
     catalogLabel,
     useSupplierCallNotesHistory,
@@ -26,11 +30,13 @@ import {
     useSupplierContacts,
     useSupplierInStockItems,
     useSupplierLinkedDispatchRecords,
+    useSupplierOtherProspectInformation,
     useSupplierTargetPricing,
     useSupplierYardCapabilities,
 } from '../../hooks/useSupplierQueries'
 import type {
     DataFreshness,
+    PaymentStatus,
     SupplierContact,
     SupplierDetail,
     SupplierDispatchRecord,
@@ -45,20 +51,43 @@ export function DetailField({
     label,
     value,
     richText = false,
+    tooltip,
 }: {
     label: string
     value: string | null | undefined
     richText?: boolean
+    tooltip?: SupplierTooltipKey
 }) {
     return (
         <div>
             <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {label}
+                <span className="inline-flex items-center gap-1">
+                    {label}
+                    {tooltip && <InfoTip field={tooltip} align="start" />}
+                </span>
             </dt>
             <dd className="mt-1 text-sm text-ink-800">
                 <RichText value={value} richText={richText} />
             </dd>
         </div>
+    )
+}
+
+/** A label with an info bubble, for table cells and dialog rows. */
+function LabelHint({
+    field,
+    children,
+    align = 'start',
+}: {
+    field: SupplierTooltipKey
+    children: React.ReactNode
+    align?: 'start' | 'center' | 'end'
+}) {
+    return (
+        <span className="inline-flex items-center gap-1">
+            {children}
+            <InfoTip field={field} align={align} />
+        </span>
     )
 }
 
@@ -380,59 +409,87 @@ export function SupplierTargetPricingCard({ recordId }: { recordId: number }) {
                     </TableHeader>
                     <TableBody>
                         <TableRow>
-                            <TableCell className="font-medium text-ink-900">Target Material</TableCell>
+                            <TableCell className="font-medium text-ink-900">
+                                <LabelHint field="targetMaterial">Target Material</LabelHint>
+                            </TableCell>
                             <TableCell>{pricing.targetMaterial ?? '—'}</TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell className="font-medium text-ink-900">Target UOM</TableCell>
+                            <TableCell className="font-medium text-ink-900">
+                                <LabelHint field="targetUom">Target UOM</LabelHint>
+                            </TableCell>
                             <TableCell>{pricing.targetUom ?? '—'}</TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell className="font-medium text-ink-900">Target PO Number</TableCell>
+                            <TableCell className="font-medium text-ink-900">
+                                <LabelHint field="targetPoNumber">Target PO Number</LabelHint>
+                            </TableCell>
                             <TableCell>{pricing.targetPoNumber ?? '—'}</TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell className="font-medium text-ink-900">Trucks / Week</TableCell>
+                            <TableCell className="font-medium text-ink-900">
+                                <LabelHint field="trucksPerWeek">Trucks / Week</LabelHint>
+                            </TableCell>
                             <TableCell className="text-right">{formatNumber(pricing.trucksPerWeek)}</TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell className="font-medium text-ink-900">Target Offer</TableCell>
+                            <TableCell className="font-medium text-ink-900">
+                                <LabelHint field="targetOffer">Target Offer</LabelHint>
+                            </TableCell>
                             <TableCell className="text-right">{formatCurrency(pricing.targetOffer)}</TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell className="font-medium text-ink-900">Target Break Even</TableCell>
+                            <TableCell className="font-medium text-ink-900">
+                                <LabelHint field="targetBreakEven">Target Break Even</LabelHint>
+                            </TableCell>
                             <TableCell className="text-right">{formatCurrency(pricing.targetBreakEven)}</TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell className="font-medium text-ink-900">Target Consumer Price</TableCell>
+                            <TableCell className="font-medium text-ink-900">
+                                <LabelHint field="targetConsumerPrice">Target Consumer Price</LabelHint>
+                            </TableCell>
                             <TableCell className="text-right">{formatCurrency(pricing.targetConsumerPrice)}</TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell className="font-medium text-ink-900">Target FR / UOM</TableCell>
+                            <TableCell className="font-medium text-ink-900">
+                                <LabelHint field="targetFreightPerUom">Target FR / UOM</LabelHint>
+                            </TableCell>
                             <TableCell className="text-right">{formatNumber(pricing.targetFreightPerUom)}</TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell className="font-medium text-ink-900">Target Freight Cost</TableCell>
+                            <TableCell className="font-medium text-ink-900">
+                                <LabelHint field="targetFreightCost">Target Freight Cost</LabelHint>
+                            </TableCell>
                             <TableCell className="text-right">{formatCurrency(pricing.targetFreightCost)}</TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell className="font-medium text-ink-900">Price Change from Prior</TableCell>
+                            <TableCell className="font-medium text-ink-900">
+                                <LabelHint field="priceChangeFromPrior">Price Change from Prior</LabelHint>
+                            </TableCell>
                             <TableCell className="text-right">{formatCurrency(pricing.priceChangeFromPrior)}</TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell className="font-medium text-ink-900">Price in Net Tons</TableCell>
+                            <TableCell className="font-medium text-ink-900">
+                                <LabelHint field="priceInNetTons">Price in Net Tons</LabelHint>
+                            </TableCell>
                             <TableCell className="text-right">{formatCurrency(pricing.priceInNetTons)}</TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell className="font-medium text-ink-900">Price in LBS</TableCell>
+                            <TableCell className="font-medium text-ink-900">
+                                <LabelHint field="priceInLbs">Price in LBS</LabelHint>
+                            </TableCell>
                             <TableCell className="text-right">{formatCurrency(pricing.priceInLbs)}</TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell className="font-medium text-ink-900">Price in CWT</TableCell>
+                            <TableCell className="font-medium text-ink-900">
+                                <LabelHint field="priceInCwt">Price in CWT</LabelHint>
+                            </TableCell>
                             <TableCell className="text-right">{formatCurrency(pricing.priceInCwt)}</TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell className="font-medium text-ink-900">Price in Gross Tons</TableCell>
+                            <TableCell className="font-medium text-ink-900">
+                                <LabelHint field="priceInGrossTons">Price in Gross Tons</LabelHint>
+                            </TableCell>
                             <TableCell className="text-right">{formatCurrency(pricing.priceInGrossTons)}</TableCell>
                         </TableRow>
                     </TableBody>
@@ -482,14 +539,38 @@ export function SupplierInStockItemsCard({ recordId }: { recordId: number }) {
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Material Type</TableHead>
-                                <TableHead>Packaging</TableHead>
-                                <TableHead>UOM</TableHead>
-                                <TableHead className="text-right">Weight</TableHead>
-                                <TableHead className="text-right">Target Offer</TableHead>
-                                <TableHead>Truck Type</TableHead>
-                                <TableHead className="text-right">Trucks / WK</TableHead>
-                                <TableHead className="text-right">Volume</TableHead>
+                                <TableHead>
+                                    <LabelHint field="materialType">Material Type</LabelHint>
+                                </TableHead>
+                                <TableHead>
+                                    <LabelHint field="packaging">Packaging</LabelHint>
+                                </TableHead>
+                                <TableHead>
+                                    <LabelHint field="unitOfMeasure">UOM</LabelHint>
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    <LabelHint field="weight" align="end">
+                                        Weight
+                                    </LabelHint>
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    <LabelHint field="targetOffer" align="end">
+                                        Target Offer
+                                    </LabelHint>
+                                </TableHead>
+                                <TableHead>
+                                    <LabelHint field="truckType">Truck Type</LabelHint>
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    <LabelHint field="trucksPerWeek" align="end">
+                                        Trucks / WK
+                                    </LabelHint>
+                                </TableHead>
+                                <TableHead className="text-right">
+                                    <LabelHint field="volume" align="end">
+                                        Volume
+                                    </LabelHint>
+                                </TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -652,6 +733,71 @@ export function SupplierCallNotesHistoryCard({ recordId }: { recordId: number })
 }
 
 /* -------------------------------------------------------------------------- */
+/*  Other Prospect Information (Documents & Other)                            */
+/* -------------------------------------------------------------------------- */
+
+export function SupplierOtherProspectInformationCard({ recordId }: { recordId: number }) {
+    const { data, isLoading, isError, error, refetch } = useSupplierOtherProspectInformation(recordId)
+    const info = data?.otherProspectInformation
+    const activity = info?.latestActivity
+
+    return (
+        <DataSection
+            title="Other Prospect Information"
+            freshness={data?.freshness}
+            isLoading={isLoading}
+            isError={isError}
+            error={error}
+            onRetry={() => void refetch()}
+        >
+            {info && (
+                <div className="space-y-5">
+                    <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+                        <DetailField label="Lead Source" value={htmlToText(info.leadSource)} />
+                        <DetailField
+                            label="Last Reassigned Supplier"
+                            value={htmlToText(info.lastReassignedSupplier)}
+                        />
+                        <DetailField
+                            label="Related Supplier (Office)"
+                            value={htmlToText(info.relatedSupplierOffice)}
+                        />
+                        <DetailField label="Last Modified By" value={htmlToText(info.lastModifiedBy)} />
+                        <DetailField
+                            label="Out of Business"
+                            value={
+                                info.outOfBusiness == null ? null : info.outOfBusiness ? 'Yes' : 'No'
+                            }
+                        />
+                    </dl>
+                    <div className="rounded-lg border border-border p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            Most Recent Activity
+                        </p>
+                        {activity ? (
+                            <dl className="mt-2 grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
+                                <DetailField
+                                    label="Assigned To"
+                                    value={htmlToText(activity.supplierAssignedTo)}
+                                />
+                                <DetailField
+                                    label="Date"
+                                    value={formatDate(activity.lastReassigned)}
+                                />
+                            </dl>
+                        ) : (
+                            <p className="mt-2 text-sm text-muted-foreground">
+                                No activity recorded.
+                            </p>
+                        )}
+                    </div>
+                </div>
+            )}
+        </DataSection>
+    )
+}
+
+/* -------------------------------------------------------------------------- */
 /*  Linked ITS dispatch records (Documents & Other)                           */
 /* -------------------------------------------------------------------------- */
 
@@ -682,14 +828,56 @@ export function SupplierDispatchRecordsCard({ recordId }: { recordId: number }) 
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Load #</TableHead>
-                                    <TableHead>Consumer</TableHead>
-                                    <TableHead>Carrier / Driver</TableHead>
-                                    <TableHead>Material</TableHead>
-                                    <TableHead className="text-right">Weight</TableHead>
-                                    <TableHead>Ship Date</TableHead>
-                                    <TableHead>Del Date</TableHead>
-                                    <TableHead>Status</TableHead>
+                                    <TableHead>
+                                        <LabelHint field="loadNumber">Load #</LabelHint>
+                                    </TableHead>
+                                    <TableHead>
+                                        <LabelHint field="consumer">Consumer</LabelHint>
+                                    </TableHead>
+                                    <TableHead>
+                                        <LabelHint field="carrierDriver">Carrier / Driver</LabelHint>
+                                    </TableHead>
+                                    <TableHead>
+                                        <LabelHint field="material">Material</LabelHint>
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        <LabelHint field="weight" align="end">
+                                            Weight
+                                        </LabelHint>
+                                    </TableHead>
+                                    <TableHead>
+                                        <LabelHint field="shipDate">Ship Date</LabelHint>
+                                    </TableHead>
+                                    <TableHead>
+                                        <LabelHint field="deliveryDate">Del Date</LabelHint>
+                                    </TableHead>
+                                    <TableHead>
+                                        <LabelHint field="status">Status</LabelHint>
+                                    </TableHead>
+                                    <TableHead>
+                                        <LabelHint field="paymentStatus">Payment</LabelHint>
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        <LabelHint field="buyPrice" align="end">
+                                            Buy Price
+                                        </LabelHint>
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        <LabelHint field="salePrice" align="end">
+                                            Sale Price
+                                        </LabelHint>
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        <LabelHint field="grossProfit" align="end">
+                                            Gross Profit
+                                        </LabelHint>
+                                    </TableHead>
+                                    <TableHead className="text-right">
+                                        <LabelHint field="paymentAmount" align="end">
+                                            Payment Amount
+                                        </LabelHint>
+                                    </TableHead>
+                                    <TableHead className="text-right">Details</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -713,6 +901,18 @@ export function SupplierDispatchRecordsCard({ recordId }: { recordId: number }) 
     )
 }
 
+const PAYMENT_STATUS_VARIANT: Record<PaymentStatus, 'success' | 'warning' | 'neutral' | 'outline'> = {
+    Paid: 'success',
+    Scheduled: 'warning',
+    Unscheduled: 'neutral',
+    NotApplicable: 'outline',
+}
+
+function PaymentStatusBadge({ status }: { status: PaymentStatus | null }) {
+    if (!status) return <span className="text-muted-foreground">—</span>
+    return <Badge variant={PAYMENT_STATUS_VARIANT[status]}>{status}</Badge>
+}
+
 function SupplierDispatchRecordRow({
     record,
     statusLabel,
@@ -734,7 +934,184 @@ function SupplierDispatchRecordRow({
             <TableCell>
                 {statusLabel ? <Badge variant="neutral">{statusLabel}</Badge> : '—'}
             </TableCell>
+            <TableCell>
+                <PaymentStatusBadge status={record.paymentStatus} />
+            </TableCell>
+            <TableCell className="text-right">{formatCurrency(record.buyPrice)}</TableCell>
+            <TableCell className="text-right">{formatCurrency(record.salePrice)}</TableCell>
+            <TableCell className="text-right">{formatCurrency(record.grossProfit)}</TableCell>
+            <TableCell className="text-right font-medium text-ink-900">
+                {formatCurrency(record.paymentAmount)}
+            </TableCell>
+            <TableCell className="text-right">
+                <DispatchDetailsButton record={record} statusLabel={statusLabel} />
+            </TableCell>
         </TableRow>
+    )
+}
+
+function DispatchDetailsButton({
+    record,
+    statusLabel,
+}: {
+    record: SupplierDispatchRecord
+    statusLabel: string | null
+}) {
+    const [open, setOpen] = useState(false)
+
+    return (
+        <>
+            <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
+                View
+            </Button>
+            <Dialog open={open} onOpenChange={setOpen}>
+                <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>
+                            Load #{htmlToText(record.loadNumber) ?? record.recordId}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {statusLabel ? `Status: ${statusLabel}` : 'ITS dispatch record'}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+                        <DetailField label="Consumer" value={htmlToText(record.consumer)} />
+                        <DetailField
+                            label="Carrier / Driver"
+                            value={htmlToText(record.carrierDriver)}
+                        />
+                        <DetailField label="Material" value={htmlToText(record.material)} />
+                        <DetailField
+                            label="Weight (NT)"
+                            value={formatNumber(record.weight)}
+                            tooltip="weight"
+                        />
+                        <DetailField
+                            label="Ship Date"
+                            value={formatDate(record.shipDate)}
+                            tooltip="shipDate"
+                        />
+                        <DetailField
+                            label="Delivery Date"
+                            value={formatDate(record.deliveryDate)}
+                            tooltip="deliveryDate"
+                        />
+                        <DetailField label="Status" value={statusLabel} tooltip="status" />
+                        <DetailField
+                            label="Payment Status"
+                            value={record.paymentStatus}
+                            tooltip="paymentStatus"
+                        />
+                        <DetailField
+                            label="Buy Price"
+                            value={formatCurrency(record.buyPrice)}
+                            tooltip="buyPrice"
+                        />
+                        <DetailField
+                            label="Sale Price"
+                            value={formatCurrency(record.salePrice)}
+                            tooltip="salePrice"
+                        />
+                        <DetailField
+                            label="Gross Profit"
+                            value={formatCurrency(record.grossProfit)}
+                            tooltip="grossProfit"
+                        />
+                        <DetailField
+                            label="Payment Amount"
+                            value={formatCurrency(record.paymentAmount)}
+                            tooltip="paymentAmount"
+                        />
+                        <DetailField
+                            label="Payment Date"
+                            value={formatDate(record.paymentDate)}
+                            tooltip="paymentDate"
+                        />
+                        <DetailField
+                            label="Total Commissions"
+                            value={formatCurrency(record.totalCommissions)}
+                            tooltip="totalCommissions"
+                        />
+                        <DetailField
+                            label="Freight Commission Expense"
+                            value={formatCurrency(record.totalFreightCommissionExpense)}
+                            tooltip="totalFreightCommissionExpense"
+                        />
+                        <DetailField
+                            label="Carrier Fee"
+                            value={formatCurrency(record.carrierFee)}
+                            tooltip="carrierFee"
+                        />
+                        <DetailField
+                            label="Dead Freight"
+                            value={formatCurrency(record.deadFreight)}
+                            tooltip="deadFreight"
+                        />
+                        <DetailField
+                            label="Dead Freight Exempt"
+                            value={
+                                record.supplierIsDeadFreightExempt == null
+                                    ? null
+                                    : record.supplierIsDeadFreightExempt
+                                      ? 'Yes'
+                                      : 'No'
+                            }
+                            tooltip="supplierIsDeadFreightExempt"
+                        />
+                        <DetailField
+                            label="Total Gross Sales Revenue"
+                            value={formatCurrency(record.totalGrossSalesRevenue)}
+                            tooltip="totalGrossSalesRevenue"
+                        />
+                        <DetailField
+                            label="Scale Ticket #"
+                            value={htmlToText(record.scaleTicketNumber)}
+                            tooltip="scaleTicketNumber"
+                        />
+                        <DetailField
+                            label="Shipper PO #s"
+                            value={htmlToText(record.shipperPoNumbers)}
+                            tooltip="shipperPoNumbers"
+                        />
+                        <DetailField
+                            label="Equipment Type"
+                            value={htmlToText(record.equipmentType)}
+                            tooltip="equipmentType"
+                        />
+                        <DetailField
+                            label="Total Gross Weight"
+                            value={formatNumber(record.totalGrossWt)}
+                            tooltip="totalGrossWt"
+                        />
+                        <DetailField
+                            label="Total Tare Weight"
+                            value={formatNumber(record.totalTareWt)}
+                            tooltip="totalTareWt"
+                        />
+                        <DetailField
+                            label="Total Net Weight"
+                            value={formatNumber(record.totalNetWt)}
+                            tooltip="totalNetWt"
+                        />
+                        <DetailField
+                            label="Minimum Weight"
+                            value={formatNumber(record.minimumWeight)}
+                            tooltip="minimumWeight"
+                        />
+                        <DetailField
+                            label="Dead Freight via Cietrade"
+                            value={formatCurrency(record.totalDeadFreightViaCietrade)}
+                            tooltip="totalDeadFreightViaCietrade"
+                        />
+                        <DetailField
+                            label="Pay Date Override"
+                            value={formatDate(record.payDateOverride)}
+                            tooltip="payDateOverride"
+                        />
+                    </dl>
+                </DialogContent>
+            </Dialog>
+        </>
     )
 }
 

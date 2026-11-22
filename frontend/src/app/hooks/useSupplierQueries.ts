@@ -8,6 +8,7 @@ import {
     getSupplierDashboardStats,
     getSupplierInStockItems,
     getSupplierLinkedDispatchRecords,
+    getSupplierOtherProspectInformation,
     getSupplierTargetPricingProgressRail,
     getSupplierYardCapabilities,
     listDeadFreight,
@@ -47,6 +48,8 @@ export const supplierKeys = {
         ['suppliers', 'detail', recordId, 'linked-its-dispatch-records', statuses ?? null] as const,
     dashboardStats: (recordId: number, statuses?: readonly string[]) =>
         ['suppliers', 'detail', recordId, 'dashboard-stats', statuses ?? null] as const,
+    otherProspectInformation: (recordId: number) =>
+        ['suppliers', 'detail', recordId, 'other-prospect-information'] as const,
     catalogs: ['suppliers', 'catalogs'] as const,
     statusFilters: ['suppliers', 'status-filters'] as const,
 }
@@ -145,6 +148,18 @@ export function useSupplierDashboardStats(recordId: number, statuses?: readonly 
     return useQuery({
         queryKey: supplierKeys.dashboardStats(recordId, statuses),
         queryFn: () => getSupplierDashboardStats(recordId, statuses),
+        enabled: recordId > 0,
+    })
+}
+
+/**
+ * One supplier's Other Prospect Information (Documents & Other): lead source,
+ * reassignment, office, out-of-business flag and most recent activity.
+ */
+export function useSupplierOtherProspectInformation(recordId: number) {
+    return useQuery({
+        queryKey: supplierKeys.otherProspectInformation(recordId),
+        queryFn: () => getSupplierOtherProspectInformation(recordId),
         enabled: recordId > 0,
     })
 }

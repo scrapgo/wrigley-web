@@ -19,7 +19,7 @@ Modules (`src/Modules/`):
 | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Identity**        | Sign-in, users, roles and permissions                                                                                                                  |
 | **QuickbaseEngine** | The only path to Quickbase: `IQuickbaseQueryService`, cached in Postgres (`quickbase.query_caches`) and resilient (retries, timeouts, circuit breaker) |
-| **Suppliers**       | Read endpoints over the Quickbase Suppliers table (`bqrcgnatz`): list, details, call & prospect status, yard capabilities, Target Pricing — Progress Rail, and dropdown options. See [Suppliers](#suppliers) |
+| **Suppliers**       | Read endpoints over the Quickbase Suppliers table (`bqrcgnatz`): list, details, call & prospect status, yard capabilities, Target Pricing — Progress Rail, in-stock items, contacts, call notes, linked ITS dispatch records, dashboard stats, Other Prospect Information, dropdown options, and the internal report triggers. See [Suppliers](#suppliers) |
 
 Proxy modules like Suppliers reach Quickbase and the caller only through
 contracts in `Shared.Kernel`: `IQuickbaseQueryService` (`Shared.Kernel.Quickbase`)
@@ -396,8 +396,9 @@ Every endpoint checks the caller before any Quickbase data is read. A caller wit
 
 | Route form | Who |
 | --- | --- |
-| `/api/suppliers…` | Holders of `suppliers.view_all` (internal roles) for now. Supplier scoping adds external users in a later task |
+| `/api/suppliers…` | Holders of `suppliers.view_all` (every supplier) or `suppliers.view_own` (only the caller's linked Record IDs). A caller with neither gets 403 |
 | `/api/suppliers/<dropdown>` options | Any signed-in user (fixed lists, not Quickbase data) |
+| `/api/suppliers/reports/…` | Holders of `users.manage` (internal only) |
 
 ### Endpoints
 
@@ -414,10 +415,13 @@ For example, `GET /api/suppliers/{recordId}/yard-capabilities`.
 | `/in-stock-items/material-types` · `/units-of-measure` · `/preparations` · `/truck-types` | In-stock item dropdown options (`/preparations` = Packaging / Prep) |
 | `/{recordId}/call-notes-history` | The supplier's call notes, newest first, a list from the **Call Notes** table (below). Empty when it has none, never 404 |
 | `/{recordId}/linked-its-dispatch-records` | Documents & Other: the ITS dispatch records linked to the supplier, newest ship date first, a list from the **ITS Dispatch Records** table (below). Empty when there are none, never 404 |
-| `/linked-its-dispatch-records/statuses` | Dispatch status dropdown options |
+| `/{recordId}/dashboard-stats` | Dashboard stats worked out from the supplier's delivered ITS Dispatch loads (below) |
+| `/linked-its-dispatch-records/statuses` | Dispatch status dropdown options (every status, including the Test values) |
+| `/linked-its-dispatch-records/status-filters` | Dispatch status filter options: every status but Test and Test2 (the portal's picker source) |
 | `/{recordId}/other-prospect-information` | Documents & Other: Other Prospect Information, the supplier's fields plus its most recent activity from the **Call Notes** table (below) |
 | `/{recordId}/contacts` | The supplier's contacts, main contact first, a list from the **Contacts** table (below). Empty when it has none, never 404 |
 | `/payment-terms` · `/dead-freight` · `/last-call-results` · `/supplier-objections` | Dropdown options: `[{ "value": "Net 5", "label": "Net 5" }, …]` (value and label are the same exact text) |
+| `/reports/missing-invoices` · `/reports/remittance` | Trigger the retired Quickbase-style reports through n8n webhooks; needs `users.manage` (internal only, below) |
 
 Every record response carries `freshness`:
 - `source` is `Cache`, `Quickbase` or `StaleCache`.
@@ -545,7 +549,7 @@ The query lists field 10 twice (`"select": [3,15,6,10,10,7,8,14,18,20,19]`), exa
 | Notes | 21 | `notes` | text |
 | Main? | 46 | `isMain` | checkbox |
 
-**Linked ITS dispatch records** (`dispatchRecords`, from table `bspsb9kpm`, `{366.EX.'<supplier recordId>'}`), newest ship date first:
+**Linked ITS dispatch records** (`dispatchRecords`, from table `bspsb9kpm`, `{366.EX.'<supplier recordId>'}`), newest ship date first. Each record carries every field on the ITS Dispatch load form (`DispatchRecordsTable.FormFields`); `null` means empty in Quickbase:
 
 | Field | Id | API name | Type |
 | --- | --- | --- | --- |
@@ -560,8 +564,58 @@ The query lists field 10 twice (`"select": [3,15,6,10,10,7,8,14,18,20,19]`), exa
 | Ship Date | 14 | `shipDate` | date (`yyyy-MM-dd`) |
 | Del Date | 15 | `deliveryDate` | date (`yyyy-MM-dd`) |
 | Status | 8 | `status` | enum `DispatchStatus` |
+| Supplier (Shipper - Supplier - Account) | 424 | `supplier` | text |
+| Go To Supplier (URL) | 465 | `goToSupplierUrl` | text |
+| Scale Ticket # (Receiving ID) | 502 | `scaleTicketNumber` | text |
+| Shipper PO Numbers | 21 | `shipperPoNumbers` | text |
+| Pick Up Time | 622 | `pickUpTime` | text (as stored, e.g. "1300") |
+| Origination City | 430 | `originationCity` | text |
+| Origination State | 431 | `originationState` | text |
+| Equipment Type | 41 | `equipmentType` | text |
+| Carrier Fee | 32 | `carrierFee` | currency |
+| Total Gross Weight | 496 | `totalGrossWt` | numeric |
+| Total Tare Weight | 497 | `totalTareWt` | numeric |
+| Total Net Weight | 466 | `totalNetWt` | numeric |
+| Sale Price | 517 | `salePrice` | currency |
+| Buy Price | 512 | `buyPrice` | currency |
+| Payment Amount | 386 | `paymentAmount` | currency (Buy Price × Purchase Weight in NT) |
+| Payment Date | 572 | `paymentDate` | date (`yyyy-MM-dd`; honors Pay Date Override) |
+| Gross Profit | 398 | `grossProfit` | currency |
+| Total Commissions | 555 | `totalCommissions` | currency |
+| Total Freight Commission Expense | 607 | `totalFreightCommissionExpense` | currency |
+| Dead Freight (lump sum distributed) | 570 | `deadFreight` | currency |
+| Pay Date Override | 593 | `payDateOverride` | date (`yyyy-MM-dd`) |
+| Weight in GT | 379 | `weightInGt` | numeric (unrounded) |
+| Dead Freight Requirements | 559 | `deadFreightRequirements` | boolean (text formula "True"/"False") |
+| Total Dead Freight via Cietrade | 556 | `totalDeadFreightViaCietrade` | currency |
+| Dead Freight Charge Exceptions | 579 | `deadFreightChargeExceptions` | text |
+| Supplier is Dead Freight Exempt | 580 | `supplierIsDeadFreightExempt` | checkbox |
+| Minimum Weight | 563 | `minimumWeight` | numeric |
+| Total Gross Sales Revenue | 445 | `totalGrossSalesRevenue` | currency |
 
-The query adds field 6 (Load #) to the portal's original select: `[3, 6, 241, 432, 433, 28, 508, 378, 14, 15, 8]`.
+`paymentStatus` is derived by `SupplierPaymentService.ClassifyPayment`, because ITS Dispatch has no paid flag, check number or paid amount:
+
+- `Paid`: a counted status (default Delivered) with Payment Date (572) on or before today.
+- `Scheduled`: a later Payment Date.
+- `Unscheduled`: no Payment Date.
+- `NotApplicable`: any other status, such as Pending.
+
+Replace that one function when a real payment source exists.
+
+**Dashboard stats** (`dashboardStats`, `GET …/{recordId}/dashboard-stats`). Worked out in the API from the supplier's delivered ITS Dispatch loads (`bspsb9kpm`, `{366.EX.'<recordId>'}AND{8.EX.'Delivered'}`, every page read). Every dollar total sums Payment Amount (386); a blank 386 adds 0 and logs a warning. "Today" is in `Suppliers:Dashboard:BusinessTimeZone` (default `America/Chicago`); the counted statuses come from `Suppliers:Dashboard:Statuses` (default `Delivered`). Without loads the supplier gets zeros and nulls, not 404. `status` (repeatable, exact text) replaces the configured statuses for one request; its options come from `/linked-its-dispatch-records/status-filters`.
+
+| Field | Source | Type |
+| --- | --- | --- |
+| `asOf` | Today in the business time zone | date |
+| `totalPaidYtd` / `paidYtdCount` | Payment Amount (386) of loads paid (572) from Jan 1 to today, and how many | currency / number |
+| `pendingPaymentAmount` / `pendingPaymentCount` | Payment Amount (386) of loads with a Payment Date after today or none | currency / number |
+| `loadsLast90Days` / `deliveredBefore90Days` | Delivered loads split by Del Date (15) | number |
+| `deliveredLast90DaysAmount` / `deliveredBefore90DaysAmount` | Payment Amount (386) of those two sets | currency |
+| `currentOffer` | Suppliers field 346 if above 0, else the latest load's Buy Price (512), else null | currency |
+| `currentOfferSource` | `supplierTarget` or `lastLoadBuyPrice` | text |
+| `lastDeliveredDate` / `lastLoadNumber` | The latest load's Del Date / Load # (6) | date / text |
+
+Paid YTD and pending come from `SupplierPaymentService.Summarize`, the one place payment totals are worked out.
 
 **Other Prospect Information** (`otherProspectInformation`, Documents & Other). Quickbase can't join tables, so this runs two queries. First the Suppliers table with `{3.EX.'<recordId>'}` (404 when there is no row, and the second query is skipped). Then the supplier's most recent activity from the Call Notes table `br8tgw3tp`, with `{19.EX.'<recordId>'}`, sorted by field 1 descending, top 1. `freshness` is the less fresh of the two reads.
 
@@ -578,6 +632,10 @@ The query adds field 6 (Load #) to the portal's original select: `[3, 6, 241, 43
 | Supplier ID | 19 | `latestActivity.supplierId` | number |
 | Supplier Assigned To | 57 | `latestActivity.supplierAssignedTo` | text |
 | Last Reassigned (Date Created) | 1 | `latestActivity.lastReassigned` | date/time (UTC) |
+
+### Reports (internal only)
+
+`POST /api/suppliers/reports/missing-invoices?date=` and `POST /api/suppliers/reports/remittance?date=` trigger the retired Quickbase-style reports through their n8n webhooks. The webhook URLs and shared token live in `Reports` configuration (user-secrets / Secret Manager); the frontend never holds them. Both need `users.manage` (`ReportPermissions.Trigger`) and are deliberately **not** exposed on the external supplier portal. `date` defaults to today for Missing Invoices and is required for Remittance; a missing webhook URL gives 503 `not_configured`, other failures 502.
 
 ### Dropdowns (enums)
 

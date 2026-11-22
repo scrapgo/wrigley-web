@@ -65,9 +65,9 @@ The response also carries `buyPrice`, `salePrice`, `grossProfit`, `totalCommissi
 
 ### Status filtering
 
-Both dispatch-records and dashboard-stats accept a repeatable `?status=` (exact status text, OR-ed; dashboard-stats defaults to Delivered). The client functions and hooks now thread an optional `statuses` argument, and `GET /api/suppliers/linked-its-dispatch-records/status-filters` is wired via `listDispatchStatusFilters()` / `useDispatchStatusFilters()` — the correct source for a picker, since it excludes the Test statuses that `/statuses` includes.
+Both dispatch-records and dashboard-stats accept a repeatable `?status=` (exact status text, OR-ed; dashboard-stats defaults to Delivered). `GET /api/suppliers/linked-its-dispatch-records/status-filters` is wired via `listDispatchStatusFilters()` / `useDispatchStatusFilters()` — the correct source for a picker, since it excludes the Test statuses that `/statuses` includes.
 
-A status-filter chip group now renders above the Dashboard, Payments, and Load History tables, letting the caller pick which load statuses are counted/shown.
+The portal deliberately does **not** pass the selection to `dashboard-stats`: the stat cards always show the shared payment summary (all Delivered loads), so "Total Paid (YTD)" and "Pending Payment" cannot change with the selection. Instead it fetches the linked dispatch records once (unfiltered) and filters them client-side. The status chips render inside each load table (Recent Loads, Payment History, Load History) and only offer statuses the supplier actually has loads in, so every chip changes the table.
 
 ## Internal-Only Endpoints (not for the supplier portal)
 
@@ -90,6 +90,11 @@ Deliberately not exposed on the supplier portal — external users cannot see or
 
 ## Frontend Files Affected
 
-- `frontend/src/app/components/suppliers/supplier-dashboard-panel.tsx` — stat cards, Payment History columns, payment status badge
+External supplier portal:
+
+- `frontend/src/app/components/suppliers/supplier-dashboard-panel.tsx` — stat cards, Payment History columns, payment status badge, per-table status chips, pricing tooltips
 - `frontend/src/app/lib/supplier-api.ts` — `SupplierDispatchRecord` (40 fields), `SupplierDashboardStats`, `PaymentStatus`, status params, `listDispatchStatusFilters()`
 - `frontend/src/app/hooks/useSupplierQueries.ts` — `statuses` args, `useDispatchStatusFilters()`
+- `frontend/src/app/lib/supplier-tooltips.ts`, `frontend/src/app/components/ui/info-tip.tsx` — centralized tooltip text + info-bubble component (used by both supplier screens)
+
+The same change also touched the staff supplier detail (`supplier-detail-panel.tsx`, `supplier-detail-sections.tsx`): Other Prospect Information card, filled stat tiles, richer dispatch table + View dialog, and pricing tooltips.
